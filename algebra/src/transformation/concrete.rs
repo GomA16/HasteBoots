@@ -74,7 +74,7 @@ pub mod prime32 {
         #[inline]
         fn transform_coeff_neg_one_monomial(&self, degree: usize, values: &mut [F]) {
             let values = unsafe { transmute::<&mut [F], &mut [u32]>(values) };
-            self.plan.fwd_coeff_neg_one_monomial(degree, values);
+            self.plan.fwd_coeff_minus_one_monomial(degree, values);
         }
     }
 }
@@ -155,7 +155,7 @@ pub mod prime64 {
         #[inline]
         fn transform_coeff_neg_one_monomial(&self, degree: usize, values: &mut [F]) {
             let values = unsafe { transmute::<&mut [F], &mut [u64]>(values) };
-            self.plan.fwd_coeff_neg_one_monomial(degree, values);
+            self.plan.fwd_coeff_minus_one_monomial(degree, values);
         }
     }
 }
