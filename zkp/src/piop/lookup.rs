@@ -302,6 +302,7 @@ impl<F: Field> LookupInstance<F> {
         let num_threads = rayon::current_num_threads();
         // let chunk_size = (shifted_ft_vec.len() + num_threads - 1) / num_threads;
         let chunk_size = shifted_ft_vec.len() / num_threads;
+        let chunk_size = if chunk_size == 0 {1} else {chunk_size};
 
         // Construct inversed shifted columns: 1 / (f(x) - r)
         let mut inversed_shifted_ft_evaluation_vec: Vec<F> = shifted_ft_vec
