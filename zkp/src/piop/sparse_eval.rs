@@ -25,6 +25,9 @@ use super::bit_decomposition::DecomposedBitsEval;
 use super::lookup::LookupInstanceInfo;
 use super::{BitDecomposition, DecomposedBits, DecomposedBitsInfo, LookupInstance};
 
+/// SNARKs for Round compiled with PCS
+pub struct SparseEvalSnarks<F: Field, EF: AbstractExtensionField<F>>(PhantomData<F>, PhantomData<EF>);
+
 /// Sparse Matrix Instance used as prover keys
 pub struct SparseEvalInstance<F: Field> {
     /// number of variables on x axis
@@ -121,6 +124,7 @@ impl<F: Field> SparseEvalInstance<F> {
     /// Extract the lookup instance returned in the subclaim
     #[inline]
     pub fn extract_lookup_instance(&self) -> LookupInstance<F> {
+        assert_eq!(self.eval_rx.num_vars, self.table.num_vars);
         LookupInstance::from_slice(&vec![self.eval_rx.clone()], self.table.clone(), 1)
     }
 }
@@ -238,33 +242,5 @@ impl<F: Field + Serialize> SparseEvalIOP<F> {
     ) -> bool {
         subclaim.expected_evaluations -= evals.val * evals.eval_rx * eq_at_u_r;
         true
-    }
-}
-
-/// SparseEval parameters.
-pub struct SparseEvalParams<
-    F: Field,
-    EF: AbstractExtensionField<F>,
-    S,
-    Pcs: PolynomialCommitmentScheme<F, EF, S>,
-> {
-    /// The parameters for the first polynomial.
-    pub pp_first: Pcs::Parameters,
-    /// The parameters for the second polynomial.
-    pub pp_second: Pcs::Parameters,
-}
-
-
-impl<F, EF, S, Pcs> Default for SparseEvalParams<F, EF, S, Pcs>
-where
-    F: Field,
-    EF: AbstractExtensionField<F>,
-    Pcs: PolynomialCommitmentScheme<F, EF, S>,
-{
-    fn default() -> Self {
-        Self {
-            pp_first: Pcs::Parameters::default(),
-            pp_second: Pcs::Parameters::default(),
-        }
     }
 }
