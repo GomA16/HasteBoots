@@ -8,6 +8,7 @@ use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::prelude::*;
 use sha2::Sha256;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::vec;
 use zkp::piop::ntt_revision::ntt_bare::init_fourier_table;
 use zkp::piop::ntt_revision::ntt_bare::NTTBareIOP;
@@ -219,7 +220,7 @@ fn test_ntt_bare_without_delegation() {
         ntt_table.push(power);
         power *= root;
     }
-    let ntt_table = Rc::new(ntt_table);
+    let ntt_table = Arc::new(ntt_table);
 
     let mut rng = thread_rng();
     let coeff = PolyFF::random(1 << log_n, &mut rng).data();
@@ -262,7 +263,7 @@ fn test_ntt_bare_without_delegation_extension_field() {
         ntt_table.push(power);
         power *= root;
     }
-    let ntt_table = Rc::new(ntt_table);
+    let ntt_table = Arc::new(ntt_table);
 
     let mut rng = thread_rng();
     let coeff = PolyFF::random(1 << log_n, &mut rng).data();
@@ -301,7 +302,7 @@ fn test_ntt_with_delegation() {
         ntt_table.push(power);
         power *= root;
     }
-    let ntt_table = Rc::new(ntt_table);
+    let ntt_table = Arc::new(ntt_table);
 
     let mut rng = thread_rng();
     let coeff = PolyFF::random(1 << log_n, &mut rng).data();
@@ -344,7 +345,7 @@ fn test_ntt_with_delegation_extension_field() {
         ntt_table.push(power);
         power *= root;
     }
-    let ntt_table = Rc::new(ntt_table);
+    let ntt_table = Arc::new(ntt_table);
 
     let mut rng = thread_rng();
     let coeff = PolyFF::random(1 << log_n, &mut rng).data();
@@ -391,7 +392,7 @@ fn test_snarks() {
         ntt_table.push(power);
         power *= root;
     }
-    let ntt_table = Rc::new(ntt_table);
+    let ntt_table = Arc::new(ntt_table);
 
     let mut rng = thread_rng();
 

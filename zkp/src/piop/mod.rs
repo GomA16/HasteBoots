@@ -10,6 +10,7 @@ pub mod rlwe_mul_rgsw;
 pub mod round;
 pub mod zq_to_rq;
 pub mod sparse_eval;
+pub mod lift;
 
 pub use accumulator::{
     AccumulatorIOP, AccumulatorInstance, AccumulatorSnarksOpt, AccumulatorWitness,

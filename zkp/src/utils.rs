@@ -146,6 +146,11 @@ pub fn print_statistic(
     println!("Proof Size: {:?} Bytes", iop_proof_size);
 
     println!("\n==PCS Statistic==");
+    println!("Setup Time: {:?} ms", setup_time);
+    println!("Commit Time: {:?} ms", commit_time);
+    println!("Open Time: {:?} ms", pcs_open_time);
+    println!("Verify Time: {:?} ms", pcs_verifier_time);
+    println!("Proof Size: {:?} Bytes\n", pcs_proof_size);
     println!(
         "The committed polynomial is of {} variables,",
         committed_poly_num_vars
@@ -154,11 +159,6 @@ pub fn print_statistic(
         "which consists of {} smaller oracles used in IOP, each of which is of {} variables.",
         num_oracles, oracle_num_vars
     );
-    println!("Setup Time: {:?} ms", setup_time);
-    println!("Commit Time: {:?} ms", commit_time);
-    println!("Open Time: {:?} ms", pcs_open_time);
-    println!("Verify Time: {:?} ms", pcs_verifier_time);
-    println!("Proof Size: {:?} Bytes\n", pcs_proof_size);
 }
 
 /// compute the frequency MLE denoted by m

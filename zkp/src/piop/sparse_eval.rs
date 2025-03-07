@@ -25,9 +25,6 @@ use super::bit_decomposition::DecomposedBitsEval;
 use super::lookup::LookupInstanceInfo;
 use super::{BitDecomposition, DecomposedBits, DecomposedBitsInfo, LookupInstance};
 
-/// SNARKs for Round compiled with PCS
-pub struct SparseEvalSnarks<F: Field, EF: AbstractExtensionField<F>>(PhantomData<F>, PhantomData<EF>);
-
 /// Sparse Matrix Instance used as prover keys
 pub struct SparseEvalInstance<F: Field> {
     /// number of variables on x axis
@@ -124,6 +121,7 @@ impl<F: Field> SparseEvalInstance<F> {
     /// Extract the lookup instance returned in the subclaim
     #[inline]
     pub fn extract_lookup_instance(&self) -> LookupInstance<F> {
+        //FIXME support lookup with different size
         assert_eq!(self.eval_rx.num_vars, self.table.num_vars);
         LookupInstance::from_slice(&vec![self.eval_rx.clone()], self.table.clone(), 1)
     }
@@ -170,7 +168,7 @@ impl<F: Field + Serialize> SparseEvalIOP<F> {
     }
 
     /// prepare the polynomial in the sumcheck protocol
-    pub fn prepare_products_of_polynomial(
+    pub fn prove_as_subprotocol(
         &self,
         poly: &mut ListOfProductsOfPolynomials<F>,
         subclaim: &mut F,
@@ -199,7 +197,7 @@ impl<F: Field + Serialize> SparseEvalIOP<F> {
         let mut poly = ListOfProductsOfPolynomials::<F>::new(instance.num_y_vars);
 
         let mut claimed_sum = F::zero();
-        Self::prepare_products_of_polynomial(self, &mut poly, &mut claimed_sum, instance, &eq_at_u);
+        Self::prove_as_subprotocol(self, &mut poly, &mut claimed_sum, instance, &eq_at_u);
 
         let (proof, state) =
             MLSumcheck::prove(&mut trans, &poly).expect("fail to prove the sumcheck protocol");
@@ -212,6 +210,7 @@ impl<F: Field + Serialize> SparseEvalIOP<F> {
             randomness: state.randomness,
         }
     }
+
 
     /// Verify the Sparse Matrix Evaluation
     pub fn verify(
@@ -227,7 +226,7 @@ impl<F: Field + Serialize> SparseEvalIOP<F> {
         let eq_at_u_r = eval_identity_function(&self.r_y, &subclaim.point);
 
         // check the sumcheck evaluation
-        if !Self::verify_subclaim(&mut subclaim, evals, eq_at_u_r) {
+        if !Self::verify_as_subprotocol(&mut subclaim, evals, eq_at_u_r) {
             return false
         }
 
@@ -235,7 +234,7 @@ impl<F: Field + Serialize> SparseEvalIOP<F> {
     }
 
     /// Verify the subclaim.
-    pub fn verify_subclaim(
+    pub fn verify_as_subprotocol(
         subclaim: &mut SubClaim<F>,
         evals: &SparseEvalInstanceEval<F>,
         eq_at_u_r: F,

@@ -1387,10 +1387,9 @@ where
 
         let start = Instant::now();
         let (comm, comm_state) = BrakedownPCS::<F, H, C, S, EF>::commit(&pp, &committed_poly);
-        let commit_time = start.elapsed().as_millis();
+        
 
         // 2. Prover generates the proof
-        let prover_start = Instant::now();
         let mut iop_proof_size = 0;
         let mut prover_trans = Transcript::<EF>::new();
         // Convert the original instance into an instance defined over EF
@@ -1405,12 +1404,17 @@ where
         let random_value =
             prover_trans.get_challenge(b"random point used to generate the second oracle");
 
-        let start = Instant::now();
         lookup_instance.generate_h_vec(random_value);
-        println!("batch inverse: {:?} ms", start.elapsed().as_millis());
+        let second_committed_poly = lookup_instance.generate_second_oracle();
+        let second_pp =
+            BrakedownPCS::<F, H, C, S, EF>::setup(second_committed_poly.num_vars, Some(code_spec.clone()));
+        let (second_comm, second_comm_state) = BrakedownPCS::<F, H, C, S, EF>::commit_ef(&second_pp, &second_committed_poly);
+        let commit_time = start.elapsed().as_millis();
+        // println!("batch inverse: {:?} ms", start.elapsed().as_millis());
         // --------------------
 
         // 2.1 Generate the random point to instantiate the sumcheck protocol
+        let prover_start = Instant::now();
         let prover_u = prover_trans.get_vec_challenge(
             b"random point used to instantiate sumcheck protocol",
             instance.num_vars,
@@ -1504,6 +1508,15 @@ where
         let oracle_eval_at_r = committed_poly.evaluate_ext(&requested_point_at_r);
         let oracle_eval_at_u = committed_poly.evaluate_ext(&requested_point_at_u);
 
+        let mut second_requested_point = sumcheck_state.randomness.clone();
+        let second_oracle_randomness = prover_trans.get_vec_challenge(
+            b"random linear combination of evaluations of second oracles",
+            lookup_instance.log_num_second_oracles(),
+        );
+
+        second_requested_point.extend(&second_oracle_randomness);
+        let second_oracle_eval = second_committed_poly.evaluate(&second_requested_point);
+
         // 2.6 Generate the evaluation proof of the requested point
 
         let mut opens = BrakedownPCS::<F, H, C, S, EF>::batch_open(
@@ -1516,6 +1529,14 @@ where
 
         let eval_proof_at_r = std::mem::take(&mut opens[0]);
         let eval_proof_at_u = std::mem::take(&mut opens[1]);
+
+        let second_eval_proof = BrakedownPCS::<F, H, C, S, EF>::open_ef(
+            &second_pp,
+            &second_comm,
+            &second_comm_state,
+            &second_requested_point,
+            &mut prover_trans,
+        );
 
         let pcs_open_time = start.elapsed().as_millis();
 
@@ -1629,6 +1650,18 @@ where
         let check_oracle_at_u =
             verify_oracle_relation(&flatten_evals_at_u, oracle_eval_at_u, &oracle_randomness);
         assert!(check_oracle_at_r && check_oracle_at_u);
+
+        let second_oracle_randomnes = verifier_trans.get_vec_challenge(
+            b"random linear combination of evaluations of second oracles",
+            lookup_instance.log_num_second_oracles(),
+        );
+
+        let check_oracle_at_r_second = verify_oracle_relation(
+            &lookup_evals.h_vec,
+            second_oracle_eval,
+            &second_oracle_randomnes,
+        );
+        assert!(check_oracle_at_r_second);
         let iop_verifier_time = verifier_start.elapsed().as_millis();
 
         let check_pcs_at_r_and_u = BrakedownPCS::<F, H, C, S, EF>::batch_verify(
@@ -1640,13 +1673,22 @@ where
             &mut verifier_trans,
         );
 
-        assert!(check_pcs_at_r_and_u);
+        let second_check = BrakedownPCS::<F, H, C, S, EF>::verify_ef(
+            &second_pp,
+            &second_comm,
+            &second_requested_point,
+            second_oracle_eval,
+            &second_eval_proof,
+            &mut verifier_trans,
+        );
+        assert!(check_pcs_at_r_and_u && second_check);
 
         let pcs_verifier_time = start.elapsed().as_millis();
         pcs_proof_size += bincode::serialize(&eval_proof_at_r).unwrap().len()
             + bincode::serialize(&eval_proof_at_u).unwrap().len()
             + bincode::serialize(&flatten_evals_at_r).unwrap().len()
-            + bincode::serialize(&flatten_evals_at_u).unwrap().len();
+            + bincode::serialize(&flatten_evals_at_u).unwrap().len()
+            + bincode::serialize(&second_eval_proof).unwrap().len();
 
         // 4. print statistic
         print_statistic(
@@ -1664,6 +1706,14 @@ where
             pcs_open_time,
             pcs_verifier_time,
             pcs_proof_size,
+        );
+        println!(
+            "The second committed polynomial is of {} variables,",
+            second_committed_poly.num_vars
+        );
+        println!(
+            "which consists of {} smaller oracles used in IOP, each of which is of {} variables.",
+            lookup_instance.num_second_oracles(), lookup_instance.num_vars
         );
     }
 }
