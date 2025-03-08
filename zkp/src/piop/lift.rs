@@ -97,6 +97,7 @@ impl<F: Field> fmt::Display for LiftInfo<F> {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 /// Lift Evaluations
 pub struct LiftEval<F: Field> {
     /// input s
@@ -582,18 +583,15 @@ where
         // This is the actual polynomial to be committed for prover, which consists of all the required small polynomials in the IOP and padded zero polynomials.
         let committed_poly = instance.generate_oracle();
         // 1. Use PCS to commit the above polynomial.
-        let start = Instant::now();
+        let setup_start = Instant::now();
         let pp =
             BrakedownPCS::<F, H, C, S, EF>::setup(committed_poly.num_vars, Some(code_spec.clone()));
-        let setup_time = start.elapsed().as_millis();
+        let setup_time = setup_start.elapsed().as_millis();
 
-        let start = Instant::now();
+        let prover_start = Instant::now();
         let (comm, comm_state) = BrakedownPCS::<F, H, C, S, EF>::commit(&pp, &committed_poly);
-        let commit_time = start.elapsed().as_millis();
 
         // 2. Prover generates the proof
-        let prover_start = Instant::now();
-        let mut iop_proof_size = 0;
         let mut prover_trans = Transcript::<EF>::new();
         // Convert the original instance into an instance defined over EF
         let instance_ef = instance.to_ef::<EF>();
@@ -635,7 +633,6 @@ where
         let (sumcheck_proof, sumcheck_state) =
             <MLSumcheck<EF>>::prove(&mut prover_trans, &sumcheck_poly)
                 .expect("Proof generated in Addition In Zq");
-        iop_proof_size += bincode::serialize(&sumcheck_proof).unwrap().len();
 
         // 2.? [one more step] Prover recursive prove the evaluation of F(u, v)
         let recursive_proof = <NTTIOP<EF>>::prove_recursive(
@@ -644,16 +641,13 @@ where
             &ntt_instance_info,
             &prover_u,
         );
-        iop_proof_size += bincode::serialize(&recursive_proof).unwrap().len();
 
         // 2.4 Compute all the evaluations of these small polynomials used in IOP over the random point returned from the sumcheck protocol
-        let start = Instant::now();
         let evals_at_r = instance.evaluate_ext(&sumcheck_state.randomness);
         let evals_at_u = instance.evaluate_ext(&prover_u);
         // let eq_at_r = gen_identity_evaluations(&sumcheck_state.randomness);
         // let evals_at_r = instance.evaluate_ext_opt(&eq_at_r);
         // let evals_at_u = instance.evaluate_ext_opt(eq_at_u.as_ref());
-
 
         // ------ Sparse Evaluation -------
         // 2.? Prove the sparse matrix evaluation
@@ -667,9 +661,27 @@ where
         };
         
         sparse_iop.prover_generate_eval_vector(&mut sparse_instance);
+        // --- Lookup ----
+        let mut lookup_instance = sparse_instance.extract_lookup_instance();
+        let lookup_info = lookup_instance.info();
+
         let sparse_kit = sparse_iop.prove(&sparse_instance);
+        let mut lookup = LookupIOP::<EF>::default();
+        
+        lookup.prover_generate_first_randomness(&mut prover_trans, &mut lookup_instance);
+        
+        // commit the second EF polynomial
+        let second_committed_poly = lookup_instance.generate_second_oracle();
+        let second_pp =
+            BrakedownPCS::<F, H, C, S, EF>::setup(second_committed_poly.num_vars, Some(code_spec.clone()));
+        let (second_comm, second_comm_state) = BrakedownPCS::<F, H, C, S, EF>::commit_ef(&second_pp, &second_committed_poly);
+
+        lookup.generate_second_randomness(&mut prover_trans, &lookup_info);
+        let lookup_kit = lookup.prove(&mut prover_trans, &mut lookup_instance);
+        
         let sparse_evals = sparse_instance.evaluate(&sparse_kit.randomness);
-        let iop_prover_time = prover_start.elapsed().as_millis();
+        let lookup_evals = lookup_instance.evaluate(&lookup_kit.randomness);
+
         // -------------------
 
         // 2.5 Reduce the proof of the above evaluations to a single random point over the committed polynomial
@@ -683,6 +695,15 @@ where
         requested_point_at_u.extend(&oracle_randomness);
         let oracle_eval_at_r = committed_poly.evaluate_ext(&requested_point_at_r);
         let oracle_eval_at_u = committed_poly.evaluate_ext(&requested_point_at_u);
+
+        let mut second_requested_point = lookup_kit.randomness.clone();
+        let second_oracle_randomness = prover_trans.get_vec_challenge(
+            b"random linear combination of evaluations of second oracles",
+            lookup_instance.log_num_second_oracles(),
+        );
+
+        second_requested_point.extend(&second_oracle_randomness);
+        let second_oracle_eval = second_committed_poly.evaluate(&second_requested_point);
 
         // 2.6 Generate the evaluation proof of the requested point
         let eval_proof_at_r = BrakedownPCS::<F, H, C, S, EF>::open(
@@ -699,7 +720,15 @@ where
             &requested_point_at_u,
             &mut prover_trans,
         );
-        let pcs_open_time = start.elapsed().as_millis();
+
+        let second_eval_proof = BrakedownPCS::<F, H, C, S, EF>::open_ef(
+            &second_pp,
+            &second_comm,
+            &second_comm_state,
+            &second_requested_point,
+            &mut prover_trans,
+        );
+        let prover_time = prover_start.elapsed().as_millis();
 
         // 3. Verifier checks the proof
         let verifier_start = Instant::now();
@@ -777,13 +806,23 @@ where
         let _ = <LiftIOP<EF>>::verifier_sample_sparse_randomness(&mut verifier_trans, &instance_info);
 
         let sparse_wrapper = sparse_kit.extract();
+        let lookup_wrapper = lookup_kit.extract();
+        
         let sparse_check = sparse_iop.verify(&sparse_wrapper, &sparse_evals);
         assert!(sparse_check);
+
+        lookup.verifier_generate_first_randomness(&mut verifier_trans);
+        lookup.generate_second_randomness(&mut verifier_trans, &lookup_info);
+        let (lookup_check, _) = lookup.verify(
+            &mut verifier_trans,
+            &lookup_wrapper,
+            &lookup_evals,
+            &lookup_info,
+        );
+        assert!(lookup_check);
         // -------------------
 
         // 3.5 and also check the relation between these small oracles and the committed oracle
-        let start = Instant::now();
-        let mut pcs_proof_size = 0;
         let flatten_evals_at_r = evals_at_r.flatten();
         let flatten_evals_at_u = evals_at_u.flatten();
         let oracle_randomness = verifier_trans.get_vec_challenge(
@@ -795,7 +834,17 @@ where
         let check_oracle_at_u =
             verify_oracle_relation(&flatten_evals_at_u, oracle_eval_at_u, &oracle_randomness);
         assert!(check_oracle_at_r && check_oracle_at_u);
-        let iop_verifier_time = verifier_start.elapsed().as_millis();
+
+        let second_oracle_randomnes = verifier_trans.get_vec_challenge(
+            b"random linear combination of evaluations of second oracles",
+            lookup_instance.log_num_second_oracles(),
+        );
+        let check_oracle_at_r_second = verify_oracle_relation(
+            &lookup_evals.h_vec,
+            second_oracle_eval,
+            &second_oracle_randomnes,
+        );
+        assert!(check_oracle_at_r_second);
 
         // 3.5 Check the evaluation of a random point over the committed oracle
         let check_pcs_at_r = BrakedownPCS::<F, H, C, S, EF>::verify(
@@ -815,28 +864,38 @@ where
             &mut verifier_trans,
         );
         assert!(check_pcs_at_r && check_pcs_at_u);
-        let pcs_verifier_time = start.elapsed().as_millis();
-        pcs_proof_size += bincode::serialize(&eval_proof_at_r).unwrap().len()
-            + bincode::serialize(&eval_proof_at_u).unwrap().len()
-            + bincode::serialize(&flatten_evals_at_r).unwrap().len()
-            + bincode::serialize(&flatten_evals_at_u).unwrap().len();
 
-        // 4. print statistic
-        print_statistic(
-            iop_prover_time + pcs_open_time,
-            iop_verifier_time + pcs_verifier_time,
-            iop_proof_size + pcs_proof_size,
-            iop_prover_time,
-            iop_verifier_time,
-            iop_proof_size,
-            committed_poly.num_vars,
-            instance.num_oracles(),
-            instance.num_vars,
-            setup_time,
-            commit_time,
-            pcs_open_time,
-            pcs_verifier_time,
-            pcs_proof_size,
+        let second_check = BrakedownPCS::<F, H, C, S, EF>::verify_ef(
+            &second_pp,
+            &second_comm,
+            &second_requested_point,
+            second_oracle_eval,
+            &second_eval_proof,
+            &mut verifier_trans,
+        );
+        assert!(second_check);
+
+        let verifier_time = verifier_start.elapsed().as_millis();
+
+        println!("Prover time: {:?}ms", prover_time);
+        println!("Verifier time: {:?}ms", verifier_time);
+        let proof_size = bincode::serialize(&sumcheck_proof).unwrap().len()
+            + bincode::serialize(&sumcheck_proof).unwrap().len()
+            + bincode::serialize(&recursive_proof).unwrap().len()
+            + bincode::serialize(&flatten_evals_at_r).unwrap().len()
+            + bincode::serialize(&flatten_evals_at_u).unwrap().len()
+            + bincode::serialize(&sparse_kit.proof).unwrap().len()
+            + bincode::serialize(&lookup_kit.proof).unwrap().len()
+            + bincode::serialize(&lookup_evals.h_vec).unwrap().len();
+        println!("Proof size: {:?}Bytes", proof_size);
+
+        println!(
+            "The 1st committed polynomial is of {} variables, which consists of {} smaller oracles used in IOP, each of which is of {} variables.",
+            committed_poly.num_vars, instance.num_oracles(), instance.num_vars,
+        );
+        println!(
+            "The 2nd committed polynomial is of {} variables, which consists of {} smaller oracles used in IOP, each of which is of {} variables.",
+            second_committed_poly.num_vars, lookup_instance.num_second_oracles(), lookup_instance.num_vars,
         );
     }
 }
