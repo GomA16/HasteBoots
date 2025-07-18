@@ -1,0 +1,18 @@
+[package]
+name = "fhe_ops"
+version = "0.1.0"
+edition = "2021"
+description = "FHE operations library"
+license = "MIT"
+
+[dependencies]
+algebra = { path = "../algebra" }
+serde = { workspace = true }
+rand = { workspace = true }
+
+
+[dev-dependencies]
+criterion = "0.5"
+
+[features]
+default = []
