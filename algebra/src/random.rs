@@ -59,6 +59,26 @@ impl<F: Field> FieldUniformSampler<F> {
             thresh: range.wrapping_neg() % range,
         }
     }
+
+    /// Samples a uniformly random value in a smaller range `[0, range)` of a specific field.
+    #[inline]
+    pub fn sample_range<R: Rng + ?Sized>(
+        &self,
+        rng: &mut R,
+        range: F::Value,
+    ) -> F {
+        let range = <F::Value as UniformBase>::Sample::as_from(range);
+        let thresh = range.wrapping_neg() % range;
+
+        let hi = loop {
+            let (lo, hi) = <F::Value as UniformBase>::gen_sample(rng).widen_mul(range);
+            if lo >= thresh {
+                break hi;
+            }
+        };
+
+        F::new((hi).as_into())
+    }
 }
 
 impl<F: Field> Default for FieldUniformSampler<F> {

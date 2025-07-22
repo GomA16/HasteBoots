@@ -1,1 +1,1 @@
-mod lwe_addition;
+pub mod lwe_addition;

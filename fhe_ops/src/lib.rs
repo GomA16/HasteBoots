@@ -3,7 +3,7 @@
 
 //! FHE Operations Library
 //! This libary generates FHE instances for various FHE operations.
-//! These FHE instances will extended to pass to the PIOP. 
+//! These FHE instances will be extended to pass to the PIOP. 
 //! It includes operations such as:
 //! 1. LWE Addition
 //! 2. Lift Operation
@@ -14,3 +14,6 @@
 //! 
 
 mod ciphertext;
+mod ops;
+
+pub use ops::lwe_addition::LWEAdditionOpInstance;

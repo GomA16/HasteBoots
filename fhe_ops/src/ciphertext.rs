@@ -1,6 +1,8 @@
-use std::ops::{Add, Sub};
+use std::{backtrace, ops::{Add, Sub}};
 
-use algebra::{Field, NTTField};
+use algebra::{Field, FieldUniformSampler, NTTField, NTTPolynomial, Polynomial};
+use num_traits::{ConstZero};
+use rand::{distributions::{uniform::SampleUniform, Uniform}, prelude::Distribution, CryptoRng, Rng};
 
 /// LWE ciphertext structure.
 /// This structure represents a ciphertext in the LWE (Learning With Errors) scheme,
@@ -8,20 +10,31 @@ use algebra::{Field, NTTField};
 /// It contains a vector of field elements `a` and a single field element `b`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LWECiphertext<F: Field> {
+    /// Represents the first component (vector of field elements).
     a: Vec<F>,
+    /// Represents the second component (a single field element), computed as 
+    /// the dot product of `a` with a secret vector, plus message and some noise.
     b: F,
 }
 
 /// RLWE ciphertext structure.
-/// 
+/// This structure represents a ciphertext in the RLWE (Ring Learning With Errors) scheme,
+/// which is a variant of LWE that operates over polynomial rings.
+/// It contains two vectors of field elements `a` and `b`, where `a` and `b` represent the polynomial coefficients.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RLWECiphertext<F: NTTField> {
-    a: Vec<F>,
-    b: Vec<F>,
+    /// Represents the first component (polynomial coefficients).
+    a: Polynomial<F>,
+    /// Represents the second component (polynomial coefficients).
+    b: Polynomial<F>,
 }
 
+/// NTTRLWE ciphertext structure.
 pub struct NTTRLWECiphertext<F: NTTField> {
-    a: Vec<F>,
-    b: Vec<F>,
+    /// Represents the first component (NTT representation of a polynomial).
+    a: NTTPolynomial<F>,
+    /// Represents the first component (NTT representation of a polynomial).
+    b: NTTPolynomial<F>,
 }
 
 
@@ -58,6 +71,20 @@ impl<F: Field> LWECiphertext<F> {
         } else {
             self.b + other.b
         };
+        LWECiphertext::new(a, b)
+    }
+
+    /// Generates a random LWE ciphertext with the given modulus `q` and length `len`.
+    pub fn random<R: Rng + CryptoRng>(
+        rng: &mut R,
+        q: F,
+        len: usize,
+    )-> Self
+    {
+        let uniform = FieldUniformSampler::<F>::new();
+        let a = (0..len)
+            .map(|_| uniform.sample_range(rng, q.value())).collect();
+        let b = uniform.sample_range(rng, q.value());
         LWECiphertext::new(a, b)
     }
 }

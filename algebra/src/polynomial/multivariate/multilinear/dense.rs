@@ -1,6 +1,6 @@
 // It is derived from https://github.com/arkworks-rs/sumcheck.
 
-use std::fmt::Debug;
+use std::fmt;
 use std::ops::{Add, AddAssign, Index, Neg, Sub, SubAssign};
 use std::slice::{Iter, IterMut};
 use std::vec;
@@ -25,6 +25,15 @@ pub struct DenseMultilinearExtension<F: Field> {
     pub evaluations: Vec<F>,
     /// Number of variables
     pub num_vars: usize,
+}
+
+impl<F: Field> fmt::Display for DenseMultilinearExtension<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for eval in &self.evaluations {
+            write!(f, "{} ", eval)?;
+        }
+        Ok(())
+    }
 }
 
 impl<F: Field> DenseMultilinearExtension<F> {
@@ -315,7 +324,7 @@ impl<F: Field> Index<usize> for DenseMultilinearExtension<F> {
     }
 }
 
-impl<F: Field> Debug for DenseMultilinearExtension<F> {
+impl<F: Field> fmt::Debug for DenseMultilinearExtension<F> {
     #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(f, "DenseML(nv = {}, evaluations = [", self.num_vars)?;
