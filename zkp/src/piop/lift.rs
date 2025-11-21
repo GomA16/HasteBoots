@@ -1,15 +1,10 @@
 //! Lift
-use super::bit_decomposition::BitDecomposition;
-use super::bit_decomposition::DecomposedBitsEval;
 use super::ntt_revision::ntt_bare::NTTBareIOP;
 use super::ntt_revision::NTTRecursiveProof;
 use super::ntt_revision::NTTIOP;
 use super::ntt_revision::{NTTInstance, NTTInstanceInfo};
 use super::sparse_eval::SparseEvalIOP;
 use super::sparse_eval::SparseEvalInstance;
-use super::sparse_eval::SparseEvalInstanceEval;
-use super::LookupInstance;
-use super::{DecomposedBits, DecomposedBitsInfo};
 use crate::piop::LookupIOP;
 use crate::sumcheck::verifier::SubClaim;
 use crate::sumcheck::MLSumcheck;
@@ -19,13 +14,11 @@ use crate::utils::{
     add_assign_ef, eval_identity_function, gen_identity_evaluations, print_statistic,
     verify_oracle_relation,
 };
-use algebra::DecomposableField;
 use algebra::{
     utils::Transcript, AbstractExtensionField, DenseMultilinearExtension, Field,
     ListOfProductsOfPolynomials,
 };
 use core::fmt;
-use std::time::Instant;
 use itertools::izip;
 use pcs::{
     multilinear::brakedown::BrakedownPCS,
@@ -33,11 +26,11 @@ use pcs::{
     utils::hash::Hash,
     PolynomialCommitmentScheme,
 };
-use rand::random;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::time::Instant;
 use std::vec;
 
 /// IOP for Lift
@@ -87,11 +80,7 @@ pub struct LiftInfo<F: Field> {
 
 impl<F: Field> fmt::Display for LiftInfo<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(
-            f,
-            "An instance of Lift: #vars = {}",
-            self.num_vars,
-        )?;
+        writeln!(f, "An instance of Lift: #vars = {}", self.num_vars,)?;
         writeln!(f, "- containing 1 single randomized NTT")?;
         writeln!(f, "- containing 1 sparse matrix evaluation")
     }
@@ -408,12 +397,18 @@ impl<F: Field + Serialize> LiftIOP<F> {
     }
 
     /// sample coins for sparse pcs
-    pub fn prover_sample_sparse_randomness(trans: &mut Transcript<F>, instance: &LiftInstance<F>) -> Vec<F> {
+    pub fn prover_sample_sparse_randomness(
+        trans: &mut Transcript<F>,
+        instance: &LiftInstance<F>,
+    ) -> Vec<F> {
         trans.get_vec_challenge(b"randomness for sparse eval", instance.num_vars)
     }
 
     /// sample coins for sparse pcs
-    pub fn verifier_sample_sparse_randomness(trans: &mut Transcript<F>, info: &LiftInfo<F>) -> Vec<F> {
+    pub fn verifier_sample_sparse_randomness(
+        trans: &mut Transcript<F>,
+        info: &LiftInfo<F>,
+    ) -> Vec<F> {
         trans.get_vec_challenge(b"randomness for sparse eval", info.num_vars)
     }
 
@@ -583,15 +578,17 @@ where
         // This is the actual polynomial to be committed for prover, which consists of all the required small polynomials in the IOP and padded zero polynomials.
         let committed_poly = instance.generate_oracle();
         // 1. Use PCS to commit the above polynomial.
-        let setup_start = Instant::now();
+        let time_mark = Instant::now();
         let pp =
             BrakedownPCS::<F, H, C, S, EF>::setup(committed_poly.num_vars, Some(code_spec.clone()));
-        let setup_time = setup_start.elapsed().as_millis();
+        let mut setup_time = time_mark.elapsed().as_millis();
 
-        let prover_start = Instant::now();
+        let time_mark = Instant::now();
         let (comm, comm_state) = BrakedownPCS::<F, H, C, S, EF>::commit(&pp, &committed_poly);
+        let mut commit_time = time_mark.elapsed().as_millis();
 
         // 2. Prover generates the proof
+        let time_mark = Instant::now();
         let mut prover_trans = Transcript::<EF>::new();
         // Convert the original instance into an instance defined over EF
         let instance_ef = instance.to_ef::<EF>();
@@ -610,7 +607,7 @@ where
         let randomness = LiftIOP::sample_coins(&mut prover_trans, &instance_ef);
         let randomness_ntt =
             <NTTIOP<EF>>::sample_coins(&mut prover_trans, instance_info.ntt_info.num_ntt);
-            LiftIOP::<EF>::prove_as_subprotocol(
+        LiftIOP::<EF>::prove_as_subprotocol(
             &randomness,
             &mut sumcheck_poly,
             &instance_ef,
@@ -651,34 +648,49 @@ where
 
         // ------ Sparse Evaluation -------
         // 2.? Prove the sparse matrix evaluation
-        let prover_v = <LiftIOP<EF>>::prover_sample_sparse_randomness(&mut prover_trans, &instance_ef);
-        let (mut sparse_instance, sparse_eval) = instance_ef.extract_sparse_eval_instance(&prover_v, &evals_at_r);
+        let prover_v =
+            <LiftIOP<EF>>::prover_sample_sparse_randomness(&mut prover_trans, &instance_ef);
+        let (mut sparse_instance, sparse_eval) =
+            instance_ef.extract_sparse_eval_instance(&prover_v, &evals_at_r);
 
         let sparse_iop = SparseEvalIOP {
             r_x: sumcheck_state.randomness.clone(),
             r_y: prover_v,
             eval: sparse_eval,
         };
-        
+
         sparse_iop.prover_generate_eval_vector(&mut sparse_instance);
+
         // --- Lookup ----
         let mut lookup_instance = sparse_instance.extract_lookup_instance();
         let lookup_info = lookup_instance.info();
 
         let sparse_kit = sparse_iop.prove(&sparse_instance);
         let mut lookup = LookupIOP::<EF>::default();
-        
+
         lookup.prover_generate_first_randomness(&mut prover_trans, &mut lookup_instance);
+        
         
         // commit the second EF polynomial
         let second_committed_poly = lookup_instance.generate_second_oracle();
-        let second_pp =
-            BrakedownPCS::<F, H, C, S, EF>::setup(second_committed_poly.num_vars, Some(code_spec.clone()));
-        let (second_comm, second_comm_state) = BrakedownPCS::<F, H, C, S, EF>::commit_ef(&second_pp, &second_committed_poly);
+        let mut piop_time = time_mark.elapsed().as_millis();
 
+        let time_mark = Instant::now();
+        let second_pp = BrakedownPCS::<F, H, C, S, EF>::setup(
+            second_committed_poly.num_vars,
+            Some(code_spec.clone()),
+        );
+        setup_time += time_mark.elapsed().as_millis();
+
+        let time_mark = Instant::now();
+        let (second_comm, second_comm_state) =
+            BrakedownPCS::<F, H, C, S, EF>::commit_ef(&second_pp, &second_committed_poly);
+        commit_time += time_mark.elapsed().as_millis();
+
+        let time_mark = Instant::now();
         lookup.generate_second_randomness(&mut prover_trans, &lookup_info);
         let lookup_kit = lookup.prove(&mut prover_trans, &mut lookup_instance);
-        
+
         let sparse_evals = sparse_instance.evaluate(&sparse_kit.randomness);
         let lookup_evals = lookup_instance.evaluate(&lookup_kit.randomness);
 
@@ -706,20 +718,35 @@ where
         let second_oracle_eval = second_committed_poly.evaluate(&second_requested_point);
 
         // 2.6 Generate the evaluation proof of the requested point
-        let eval_proof_at_r = BrakedownPCS::<F, H, C, S, EF>::open(
+        // let eval_proof_at_r = BrakedownPCS::<F, H, C, S, EF>::open(
+        //     &pp,
+        //     &comm,
+        //     &comm_state,
+        //     &requested_point_at_r,
+        //     &mut prover_trans,
+        // );
+        // let eval_proof_at_u = BrakedownPCS::<F, H, C, S, EF>::open(
+        //     &pp,
+        //     &comm,
+        //     &comm_state,
+        //     &requested_point_at_u,
+        //     &mut prover_trans,
+        // );
+
+        piop_time += time_mark.elapsed().as_millis();
+
+        let time_mark = Instant::now();
+        // batch opens
+        let mut opens = BrakedownPCS::<F, H, C, S, EF>::batch_open(
             &pp,
             &comm,
             &comm_state,
-            &requested_point_at_r,
+            &[requested_point_at_r.clone(), requested_point_at_u.clone()],
             &mut prover_trans,
         );
-        let eval_proof_at_u = BrakedownPCS::<F, H, C, S, EF>::open(
-            &pp,
-            &comm,
-            &comm_state,
-            &requested_point_at_u,
-            &mut prover_trans,
-        );
+
+        let eval_proof_at_r = std::mem::take(&mut opens[0]);
+        let eval_proof_at_u = std::mem::take(&mut opens[1]);
 
         let second_eval_proof = BrakedownPCS::<F, H, C, S, EF>::open_ef(
             &second_pp,
@@ -728,10 +755,10 @@ where
             &second_requested_point,
             &mut prover_trans,
         );
-        let prover_time = prover_start.elapsed().as_millis();
+        let open_time = time_mark.elapsed().as_millis();
 
         // 3. Verifier checks the proof
-        let verifier_start = Instant::now();
+        let time_mark = Instant::now();
         let mut verifier_trans = Transcript::<EF>::new();
 
         // 3.1 Generate the random point to instantiate the sumcheck protocol
@@ -803,11 +830,12 @@ where
 
         // ------ Sparse Evaluation -------
         // 3.? Prove the sparse matrix evaluation
-        let _ = <LiftIOP<EF>>::verifier_sample_sparse_randomness(&mut verifier_trans, &instance_info);
+        let _ =
+            <LiftIOP<EF>>::verifier_sample_sparse_randomness(&mut verifier_trans, &instance_info);
 
         let sparse_wrapper = sparse_kit.extract();
         let lookup_wrapper = lookup_kit.extract();
-        
+
         let sparse_check = sparse_iop.verify(&sparse_wrapper, &sparse_evals);
         assert!(sparse_check);
 
@@ -847,23 +875,35 @@ where
         assert!(check_oracle_at_r_second);
 
         // 3.5 Check the evaluation of a random point over the committed oracle
-        let check_pcs_at_r = BrakedownPCS::<F, H, C, S, EF>::verify(
+        // let check_pcs_at_r = BrakedownPCS::<F, H, C, S, EF>::verify(
+        //     &pp,
+        //     &comm,
+        //     &requested_point_at_r,
+        //     oracle_eval_at_r,
+        //     &eval_proof_at_r,
+        //     &mut verifier_trans,
+        // );
+        // let check_pcs_at_u = BrakedownPCS::<F, H, C, S, EF>::verify(
+        //     &pp,
+        //     &comm,
+        //     &requested_point_at_u,
+        //     oracle_eval_at_u,
+        //     &eval_proof_at_u,
+        //     &mut verifier_trans,
+        // );
+        // assert!(check_pcs_at_r && check_pcs_at_u);
+        let verifier_time = time_mark.elapsed().as_millis();
+
+        let time_mark = Instant::now();
+        let check_first_pcs = BrakedownPCS::<F, H, C, S, EF>::batch_verify(
             &pp,
             &comm,
-            &requested_point_at_r,
-            oracle_eval_at_r,
-            &eval_proof_at_r,
+            &[requested_point_at_r, requested_point_at_u],
+            &[oracle_eval_at_r, oracle_eval_at_u],
+            &[eval_proof_at_r.clone(), eval_proof_at_u.clone()],
             &mut verifier_trans,
         );
-        let check_pcs_at_u = BrakedownPCS::<F, H, C, S, EF>::verify(
-            &pp,
-            &comm,
-            &requested_point_at_u,
-            oracle_eval_at_u,
-            &eval_proof_at_u,
-            &mut verifier_trans,
-        );
-        assert!(check_pcs_at_r && check_pcs_at_u);
+        assert!(check_first_pcs);
 
         let second_check = BrakedownPCS::<F, H, C, S, EF>::verify_ef(
             &second_pp,
@@ -875,19 +915,29 @@ where
         );
         assert!(second_check);
 
-        let verifier_time = verifier_start.elapsed().as_millis();
+        let pcs_verifier_time = time_mark.elapsed().as_millis();
 
-        println!("Prover time: {:?}ms", prover_time);
-        println!("Verifier time: {:?}ms", verifier_time);
-        let proof_size = bincode::serialize(&sumcheck_proof).unwrap().len()
-            + bincode::serialize(&sumcheck_proof).unwrap().len()
+        println!("[PCS] setup: {:?} ms", setup_time);
+        println!("[PCS] commit: {:?} ms", commit_time);
+        println!("[PCS] open: {:?} ms", open_time);
+        println!("[PCS] total: {:?} ms", commit_time + open_time);
+        println!("[PIOP] prover time: {:?} ms", piop_time);
+        println!("[PCS] verifier time: {:?} ms", pcs_verifier_time);
+        println!("[PIOP] verifier time: {:?} ms", verifier_time);
+        println!("[PIOP] vtotal: {:?} ms", pcs_verifier_time + verifier_time);
+
+        let pcs_proof_size = bincode::serialize(&comm).unwrap().len()
+            + bincode::serialize(&second_comm).unwrap().len()
+            + bincode::serialize(&eval_proof_at_r).unwrap().len()
+            + bincode::serialize(&eval_proof_at_u).unwrap().len()
+            + bincode::serialize(&second_eval_proof).unwrap().len();
+        let piop_proof_size = bincode::serialize(&sumcheck_proof).unwrap().len()
             + bincode::serialize(&recursive_proof).unwrap().len()
             + bincode::serialize(&flatten_evals_at_r).unwrap().len()
             + bincode::serialize(&flatten_evals_at_u).unwrap().len()
-            + bincode::serialize(&sparse_kit.proof).unwrap().len()
-            + bincode::serialize(&lookup_kit.proof).unwrap().len()
             + bincode::serialize(&lookup_evals.h_vec).unwrap().len();
-        println!("Proof size: {:?}Bytes", proof_size);
+        println!("[PCS] Proof Size: {:?} Bytes", pcs_proof_size);
+        println!("[PIOP] Proof Size: {:?} Bytes", piop_proof_size);
 
         println!(
             "The 1st committed polynomial is of {} variables, which consists of {} smaller oracles used in IOP, each of which is of {} variables.",

@@ -1,6 +1,6 @@
 use algebra::{transformation::AbstractNTT, NTTField, NTTPolynomial, Polynomial};
 use algebra::{
-    BabyBear, BabyBearExetension, Basis, DenseMultilinearExtension, Field, MultilinearExtension,
+    BabyBear, BabyBearExetension, Basis, DenseMultilinearExtension, Field, Goldilocks, GoldilocksExtension, MultilinearExtension
 };
 use itertools::izip;
 use num_traits::One;
@@ -26,10 +26,10 @@ const LOG_DIM_RLWE: usize = 10;
 const LOG_B: usize = 7;
 const BLOCK_SIZE: usize = 3;
 
-type FF = BabyBear;
-type EF = BabyBearExetension;
+type FF = Goldilocks;
+type EF = GoldilocksExtension;
 type Hash = Sha256;
-const BASE_FIELD_BITS: usize = 31;
+const BASE_FIELD_BITS: usize = 64;
 
 fn random_rlwe_ciphertext<F: Field, R>(rng: &mut R, num_vars: usize) -> RlweCiphertext<F>
 where

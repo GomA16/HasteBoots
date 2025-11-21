@@ -1,12 +1,14 @@
 //! IOP for Accumulator updating t times
 //! ACC = ACC + (X^{-a_u} - 1) * ACC * RGSW(Z_u)
 //! Each updation contains two single ntt operations and one multiplication between RLWE and RGSW
+use crate::piop;
 use crate::piop::LookupIOP;
 use crate::sumcheck::verifier::SubClaim;
 use crate::sumcheck::MLSumcheck;
 use crate::sumcheck::ProofWrapper;
 use crate::sumcheck::SumcheckKit;
 use core::fmt;
+use core::time;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -1380,17 +1382,17 @@ where
         // This is the actual polynomial to be committed for prover, which consists of all the required small polynomials in the IOP and padded zero polynomials.
         let committed_poly = instance.generate_oracle();
         // 1. Use PCS to commit the above polynomial.
-        let start = Instant::now();
+        let time_mark = Instant::now();
         let pp =
             BrakedownPCS::<F, H, C, S, EF>::setup(committed_poly.num_vars, Some(code_spec.clone()));
-        let setup_time = start.elapsed().as_millis();
+        let mut setup_time = time_mark.elapsed().as_millis();
 
-        let start = Instant::now();
+        let time_mark = Instant::now();
         let (comm, comm_state) = BrakedownPCS::<F, H, C, S, EF>::commit(&pp, &committed_poly);
-        
+        let mut commit_time = time_mark.elapsed().as_millis();
 
         // 2. Prover generates the proof
-        let mut iop_proof_size = 0;
+        let time_mark = Instant::now();
         let mut prover_trans = Transcript::<EF>::new();
         // Convert the original instance into an instance defined over EF
         let instance_ef = instance.to_ef::<EF>();
@@ -1406,15 +1408,21 @@ where
 
         lookup_instance.generate_h_vec(random_value);
         let second_committed_poly = lookup_instance.generate_second_oracle();
+        let mut piop_time = time_mark.elapsed().as_millis();
+
+        let time_mark = Instant::now();
         let second_pp =
             BrakedownPCS::<F, H, C, S, EF>::setup(second_committed_poly.num_vars, Some(code_spec.clone()));
+        setup_time += time_mark.elapsed().as_millis();
+
+        let time_mark = Instant::now();
         let (second_comm, second_comm_state) = BrakedownPCS::<F, H, C, S, EF>::commit_ef(&second_pp, &second_committed_poly);
-        let commit_time = start.elapsed().as_millis();
+        commit_time += time_mark.elapsed().as_millis();
         // println!("batch inverse: {:?} ms", start.elapsed().as_millis());
         // --------------------
 
         // 2.1 Generate the random point to instantiate the sumcheck protocol
-        let prover_start = Instant::now();
+        let time_mark = Instant::now();
         let prover_u = prover_trans.get_vec_challenge(
             b"random point used to instantiate sumcheck protocol",
             instance.num_vars,
@@ -1467,8 +1475,6 @@ where
             <MLSumcheck<EF>>::prove(&mut prover_trans, &sumcheck_poly)
                 .expect("Proof generated in Addition In Zq");
 
-        iop_proof_size += bincode::serialize(&sumcheck_proof).unwrap().len();
-
         // 2.? [one more step] Prover recursive prove the evaluation of F(u, v)
 
         let recursive_proof = <NTTIOP<EF>>::prove_recursive(
@@ -1478,11 +1484,7 @@ where
             &prover_u,
         );
 
-        iop_proof_size += bincode::serialize(&recursive_proof).unwrap().len();
-        let iop_prover_time = prover_start.elapsed().as_millis();
-
         // 2.4 Compute all the evaluations of these small polynomials used in IOP over the random point returned from the sumcheck protocol
-        let start = Instant::now();
 
         // let evals_at_r = instance.evaluate_ext(&sumcheck_state.randomness);
         // let evals_at_u = instance.evaluate_ext(&prover_u);
@@ -1517,8 +1519,10 @@ where
         second_requested_point.extend(&second_oracle_randomness);
         let second_oracle_eval = second_committed_poly.evaluate(&second_requested_point);
 
+        piop_time += time_mark.elapsed().as_millis();
         // 2.6 Generate the evaluation proof of the requested point
 
+        let time_mark = Instant::now();
         let mut opens = BrakedownPCS::<F, H, C, S, EF>::batch_open(
             &pp,
             &comm,
@@ -1537,11 +1541,10 @@ where
             &second_requested_point,
             &mut prover_trans,
         );
-
-        let pcs_open_time = start.elapsed().as_millis();
+        let open_time = time_mark.elapsed().as_millis();
 
         // 3. Verifier checks the proof
-        let verifier_start = Instant::now();
+        let time_mark = Instant::now();
         let mut verifier_trans = Transcript::<EF>::new();
 
         // --- Lookup Part ---
@@ -1637,8 +1640,6 @@ where
         assert!(check_recursive);
 
         // 3.5 and also check the relation between these small oracles and the committed oracle
-        let start = Instant::now();
-        let mut pcs_proof_size = 0;
         let flatten_evals_at_r = evals_at_r.flatten();
         let flatten_evals_at_u = evals_at_u.flatten();
         let oracle_randomness = verifier_trans.get_vec_challenge(
@@ -1662,8 +1663,10 @@ where
             &second_oracle_randomnes,
         );
         assert!(check_oracle_at_r_second);
-        let iop_verifier_time = verifier_start.elapsed().as_millis();
 
+        let verifier_time = time_mark.elapsed().as_millis();
+
+        let time_mark = Instant::now();
         let check_pcs_at_r_and_u = BrakedownPCS::<F, H, C, S, EF>::batch_verify(
             &pp,
             &comm,
@@ -1683,37 +1686,60 @@ where
         );
         assert!(check_pcs_at_r_and_u && second_check);
 
-        let pcs_verifier_time = start.elapsed().as_millis();
-        pcs_proof_size += bincode::serialize(&eval_proof_at_r).unwrap().len()
+        let pcs_verifier_time = time_mark.elapsed().as_millis();
+
+        println!("[PCS] setup: {:?} ms", setup_time);
+        println!("[PCS] commit: {:?} ms", commit_time);
+        println!("[PCS] open: {:?} ms", open_time);
+        println!("[PCS] total: {:?} ms", commit_time + open_time);
+        println!("[PIOP] prover time: {:?} ms", piop_time);
+        println!("[PCS] verifier time: {:?} ms", pcs_verifier_time);
+        println!("[PIOP] verifier time: {:?} ms", verifier_time);
+        println!("[PIOP] vtotal: {:?} ms", pcs_verifier_time + verifier_time);
+        
+        let pcs_proof_size = bincode::serialize(&comm).unwrap().len()
+            + bincode::serialize(&second_comm).unwrap().len()
+            + bincode::serialize(&eval_proof_at_r).unwrap().len()
             + bincode::serialize(&eval_proof_at_u).unwrap().len()
+            + bincode::serialize(&second_eval_proof).unwrap().len();
+        let piop_proof_size = bincode::serialize(&sumcheck_proof).unwrap().len()
+            + bincode::serialize(&recursive_proof).unwrap().len()
             + bincode::serialize(&flatten_evals_at_r).unwrap().len()
             + bincode::serialize(&flatten_evals_at_u).unwrap().len()
-            + bincode::serialize(&second_eval_proof).unwrap().len();
+            + bincode::serialize(&lookup_evals.h_vec).unwrap().len();
+        println!("[PCS] Proof Size: {:?} Bytes", pcs_proof_size);
+        println!("[PIOP] Proof Size: {:?} Bytes", piop_proof_size);
 
-        // 4. print statistic
-        print_statistic(
-            iop_prover_time + pcs_open_time,
-            iop_verifier_time + pcs_verifier_time,
-            iop_proof_size + pcs_proof_size,
-            iop_prover_time,
-            iop_verifier_time,
-            iop_proof_size,
-            committed_poly.num_vars,
-            instance.num_oracles(),
-            instance.num_vars,
-            setup_time,
-            commit_time,
-            pcs_open_time,
-            pcs_verifier_time,
-            pcs_proof_size,
+
+        println!(
+            "The 1st committed polynomial is of {} variables, which consists of {} smaller oracles used in IOP, each of which is of {} variables.",
+            committed_poly.num_vars, instance.num_oracles(), instance.num_vars,
         );
         println!(
-            "The second committed polynomial is of {} variables,",
-            second_committed_poly.num_vars
+            "The 2nd committed polynomial is of {} variables, which consists of {} smaller oracles used in IOP, each of which is of {} variables.",
+            second_committed_poly.num_vars, lookup_instance.num_second_oracles(), lookup_instance.num_vars,
         );
-        println!(
-            "which consists of {} smaller oracles used in IOP, each of which is of {} variables.",
-            lookup_instance.num_second_oracles(), lookup_instance.num_vars
-        );
+
+        // // 4. print statistic
+        // print_statistic(
+        //     iop_prover_time + pcs_open_time,
+        //     iop_verifier_time + pcs_verifier_time,
+        //     iop_proof_size + pcs_proof_size,
+        //     iop_prover_time,
+        //     iop_verifier_time,
+        //     iop_proof_size,
+        //     committed_poly.num_vars,
+        //     instance.num_oracles(),
+        //     instance.num_vars,
+        //     setup_time,
+        //     commit_time,
+        //     pcs_open_time,
+        //     pcs_verifier_time,
+        //     pcs_proof_size,
+        // );
+        
     }
+
+    
 }
+ 

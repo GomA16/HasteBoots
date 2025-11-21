@@ -189,6 +189,40 @@ impl<F: Field> ModularAdditionInstance<F> {
     }
 }
 
+impl<F: Field> ModularAdditionInstance<F> {
+    #[inline]
+    /// Return the number of variables in each dense multilinear polynomial.
+    pub fn num_vars(&self) -> usize {
+        self.num_vars
+    }
+
+    #[inline]
+    /// Return the number of dense multilinear polynomials in this instance.
+    pub fn num_polys(&self) -> usize {
+        self.num_batches * 4 // input_a, input_b, output_c, witness_k
+    }
+
+    /// Return the logarithm of the number of dense multilinear polynomials in this instance.
+    pub fn log_num_polys(&self) -> usize {
+        self.num_polys().next_power_of_two().ilog2() as usize
+    }
+
+    /// Flatten all dense multilinear polynomials into a single vector.
+    /// 
+    /// # Arrangement
+    /// input_a || input_b || output_c || witness_k
+    pub fn pack_all_polys(&self) -> Vec<F> {
+        self.input_a
+            .iter()
+            .chain(self.input_b.iter())
+            .chain(self.output_c.iter())
+            .chain(self.witness_k.iter())
+            .flat_map(|poly| poly.iter())
+            .copied()
+            .collect()
+    }
+}
+
 #[test]
 fn test_modular_addition_instance_from_op() {
     use algebra_derive::Field;

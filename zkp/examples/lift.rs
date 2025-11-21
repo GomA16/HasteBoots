@@ -1,6 +1,6 @@
 use algebra::derive::Field;
 use algebra::{transformation::AbstractNTT, NTTField, Polynomial};
-use algebra::{BabyBear, BabyBearExetension, Basis, FieldUniformSampler};
+use algebra::{BabyBear, BabyBearExetension, Basis, FieldUniformSampler, Goldilocks, GoldilocksExtension};
 use algebra::{DenseMultilinearExtension, Field};
 use itertools::izip;
 use num_traits::One;
@@ -17,14 +17,14 @@ use zkp::piop::{
     DecomposedBitsInfo, RlweCiphertext, RlweCiphertexts, RlweMultRgswInstance,
 };
 
-type FF = BabyBear;
-type EF = BabyBearExetension;
+type FF = Goldilocks;
+type EF = GoldilocksExtension;
 type Hash = Sha256;
-const BASE_FIELD_BITS: usize = 31;
+const BASE_FIELD_BITS: usize = 64;
 
 #[derive(Field)]
 #[modulus = 2048]
-pub struct F32(u32);
+pub struct F32(u64);
 
 // # Parameters
 // n = 1024: denotes the dimension of LWE
@@ -107,7 +107,7 @@ fn main() {
     let uniform = <FieldUniformSampler<F32>>::new();
 
     let num_vars = LOG_DIM_RLWE;
-    let N = FF::new(DIM_LWE as u32);
+    let N = FF::new(DIM_LWE as u64);
 
     // information used to perform NTT
     let log_n = num_vars;
