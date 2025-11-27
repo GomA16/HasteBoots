@@ -44,68 +44,13 @@ fn main() {
     // let mut z = enc.encrypt(c);
 
     for i in 0..1 {
-        // not
-        // let ct_not = eval.not(&x);
-        // let (m, noise) = dec.decrypt_with_noise::<M>(&ct_not);
-        // assert_eq!(m, not(a), "Noise: {noise}");
-        // check_noise(noise, "not");
-
-        // perform all other homomorphic bit operations
         let start = std::time::Instant::now();
         let ct_nand = join_bit_operations(&eval, &x, &y);
-        // let (ct_and, ct_nand, ct_or, ct_nor, ct_xor, ct_xnor, ct_majority, ct_mux) =
-        //     join_bit_operations(&eval, &x, &y, &z);
-        // let duration = start.elapsed();
-        // println!("Time elapsed in join_bit_operations() is: {:?}", duration);
-
-        // majority
-        // let (ma, noise) = dec.decrypt_with_noise(&ct_majority);
-        // assert_eq!(ma, majority(a, b, c), "Noise: {noise}");
-        // check_noise(noise, "majority");
-
-        // // and
-        // let (m, noise) = dec.decrypt_with_noise::<M>(&ct_and);
-        // assert_eq!(m, and(a, b), "Noise: {noise}");
-        // check_noise(noise, "and");
 
         // nand
         let (m, noise) = dec.decrypt_with_noise::<M>(&ct_nand);
         assert_eq!(m, nand(a, b), "Noise: {noise}");
         check_noise(noise, "nand");
-
-        // // xor
-        // let (mx, noise) = dec.decrypt_with_noise::<M>(&ct_xor);
-        // assert_eq!(mx, xor(a, b), "Noise: {noise}");
-        // check_noise(noise, "xor");
-
-        // // xnor
-        // let (m, noise) = dec.decrypt_with_noise::<M>(&ct_xnor);
-        // assert_eq!(m, xnor(a, b), "Noise: {noise}");
-        // check_noise(noise, "xnor");
-
-        // // or
-        // let (m, noise) = dec.decrypt_with_noise::<M>(&ct_or);
-        // assert_eq!(m, or(a, b), "Noise: {noise}");
-        // check_noise(noise, "or");
-
-        // // nor
-        // let (m, noise) = dec.decrypt_with_noise::<M>(&ct_nor);
-        // assert_eq!(m, nor(a, b), "Noise: {noise}");
-        // check_noise(noise, "nor");
-
-        // // mux
-        // let (m, noise) = dec.decrypt_with_noise::<M>(&ct_mux);
-        // assert_eq!(m, if a { b } else { c }, "Noise: {noise}");
-        // check_noise(noise, "mux");
-
-        // a = m;
-        // x = ct_mux;
-
-        // b = ma;
-        // y = ct_majority;
-
-        // c = mx;
-        // z = ct_xor;
 
         println!("The {i} group test done!\n");
     }
@@ -116,39 +61,9 @@ fn join_bit_operations<T: LWEModulusType, F: NTTField>(
     eval: &Evaluator<T, F>,
     x: &LWECiphertext<T>,
     y: &LWECiphertext<T>,
-    // z: &LWECiphertext<T>,
 ) -> 
     LWECiphertext<T>
 {
-    // let mut ct_and: Option<LWECiphertext<T>> = None;
-    // let mut ct_nand: Option<LWECiphertext<T>> = None;
-    // let mut ct_or: Option<LWECiphertext<T>> = None;
-    // let mut ct_nor: Option<LWECiphertext<T>> = None;
-    // let mut ct_xor: Option<LWECiphertext<T>> = None;
-    // let mut ct_xnor: Option<LWECiphertext<T>> = None;
-    // let mut ct_majority: Option<LWECiphertext<T>> = None;
-    // let mut ct_mux: Option<LWECiphertext<T>> = None;
-
 
     eval.nand(x, y)
-    // rayon::scope(|s| {
-    //     s.spawn(|_| ct_and = Some(eval.and(x, y)));
-    //     s.spawn(|_| ct_nand = Some(eval.nand(x, y)));
-    //     s.spawn(|_| ct_or = Some(eval.or(x, y)));
-    //     s.spawn(|_| ct_nor = Some(eval.nor(x, y)));
-    //     s.spawn(|_| ct_xor = Some(eval.xor(x, y)));
-    //     s.spawn(|_| ct_xnor = Some(eval.xnor(x, y)));
-    //     s.spawn(|_| ct_majority = Some(eval.majority(x, y, z)));
-    //     s.spawn(|_| ct_mux = Some(eval.mux(x, y, z)));
-    // });
-    // (
-    //     ct_and.unwrap(),
-    //     ct_nand.unwrap(),
-    //     ct_or.unwrap(),
-    //     ct_nor.unwrap(),
-    //     ct_xor.unwrap(),
-    //     ct_xnor.unwrap(),
-    //     ct_majority.unwrap(),
-    //     ct_mux.unwrap(),
-    // )
 }
