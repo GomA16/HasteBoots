@@ -6,7 +6,7 @@ use crate::reduce::{MulReduce, PowReduce};
 
 mod ops;
 
-/// The Baby Bear prime
+/// The Baby Bear prime p = 2^31 - 2^27 + 1 = 2147483648 - 134217728 + 1 = 2013265921.
 /// This is the unique 31-bit prime with the highest possible 2 adicity (27).
 pub const P: u32 = 0x78000001;
 const MONTY_BITS: u32 = 32;
@@ -104,9 +104,14 @@ pub const fn from_monty(x: u32) -> u32 {
 }
 
 /// Montgomery reduction of a value in `0..P << MONTY_BITS`.
+/// Given `x`, computes `x * R^-1 (mod P)` where `R = 2^MONTY_BITS`.
+/// 1. Compute `t = (x * MU) mod R`, where `R = 2^MONTY_BITS` such that 'x - t * P = uR' is divisible by R.
+/// 2. Compute `u = (x - t * P) / R` where u is guaranteed to be less than 2P.
+/// 3. If `u >= P`, return `u - P`, else return `u`.
 #[inline]
 #[must_use]
 const fn monty_reduce(x: u64) -> u32 {
+    // Compute m = (x * MU) mod R, where R = 2^MONTY_BITS.
     let t = x.wrapping_mul(MONTY_MU as u64) & (MONTY_MASK as u64);
     let u = t * (P as u64);
 

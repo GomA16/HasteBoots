@@ -1,4 +1,4 @@
-use std::slice::{Iter, IterMut};
+use std::{slice::{Iter, IterMut}, vec};
 
 use algebra::{
     transformation::AbstractNTT, Basis, FieldDiscreteGaussianSampler, NTTField, NTTPolynomial,
@@ -7,6 +7,8 @@ use algebra::{
 use rand::{CryptoRng, Rng};
 
 use crate::{DecompositionSpace, PolynomialSpace, NTTRLWE, RLWE};
+
+use trace::{HadamardProdsTrace};
 
 /// A representation of Ring Learning with Errors (RLWE) ciphertexts with respect to different powers
 /// of a base, used to control noise growth in polynomial multiplications.
@@ -414,6 +416,44 @@ impl<F: NTTField> NTTGadgetRLWE<F> {
 
             destination.add_ntt_rlwe_mul_ntt_polynomial_assign_fast(g_rlwe, decompose_space);
         })
+    }
+
+    /// Perform multiplication between [`NTTGadgetRLWE<F>`] and [`Polynomial<F>`],
+    /// stores the result into `destination`.
+    ///
+    /// The coefficients in the `destination` may be in [0, 2*modulus) for some case,
+    /// and fall back to [0, modulus) for normal case,
+    pub fn mul_polynomial_inplace_fast_w_traces(
+        &self,
+        polynomial: &Polynomial<F>,
+        // Pre allocate space for decomposition
+        decompose_space: &mut DecompositionSpace<F>,
+        polynomial_space: &mut PolynomialSpace<F>,
+        // Output destination
+        destination: &mut NTTRLWE<F>,
+        // Trace
+        trace: &mut HadamardProdsTrace<F>,
+    ) {
+        let coeff_count = polynomial.coeff_count();
+        debug_assert!(coeff_count.is_power_of_two());
+        let ntt_table = F::get_ntt_table(coeff_count.trailing_zeros()).unwrap();
+
+        polynomial_space.copy_from(polynomial);
+
+        destination.set_zero();
+
+        self.iter().enumerate().for_each(|(i, g_rlwe)| {
+            polynomial_space.decompose_lsb_bits_inplace(self.basis, decompose_space.as_mut_slice());
+
+            let trace = trace.get_trace_mul(i);
+            trace.append_bit_poly(decompose_space.as_slice());
+
+            ntt_table.transform_slice(decompose_space.as_mut_slice());
+            trace.append_bit_ntt(decompose_space.as_slice());
+
+            destination.add_ntt_rlwe_mul_ntt_polynomial_assign_fast(g_rlwe, &decompose_space);
+            trace.append_key_ntt(g_rlwe.a_b_slice());
+        });
     }
 
     /// Perform `destination = self + rhs * ntt_polynomial`, and store the result into destination.

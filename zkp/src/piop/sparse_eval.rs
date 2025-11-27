@@ -1,7 +1,7 @@
 //! Sparse Eval IOP
 use crate::piop::LookupIOP;
-use crate::sumcheck::{verifier::SubClaim, MLSumcheck};
-use crate::sumcheck::{ProofWrapper, SumcheckKit};
+use sumcheck::{verifier::SubClaim, MLSumcheck};
+use sumcheck::{ProofWrapper, SumcheckKit};
 use crate::utils::{
     eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
 };

@@ -3,7 +3,7 @@
 
 //! Define arithmetic operations.
 pub mod piop;
-pub mod sumcheck;
+// pub mod sumcheck;
 pub mod utils;
 
 pub use error::Error;

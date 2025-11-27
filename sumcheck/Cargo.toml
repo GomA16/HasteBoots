@@ -1,0 +1,14 @@
+[package]
+name = "sumcheck"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+algebra = { path="../algebra"}
+thiserror = { workspace = true}
+serde = { workspace = true}
+rayon ={ workspace = true}
+rand = { workspace = true}
+rand_distr = { workspace = true}
+rand_chacha = { workspace = true}
+num-traits = { workspace = true}

@@ -8,6 +8,7 @@ use lattice::{
 
 use crate::LWEModulusType;
 
+/// FHE ternary blind rotation key
 #[derive(Debug, Clone)]
 pub struct TernaryBlindRotationKey<F: NTTField> {
     key: Vec<(NTTRGSW<F>, NTTRGSW<F>)>,

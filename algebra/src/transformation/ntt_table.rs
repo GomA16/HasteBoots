@@ -294,6 +294,11 @@ where
         self.root
     }
 
+    #[inline]
+    fn root_powers(&self, powers: &mut [F]) {
+        panic!("Not implemented");
+    }
+
     fn transform_slice(&self, values: &mut [F]) {
         let log_n = self.coeff_count_power();
 

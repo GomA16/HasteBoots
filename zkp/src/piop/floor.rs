@@ -17,8 +17,8 @@
 //! 4. w(x)(a(x)\cdot \lambda_1+b(x)\cdot \lambda_2)+(1-w(x))(a(x)-b(x)\cdot k-c(x))=0
 //!     where \lambda_1 and \lambda_2 are chosen by the verifier
 use super::{BitDecomposition, DecomposedBits, DecomposedBitsEval, DecomposedBitsInfo};
-use crate::sumcheck::verifier::SubClaim;
-use crate::sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
+use sumcheck::verifier::SubClaim;
+use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
 use crate::utils::{
     eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
 };

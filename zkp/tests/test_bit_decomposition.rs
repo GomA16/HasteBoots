@@ -16,7 +16,7 @@ use std::rc::Rc;
 use std::time::Instant;
 use std::vec;
 use zkp::piop::{BitDecomposition, BitDecompositionSnarks, DecomposedBits};
-use zkp::sumcheck::MLSumcheck;
+use sumcheck::MLSumcheck;
 use zkp::utils::{
     eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
 };

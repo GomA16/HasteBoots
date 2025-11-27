@@ -21,18 +21,6 @@ pub struct ProverMsg<F: Field> {
     pub(crate) evaluations: Vec<F>,
 }
 
-// impl<F: Field + Serialize> Serialize for ProverMsg<F> {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: serde::Serializer,
-//     {
-//         let mut seq = serializer.serialize_seq(Some(self.evaluations.len()))?;
-//         for e in self.evaluations.iter() {
-//             seq.serialize_element(e)?;
-//         }
-//         seq.end()
-//     }
-// }
 /// Prover State
 pub struct ProverState<F: Field> {
     /// sampled randomness given by the verifier
@@ -144,7 +132,7 @@ impl<F: Field> IPForMLSumcheck<F> {
                         let table = &prover_state.flattened_ml_extensions[jth_product];
                         let op = table[b << 1] * op_a;
                         let mut start = op + op_b;
-                        let step = (table[(b << 1) + 1] * op_a) - op;
+                        let step = (table[(b << 1) + 1] - table[b << 1]) * op_a;
                         // Evaluate each point P(t) for t = 0..degree + 1 via the accumulated addition instead of the multiplication by t.
                         // [t|b] = [0|b] + t * ([1|b] - [0|b]) represented by little-endian
                         for p in product.iter_mut() {

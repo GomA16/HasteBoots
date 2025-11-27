@@ -42,6 +42,15 @@ pub mod prime32 {
         }
 
         #[inline]
+        fn root_powers(&self, powers: &mut [F]) {
+            let u32_slice = self.plan.root_powers();
+            powers
+                .iter_mut()
+                .zip(u32_slice.iter())
+                .for_each(|(p, &v)| *p = F::new(v));
+        }
+
+        #[inline]
         fn transform_slice(&self, polynomial_slice: &mut [F]) {
             self.plan
                 .fwd(unsafe { transmute::<&mut [F], &mut [u32]>(polynomial_slice) });
@@ -120,6 +129,15 @@ pub mod prime64 {
         #[inline]
         fn root(&self) -> F {
             self.root
+        }
+
+        #[inline]
+        fn root_powers(&self, powers: &mut [F]) {
+            let u64_slice = self.plan.root_powers();
+            powers
+                .iter_mut()
+                .zip(u64_slice.iter())
+                .for_each(|(p, &v)| *p = F::new(v));
         }
 
         #[inline]

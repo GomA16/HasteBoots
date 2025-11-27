@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 algebra = { path = "../algebra", default-features = false }
+trace = { path = "../trace", default-features = false}
 
 num-traits = { workspace = true }
 once_cell = { workspace = true }

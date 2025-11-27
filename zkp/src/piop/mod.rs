@@ -11,6 +11,7 @@ pub mod round;
 pub mod zq_to_rq;
 pub mod sparse_eval;
 pub mod lift;
+// pub mod ntt_eval;
 
 pub use accumulator::{
     AccumulatorIOP, AccumulatorInstance, AccumulatorSnarksOpt, AccumulatorWitness,

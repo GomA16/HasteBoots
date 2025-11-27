@@ -1,7 +1,7 @@
+use algebra::derive::{DecomposableField, FheField, Field, NTT, Prime};
 use algebra::{transformation::AbstractNTT, NTTField, Polynomial};
 use algebra::{
-    BabyBear, BabyBearExetension, DecomposableField, DenseMultilinearExtension, Field,
-    NTTPolynomial,
+    BabyBear, BabyBearExetension, BinomialExtensionField, DecomposableField, DenseMultilinearExtension, Field, NTTPolynomial
 };
 use num_traits::{One, Zero};
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
@@ -11,12 +11,19 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::vec;
 use zkp::piop::ntt::ntt_bare::init_fourier_table;
-use zkp::piop::ntt::{NTTInstances, NTTSnarks};
+use zkp::piop::ntt::{self, NTTInstances, NTTSnarks};
 use zkp::piop::{NTTBareIOP, NTTInstance, NTTIOP};
 
 // field type
-type FF = BabyBear;
-type EF = BabyBearExetension;
+// type FF = BabyBear;
+// type EF = BabyBearExetension;
+
+#[derive(Field, Prime, FheField, DecomposableField, NTT)]
+#[modulus = 132120577]
+pub struct Fp32(u32);
+
+// field type
+type FF = Fp32;
 type Hash = Sha256;
 const BASE_FIELD_BITS: usize = 31;
 type PolyFF = Polynomial<FF>;
@@ -190,14 +197,18 @@ fn test_ntt_inverse_transform_normal_order() {
 fn test_ntt_bare_without_delegation() {
     let log_n: usize = 10;
     let m = 1 << (log_n + 1);
-    let mut ntt_table = Vec::with_capacity(m as usize);
-    let root = FF::get_ntt_table(log_n as u32).unwrap().root();
-    let mut power = FF::one();
-    for _ in 0..m {
-        ntt_table.push(power);
-        power *= root;
-    }
-    let ntt_table = Arc::new(ntt_table);
+    // let mut ntt_table = Vec::with_capacity(m as usize);
+    let plan = FF::get_ntt_table(log_n as u32).unwrap();
+    let mut powers = vec![FF::zero(); m as usize];
+    plan.root_powers(&mut powers);
+    let ntt_table = Arc::new(powers);
+    
+    // let mut power = FF::one();
+    // for _ in 0..m {
+    //     ntt_table.push(power);
+    //     power *= root;
+    // }
+    // let ntt_table = Arc::new(ntt_table);
 
     let mut rng = thread_rng();
     let coeff = PolyFF::random(1 << log_n, &mut rng).data();
@@ -229,6 +240,7 @@ fn test_ntt_bare_without_delegation() {
 }
 
 #[test]
+#[cfg(feature = "extension_field")]
 fn test_ntt_bare_without_delegation_extension_field() {
     let log_n: usize = 10;
     let m = 1 << (log_n + 1);
@@ -252,7 +264,6 @@ fn test_ntt_bare_without_delegation_extension_field() {
     ));
 
     let ntt_instance = NTTInstance::from_slice(log_n, &ntt_table, &coeff, &points);
-
     let instance_ef = ntt_instance.to_ef::<EF>();
     let ntt_instance_info = instance_ef.info();
 
@@ -309,6 +320,7 @@ fn test_ntt_with_delegation() {
 }
 
 #[test]
+#[cfg(feature = "extension_field")]
 fn test_ntt_with_delegation_extension_field() {
     let log_n: usize = 10;
     let m = 1 << (log_n + 1);
@@ -352,6 +364,7 @@ fn test_ntt_with_delegation_extension_field() {
 }
 
 #[test]
+#[cfg(feature = "extension_field")]
 fn test_snarks() {
     let num_vars = 10;
     let num_ntt = 5;

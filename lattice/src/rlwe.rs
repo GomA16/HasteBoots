@@ -5,6 +5,7 @@ use algebra::{
     FieldDiscreteGaussianSampler, NTTField, NTTPolynomial, Polynomial,
 };
 use rand::{CryptoRng, Rng};
+use trace::HadamardProdsTrace;
 
 use crate::{
     DecompositionSpace, GadgetRLWE, NTTGadgetRLWE, NTTRLWESpace, PolynomialSpace, LWE, NTTRGSW,
@@ -136,6 +137,21 @@ impl<F: NTTField> RLWE<F> {
         self.b.set_zero();
     }
 
+    /// ntt transform
+    pub fn transform_inplace(&self, destination: &mut NTTRLWE<F>) {
+        let coeff_count = destination.a.coeff_count();
+        debug_assert!(coeff_count.is_power_of_two());
+        let ntt_table = F::get_ntt_table(coeff_count.trailing_zeros()).unwrap();
+
+        let (a, b) = destination.a_b_mut_slices();
+
+        a.copy_from_slice(self.a_slice());
+        b.copy_from_slice(self.b_slice());
+
+        ntt_table.transform_slice(a);
+        ntt_table.transform_slice(b);
+    }
+
     /// Returns a reference to the `a` of this [`RLWE<F>`].
     #[inline]
     pub fn a(&self) -> &Polynomial<F> {
@@ -188,6 +204,11 @@ impl<F: NTTField> RLWE<F> {
     #[inline]
     pub fn b_mut_slice(&mut self) -> &mut [F] {
         self.b.as_mut_slice()
+    }
+
+    /// Extracts slices of `a` and `b` of this [`RLWE<F>`].
+    pub fn a_b_slice(&self) -> (&[F], &[F]) {
+        (self.a.as_slice(), self.b.as_slice())
     }
 
     /// Extracts mutable slice of `a` and `b` of this [`RLWE<F>`].
@@ -541,6 +562,42 @@ impl<F: NTTField> RLWE<F> {
     }
 
     /// Performs a multiplication on the `self` [`RLWE<F>`] with another `ntt_rgsw` [`NTTRGSW<F>`],
+    /// output the [`RLWE<F>`] result back to `self`.
+    ///
+    /// # Attention
+    /// The message of **`ntt_rgsw`** is restricted to small messages `m`, typically `m = ±Xⁱ`
+    #[inline]
+    pub fn mul_assign_ntt_rgsw_w_trace(
+        &mut self,
+        ntt_rgsw: &NTTRGSW<F>,
+        // Pre allocate space
+        decompose_space: &mut DecompositionSpace<F>,
+        polynomial_space: &mut PolynomialSpace<F>,
+        median: &mut NTTRLWESpace<F>,
+        // Trace
+        trace_a: &mut HadamardProdsTrace<F>,
+        trace_b: &mut HadamardProdsTrace<F>,
+    ) {
+        ntt_rgsw.c_neg_s_m().mul_polynomial_inplace_fast_w_traces(
+            self.a(),
+            decompose_space,
+            polynomial_space,
+            median,
+            trace_a,
+        );
+
+        median.add_assign_gadget_rlwe_mul_polynomial_fast_w_trace(
+            ntt_rgsw.c_m(),
+            self.b(),
+            decompose_space,
+            polynomial_space,
+            trace_b,
+        );
+
+        median.inverse_transform_inplace(self)
+    }
+
+    /// Performs a multiplication on the `self` [`RLWE<F>`] with another `ntt_rgsw` [`NTTRGSW<F>`],
     /// output the [`RLWE<F>`] result into `destination`.
     ///
     /// # Attention
@@ -737,6 +794,12 @@ impl<F: NTTField> NTTRLWE<F> {
     #[inline]
     pub fn b_mut_slice(&mut self) -> &mut [F] {
         self.b.as_mut_slice()
+    }
+
+    /// Extracts slices of `a` and `b` of this [`NTTRLWE<F>`].
+    #[inline]
+    pub fn a_b_slice(&self) -> (&[F], &[F]) {
+        (self.a.as_slice(), self.b.as_slice())
     }
 
     /// Extracts mutable slice of `a` and `b` of this [`NTTRLWE<F>`].
@@ -954,6 +1017,42 @@ impl<F: NTTField> NTTRLWE<F> {
             polynomial_space.decompose_lsb_bits_inplace(basis, decompose_space.as_mut_slice());
             ntt_table.transform_slice(decompose_space.as_mut_slice());
             self.add_ntt_rlwe_mul_ntt_polynomial_assign_fast(g, decompose_space);
+        })
+    }
+
+    /// Performs `self = self + gadget_rlwe * polynomial`.
+    ///
+    /// The result coefficients may be in [0, 2*modulus) for some case,
+    /// and fall back to [0, modulus) for normal case,
+    #[inline]
+    pub fn add_assign_gadget_rlwe_mul_polynomial_fast_w_trace(
+        &mut self,
+        gadget_rlwe: &NTTGadgetRLWE<F>,
+        polynomial: &Polynomial<F>,
+        decompose_space: &mut DecompositionSpace<F>,
+        polynomial_space: &mut PolynomialSpace<F>,
+        // Trace
+        trace: &mut HadamardProdsTrace<F>,
+    ) {
+        let coeff_count = polynomial.coeff_count();
+        debug_assert_eq!(coeff_count, polynomial_space.coeff_count());
+        debug_assert!(coeff_count.is_power_of_two());
+        let ntt_table = F::get_ntt_table(coeff_count.trailing_zeros()).unwrap();
+        let basis = gadget_rlwe.basis();
+
+        polynomial_space.copy_from(polynomial);
+
+        gadget_rlwe.iter().enumerate().for_each(|(i, g)| {
+            polynomial_space.decompose_lsb_bits_inplace(basis, decompose_space.as_mut_slice());
+            
+            let trace = trace.get_trace_mul(i);
+            trace.append_bit_poly(decompose_space.as_slice());
+
+            ntt_table.transform_slice(decompose_space.as_mut_slice());
+            trace.append_bit_ntt(decompose_space.as_slice());
+
+            self.add_ntt_rlwe_mul_ntt_polynomial_assign_fast(g, decompose_space);
+            trace.append_key_ntt(g.a_b_slice());
         })
     }
 

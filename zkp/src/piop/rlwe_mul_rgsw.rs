@@ -31,10 +31,10 @@ use super::LookupInstance;
 use super::NTTBareIOP;
 use super::{DecomposedBits, DecomposedBitsInfo, NTTInstance, NTTInstanceInfo, NTTIOP};
 use crate::piop::LookupIOP;
-use crate::sumcheck::verifier::SubClaim;
-use crate::sumcheck::MLSumcheck;
-use crate::sumcheck::ProofWrapper;
-use crate::sumcheck::SumcheckKit;
+use sumcheck::verifier::SubClaim;
+use sumcheck::MLSumcheck;
+use sumcheck::ProofWrapper;
+use sumcheck::SumcheckKit;
 use crate::utils::{
     add_assign_ef, eval_identity_function, gen_identity_evaluations, print_statistic,
     verify_oracle_relation,

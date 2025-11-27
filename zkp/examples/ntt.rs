@@ -90,8 +90,8 @@ fn generate_single_instance<R: Rng + CryptoRng>(
 
 fn main() {
     let num_vars = LOG_DIM_RLWE;
-    // let num_ntt = 5 as usize;
-    let num_ntt = 2 * DIM_LWE * (1 + BITS_LEN);
+    let num_ntt = 5 as usize;
+    // let num_ntt = 2 * DIM_LWE * (1 + BITS_LEN);
     let log_n: usize = num_vars;
     let m = 1 << (log_n + 1);
     let mut ntt_table = Vec::with_capacity(m as usize);

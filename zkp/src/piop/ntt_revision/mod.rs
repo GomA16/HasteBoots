@@ -30,8 +30,8 @@
 //!         \tilde{\beta}((x, b),(z,0)) * \tilde{A}_{F}^{(k-1)}(z) ( (1-u_{i})+u_{i} * \tilde{ω}^{(k)}_{i+1}(z, 0)
 //!       + \tilde{\beta}((x, b),(z,1)) * \tilde{A}_{F}^{(k-1)}(z) ( (1-u_{i})+u_{i} * \tilde{ω}^{(k)}_{i+1}(z, 1) * ω^{2^k}
 
-use crate::sumcheck::{prover::ProverState, verifier::SubClaim, MLSumcheck, Proof};
-use crate::sumcheck::{ProofWrapper, SumcheckKit};
+use sumcheck::{prover::ProverState, verifier::SubClaim, MLSumcheck, Proof};
+use sumcheck::{ProofWrapper, SumcheckKit};
 use crate::utils::{
     eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
 };

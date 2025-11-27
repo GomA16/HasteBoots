@@ -16,8 +16,8 @@
 //! The LHS and RHS of the above equation are both MLE for y, so it can be reduced to check at a random point due to Schwartz-Zippel Lemma.
 //! The remaining thing is to prove $$a(u) = \sum_{x\in \{0, 1\}^{\log N} c(x)\cdot F(u, x) }$$ with the sumcheck protocol
 //! where u is the random challenge from the verifier.
-use crate::sumcheck::verifier::SubClaim;
-use crate::sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
+use sumcheck::verifier::SubClaim;
+use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
 use algebra::{utils::Transcript, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials};
 use serde::Serialize;
 use std::marker::PhantomData;

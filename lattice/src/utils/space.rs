@@ -5,7 +5,7 @@ use algebra::{Basis, NTTField, NTTPolynomial, Polynomial};
 use crate::{NTTGadgetNTRU, NTRU, NTTNTRU, NTTRGSW, NTTRLWE, RLWE};
 
 /// Pre allocated space for inplace decomposition.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DecompositionSpace<F: NTTField> {
     space: NTTPolynomial<F>,
 }
@@ -137,7 +137,7 @@ impl<F: NTTField> NTTPolynomialSpace<F> {
 }
 
 /// Pre allocated space.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NTTRLWESpace<F: NTTField> {
     space: NTTRLWE<F>,
 }
@@ -181,7 +181,7 @@ impl<F: NTTField> NTTRLWESpace<F> {
 }
 
 /// Pre allocated space.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RLWESpace<F: NTTField> {
     space: RLWE<F>,
 }

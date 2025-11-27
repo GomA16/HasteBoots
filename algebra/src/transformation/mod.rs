@@ -21,6 +21,9 @@ pub trait AbstractNTT<F: NTTField> {
     /// Get the root for number theory transform.
     fn root(&self) -> F;
 
+    /// Get the root powers for number theory transform.
+    fn root_powers(&self, powers: &mut [F]);
+
     /// Perform a fast number theory transform.
     ///
     /// This function transforms a [`Polynomial<F>`] to a [`NTTPolynomial<F>`].

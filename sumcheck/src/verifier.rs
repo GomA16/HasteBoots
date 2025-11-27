@@ -225,7 +225,7 @@ fn field_factorial<F: Field>(a: usize) -> F {
 
 #[cfg(test)]
 mod test {
-    use crate::sumcheck::verifier::interpolate_uni_poly;
+    use crate::verifier::interpolate_uni_poly;
     use algebra::{
         derive::{Field, Prime},
         Field, FieldUniformSampler, Polynomial,

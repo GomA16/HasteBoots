@@ -11,8 +11,8 @@
 //!     and then, it can be proved with the sumcheck protocol where the maximum variable-degree is 3.
 //! 3. a(x) + b(x) = c(x) + k(x)\cdot q => can be reduced to the evaluation of a random point since the LHS and RHS are both MLE
 use crate::piop::LookupIOP;
-use crate::sumcheck::{verifier::SubClaim, MLSumcheck};
-use crate::sumcheck::{ProofWrapper, SumcheckKit};
+use sumcheck::{verifier::SubClaim, MLSumcheck};
+use sumcheck::{ProofWrapper, SumcheckKit};
 use crate::utils::{
     eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
 };

@@ -19,8 +19,8 @@
 //! then the resulting purported sum is:
 //! $\sum_{x \in \{0, 1\}^\log M} \sum_{i = 0}^{l-1} r_i \cdot eq(u, x) \cdot [\prod_{k=0}^B (d_i(x) - k)] = 0$
 //! where r_i (for i = 0..l) are sampled from the verifier.
-use crate::sumcheck::{verifier::SubClaim, MLSumcheck};
-use crate::sumcheck::{ProofWrapper, SumcheckKit};
+use sumcheck::{verifier::SubClaim, MLSumcheck};
+use sumcheck::{ProofWrapper, SumcheckKit};
 use crate::utils::{
     cmp_frequency, eval_identity_function, gen_identity_evaluations, print_statistic,
     verify_oracle_relation,

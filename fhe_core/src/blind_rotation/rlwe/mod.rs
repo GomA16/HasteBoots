@@ -1,5 +1,6 @@
 use algebra::{Basis, NTTField, Polynomial};
 use lattice::{LWE, RLWE};
+use trace::{AccTrace, HadamardProdsTrace};
 
 use crate::{LWEModulusType, LWESecretKeyType, SecretKeyPack};
 
@@ -47,6 +48,31 @@ impl<F: NTTField> BlindRotationKey<F> {
     ) -> RLWE<F> {
         match self {
             BlindRotationKey::Binary(bootstrapping_key) => bootstrapping_key.blind_rotate(lut, lwe),
+            BlindRotationKey::Ternary(bootstrapping_key) => {
+                bootstrapping_key.blind_rotate(lut, lwe, blind_rotation_basis)
+            }
+        }
+    }
+
+    /// Performs the blind rotation operation.
+    pub fn blind_rotate_w_trace<C: LWEModulusType>(
+        &self,
+        lut: Polynomial<F>,
+        lwe: &LWE<C>,
+        blind_rotation_basis: Basis<F>,
+        // Trace
+        acc_trace: &mut AccTrace<F>,
+        hadmard_trace_a: &mut HadamardProdsTrace<F>,
+        hadmard_trace_b: &mut HadamardProdsTrace<F>,
+    ) -> RLWE<F> {
+        match self {
+            BlindRotationKey::Binary(bootstrapping_key) => bootstrapping_key.blind_rotate_w_trace(
+                lut,
+                lwe,
+                acc_trace,
+                hadmard_trace_a,
+                hadmard_trace_b,
+            ),
             BlindRotationKey::Ternary(bootstrapping_key) => {
                 bootstrapping_key.blind_rotate(lut, lwe, blind_rotation_basis)
             }

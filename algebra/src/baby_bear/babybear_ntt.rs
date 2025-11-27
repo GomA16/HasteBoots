@@ -17,6 +17,8 @@ impl From<usize> for BabyBear {
     }
 }
 
+// NTT Table Cache that maps log_n to NTT Table.
+// once_cell is used to ensure that the table is only initialized once.
 static mut NTT_TABLE: once_cell::sync::OnceCell<HashMap<u32, Arc<<BabyBear as NTTField>::Table>>> =
     once_cell::sync::OnceCell::new();
 

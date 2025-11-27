@@ -26,8 +26,8 @@
 //!     where u is the common random challenge from the verifier, used to instantiate the sum
 //!     and c'(y) is computed from c_u(y) = c(u,y)
 use super::{BitDecomposition, DecomposedBits, DecomposedBitsEval, DecomposedBitsInfo};
-use crate::sumcheck::verifier::SubClaim;
-use crate::sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
+use sumcheck::verifier::SubClaim;
+use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
 use crate::utils::{
     eval_identity_function, gen_identity_evaluations, gen_sparse_at_u, gen_sparse_at_u_to_ef,
     print_statistic, verify_oracle_relation,

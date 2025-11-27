@@ -7,10 +7,9 @@ members = [
     "lattice",
     # "fhe",
     "fhe_ops",
-    "piop",
     "pcs",
     "zkfhe",
-    "zkp",
+    "zkp", "sumcheck", "trace",
 ]
 
 resolver = "2"

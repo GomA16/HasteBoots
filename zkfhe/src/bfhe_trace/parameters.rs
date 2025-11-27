@@ -5,6 +5,29 @@ use fhe_core::{
 };
 use once_cell::sync::Lazy;
 
+/// BabyBear field type with ternary secret key and 128-bits security Parameters
+pub static BabyBear_TERNARY_128_BITS_PARAMETERS: Lazy<Parameters<u16, BabyBear>> =
+    Lazy::new(|| {
+        Parameters::<u16, BabyBear>::new(ConstParameters {
+            lwe_dimension: 1024,
+            lwe_cipher_modulus: 1024,
+            lwe_plain_modulus: 4,
+            lwe_noise_standard_deviation: 3.20,
+            lwe_secret_key_type: LWESecretKeyType::Binary,
+            blind_rotation_type: BlindRotationType::RLWE,
+            ring_dimension: 1024,
+            ring_modulus: DefaultFieldU32::MODULUS_VALUE,
+            ring_noise_standard_deviation: 3.20 * ((1 << 1) as f64),
+            ring_secret_key_type: RingSecretKeyType::Binary,
+            blind_rotation_basis_bits: 3,
+            key_switching_basis_bits: 1,
+            key_switching_standard_deviation: 3.2 * ((1 << 1) as f64),
+            modulus_switching_round_method: ModulusSwitchRoundMethod::Round,
+            steps: Steps::BrKsMs,
+        })
+        .unwrap()
+    });
+
 /// Default 128-bits security Parameters
 pub static DEFAULT_TERNARY_128_BITS_PARAMETERS: Lazy<Parameters<u16, DefaultFieldU32>> =
     Lazy::new(|| {

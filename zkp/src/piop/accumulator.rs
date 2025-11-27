@@ -3,10 +3,10 @@
 //! Each updation contains two single ntt operations and one multiplication between RLWE and RGSW
 use crate::piop;
 use crate::piop::LookupIOP;
-use crate::sumcheck::verifier::SubClaim;
-use crate::sumcheck::MLSumcheck;
-use crate::sumcheck::ProofWrapper;
-use crate::sumcheck::SumcheckKit;
+use sumcheck::verifier::SubClaim;
+use sumcheck::MLSumcheck;
+use sumcheck::ProofWrapper;
+use sumcheck::SumcheckKit;
 use core::fmt;
 use core::time;
 use std::marker::PhantomData;

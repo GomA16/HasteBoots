@@ -1,3 +1,6 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![deny(missing_docs)]
+
 //! Interactive Proof Protocol used for Multilinear Sumcheck
 // It is derived from https://github.com/arkworks-rs/sumcheck/blob/master/src/ml_sumcheck/protocol/mod.rs.
 
@@ -8,6 +11,7 @@ use std::marker::PhantomData;
 use verifier::SubClaim;
 pub mod prover;
 pub mod verifier;
+pub mod error;
 
 /// IP for MLSumcheck   
 pub struct IPForMLSumcheck<F: Field> {
@@ -100,7 +104,7 @@ impl<F: Field + Serialize> MLSumcheck<F> {
         polynomial_info: &PolynomialInfo,
         claimed_sum: F,
         proof: &Proof<F>,
-    ) -> Result<SubClaim<F>, crate::Error> {
+    ) -> Result<SubClaim<F>, crate::error::Error> {
         trans.append_message(b"polynomial info", polynomial_info);
         let mut verifier_state = IPForMLSumcheck::verifier_init(polynomial_info);
         for i in 0..polynomial_info.num_variables {

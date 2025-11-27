@@ -9,6 +9,7 @@ edition = "2021"
 algebra = { path = "../algebra" }
 pcs = { path = "../pcs" }
 fhe_core = { path = "../fhe_core" }
+sumcheck = { path = "../sumcheck" }
 
 thiserror = { workspace = true }
 rand = { workspace = true }
@@ -32,3 +33,7 @@ sha2 = { workspace = true }
 
 [dev-dependencies]
 criterion = "0.3"
+
+[[bench]]
+name = "ntt_snarks_bench"
+harness = false

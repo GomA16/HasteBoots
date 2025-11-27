@@ -8,6 +8,7 @@ use crate::Field;
 
 mod dense;
 mod sparse;
+// mod dense_poly;
 
 pub use dense::DenseMultilinearExtension;
 pub use sparse::SparsePolynomial;

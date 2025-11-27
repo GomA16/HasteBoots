@@ -6,8 +6,8 @@ use rand::prelude::*;
 use rand_distr::Distribution;
 use serde::Serialize;
 use std::rc::Rc;
-use zkp::sumcheck::IPForMLSumcheck;
-use zkp::sumcheck::MLSumcheck;
+use sumcheck::IPForMLSumcheck;
+use sumcheck::MLSumcheck;
 
 // field type
 type FF = BabyBear;

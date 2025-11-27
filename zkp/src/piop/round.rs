@@ -1,7 +1,7 @@
 //! Round IOP
 use super::{BitDecomposition, DecomposedBits, DecomposedBitsEval, DecomposedBitsInfo};
-use crate::sumcheck::verifier::SubClaim;
-use crate::sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
+use sumcheck::verifier::SubClaim;
+use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
 use crate::utils::{
     eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
 };
