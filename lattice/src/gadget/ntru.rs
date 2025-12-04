@@ -4,7 +4,7 @@ use algebra::transformation::AbstractNTT;
 use algebra::{Basis, FieldDiscreteGaussianSampler, NTTField, NTTPolynomial, Polynomial};
 use rand::{CryptoRng, Rng};
 
-use crate::{ntru::NTRU, DecompositionSpace, PolynomialSpace, NTTNTRU};
+use crate::{DecompositionSpace, NTTNTRU, PolynomialSpace, ntru::NTRU};
 
 /// A representation of NTRU ciphertexts with respect to different powers
 /// of a base, used to control noise growth in polynomial multiplications.

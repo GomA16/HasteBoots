@@ -60,9 +60,7 @@ macro_rules! _mm_shuffle_ps {
 /// implement _mm_cvtsi128_si32 with neon.
 #[macro_export]
 macro_rules! _mm_cvtsi128_si32 {
-    ($a:expr) => {{
-        vgetq_lane_s32(vreinterpretq_s32_u8($a), 0)
-    }};
+    ($a:expr) => {{ vgetq_lane_s32(vreinterpretq_s32_u8($a), 0) }};
 }
 
 /// implement _mm_aeskeygenassist_si128 with neon.
@@ -97,31 +95,23 @@ macro_rules! _mm_aeskeygenassist_si128 {
 /// implement _mm_castsi128_ps with neon.
 #[macro_export]
 macro_rules! _mm_castsi128_ps {
-    ($a:expr) => {{
-        vreinterpretq_f32_u8($a)
-    }};
+    ($a:expr) => {{ vreinterpretq_f32_u8($a) }};
 }
 
 /// implement _mm_castps_si128 with neon.
 #[macro_export]
 macro_rules! _mm_castps_si128 {
-    ($a:expr) => {{
-        vreinterpretq_u8_f32($a)
-    }};
+    ($a:expr) => {{ vreinterpretq_u8_f32($a) }};
 }
 
 /// implement _mm_xor_si128 with neon.
 #[macro_export]
 macro_rules! _mm_xor_si128 {
-    ($a:expr,$b:expr) => {{
-        veorq_u8($a, $b)
-    }};
+    ($a:expr,$b:expr) => {{ veorq_u8($a, $b) }};
 }
 
 /// implement _mm_and_si128 with neon.
 #[macro_export]
 macro_rules! _mm_and_si128 {
-    ($a:expr,$b:expr) => {{
-        vandq_u8($a, $b)
-    }};
+    ($a:expr,$b:expr) => {{ vandq_u8($a, $b) }};
 }

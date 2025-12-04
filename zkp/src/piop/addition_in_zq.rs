@@ -15,22 +15,22 @@ use crate::utils::{
     eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
 };
 use algebra::{
-    utils::Transcript, AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
-    ListOfProductsOfPolynomials,
+    AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
+    ListOfProductsOfPolynomials, utils::Transcript,
 };
 use bincode::config::standard;
 use core::fmt;
 use pcs::{
+    PolynomialCommitmentScheme,
     multilinear::brakedown::BrakedownPCS,
     utils::code::{LinearCode, LinearCodeSpec},
     utils::hash::Hash,
-    PolynomialCommitmentScheme,
 };
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::time::Instant;
-use sumcheck::{verifier::SubClaim, MLSumcheck};
+use sumcheck::{MLSumcheck, verifier::SubClaim};
 use sumcheck::{ProofWrapper, SumcheckKit};
 
 use super::bit_decomposition::DecomposedBitsEval;

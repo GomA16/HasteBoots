@@ -1,7 +1,7 @@
 //! Lift
-use super::ntt_revision::ntt_bare::NTTBareIOP;
-use super::ntt_revision::NTTRecursiveProof;
 use super::ntt_revision::NTTIOP;
+use super::ntt_revision::NTTRecursiveProof;
+use super::ntt_revision::ntt_bare::NTTBareIOP;
 use super::ntt_revision::{NTTInstance, NTTInstanceInfo};
 use super::sparse_eval::SparseEvalIOP;
 use super::sparse_eval::SparseEvalInstance;
@@ -10,17 +10,17 @@ use crate::utils::{
     add_assign_ef, eval_identity_function, gen_identity_evaluations, verify_oracle_relation,
 };
 use algebra::{
-    utils::Transcript, AbstractExtensionField, DenseMultilinearExtension, Field,
-    ListOfProductsOfPolynomials,
+    AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
+    utils::Transcript,
 };
 use bincode::config::standard;
 use core::fmt;
 use itertools::izip;
 use pcs::{
+    PolynomialCommitmentScheme,
     multilinear::brakedown::BrakedownPCS,
     utils::code::{LinearCode, LinearCodeSpec},
     utils::hash::Hash,
-    PolynomialCommitmentScheme,
 };
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -28,10 +28,10 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
 use std::vec;
-use sumcheck::verifier::SubClaim;
 use sumcheck::MLSumcheck;
 use sumcheck::ProofWrapper;
 use sumcheck::SumcheckKit;
+use sumcheck::verifier::SubClaim;
 
 /// IOP for Lift
 pub struct LiftIOP<F: Field>(PhantomData<F>);
@@ -958,11 +958,15 @@ where
 
         println!(
             "The 1st committed polynomial is of {} variables, which consists of {} smaller oracles used in IOP, each of which is of {} variables.",
-            committed_poly.num_vars, instance.num_oracles(), instance.num_vars,
+            committed_poly.num_vars,
+            instance.num_oracles(),
+            instance.num_vars,
         );
         println!(
             "The 2nd committed polynomial is of {} variables, which consists of {} smaller oracles used in IOP, each of which is of {} variables.",
-            second_committed_poly.num_vars, lookup_instance.num_second_oracles(), lookup_instance.num_vars,
+            second_committed_poly.num_vars,
+            lookup_instance.num_second_oracles(),
+            lookup_instance.num_vars,
         );
     }
 }

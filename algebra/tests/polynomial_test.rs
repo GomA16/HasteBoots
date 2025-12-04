@@ -1,7 +1,7 @@
 use algebra::{
-    derive::{DecomposableField, FheField, Field, Prime, NTT},
-    transformation::{AbstractNTT, MonomialNTT},
     Basis, Field, FieldUniformSampler, ModulusConfig, NTTField, NTTPolynomial, Polynomial,
+    derive::{DecomposableField, FheField, Field, NTT, Prime},
+    transformation::{AbstractNTT, MonomialNTT},
 };
 use num_traits::{One, Zero};
 use rand::Rng;
@@ -24,7 +24,7 @@ const P: Inner = FF::MODULUS.value(); // ciphertext space
 
 #[test]
 fn test_transform() {
-    FF::init_ntt_table(&[LOG_N as u32]).unwrap();
+    FF::init_ntt_table(LOG_N as u32).unwrap();
 
     let a = PolyFF::random(N, &mut rand::rng());
     let b = a.clone().into_ntt_polynomial();
@@ -109,7 +109,7 @@ fn test_native_poly() {
 
 #[test]
 fn test_native_poly_mul() {
-    FF::init_ntt_table(&[LOG_N as u32]).unwrap();
+    FF::init_ntt_table(LOG_N as u32).unwrap();
 
     let mut rng = rand::rng();
 

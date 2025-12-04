@@ -2,17 +2,17 @@
 use super::{BitDecomposition, DecomposedBits, DecomposedBitsEval, DecomposedBitsInfo};
 use crate::utils::{eval_identity_function, gen_identity_evaluations, verify_oracle_relation};
 use algebra::{
-    utils::Transcript, AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
-    ListOfProductsOfPolynomials,
+    AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
+    ListOfProductsOfPolynomials, utils::Transcript,
 };
 use bincode::config::standard;
 use core::fmt;
 use itertools::izip;
 use pcs::{
+    PolynomialCommitmentScheme,
     multilinear::brakedown::BrakedownPCS,
     utils::code::{LinearCode, LinearCodeSpec},
     utils::hash::Hash,
-    PolynomialCommitmentScheme,
 };
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -892,7 +892,9 @@ where
 
         println!(
             "The 1st committed polynomial is of {} variables, which consists of {} smaller oracles used in IOP, each of which is of {} variables.",
-            committed_poly.num_vars, instance.num_oracles(), instance.num_vars,
+            committed_poly.num_vars,
+            instance.num_oracles(),
+            instance.num_vars,
         );
     }
 }

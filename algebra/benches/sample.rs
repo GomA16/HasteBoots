@@ -1,9 +1,9 @@
 use algebra::{
-    utils::{sample_binary_field_vec, sample_cbd_field_vec, sample_ternary_field_vec, Prg},
     Polynomial,
+    utils::{Prg, sample_binary_field_vec, sample_cbd_field_vec, sample_ternary_field_vec},
 };
 use algebra_derive::Field;
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
 

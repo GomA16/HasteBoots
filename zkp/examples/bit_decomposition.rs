@@ -1,5 +1,5 @@
-use algebra::derive::{DecomposableField, Field};
 use algebra::AsFrom;
+use algebra::derive::{DecomposableField, Field};
 use algebra::{BabyBear, BabyBearExetension, Basis, DenseMultilinearExtension};
 use algebra::{DecomposableField, Field, FieldUniformSampler};
 use itertools::izip;

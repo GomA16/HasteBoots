@@ -34,24 +34,24 @@ use crate::utils::{
     eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
 };
 use algebra::{
-    utils::Transcript, AbstractExtensionField, DenseMultilinearExtension, Field,
-    ListOfProductsOfPolynomials, PolynomialInfo,
+    AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
+    PolynomialInfo, utils::Transcript,
 };
 use bincode::config::standard;
 use core::fmt;
 use itertools::izip;
 use pcs::{
+    PolynomialCommitmentScheme,
     multilinear::brakedown::BrakedownPCS,
     utils::code::{LinearCode, LinearCodeSpec},
     utils::hash::Hash,
-    PolynomialCommitmentScheme,
 };
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
-use sumcheck::{prover::ProverState, verifier::SubClaim, MLSumcheck, Proof};
+use sumcheck::{MLSumcheck, Proof, prover::ProverState, verifier::SubClaim};
 use sumcheck::{ProofWrapper, SumcheckKit};
 
 use ntt_bare::NTTBareIOP;
@@ -1099,8 +1099,8 @@ where
 mod test {
     use crate::piop::ntt::{eval_w_power_times_x, naive_w_power_times_x_table};
     use algebra::{
-        derive::{DecomposableField, FheField, Field, Prime, NTT},
         DenseMultilinearExtension, FieldUniformSampler, NTTField,
+        derive::{DecomposableField, FheField, Field, NTT, Prime},
     };
     use num_traits::{One, Zero};
     use rand_distr::Distribution;

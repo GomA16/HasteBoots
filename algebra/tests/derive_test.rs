@@ -1,11 +1,11 @@
 use algebra::{
-    derive::{DecomposableField, FheField, Field, Prime, NTT},
+    Basis, DecomposableField, Field, FieldUniformSampler, ModulusConfig, PrimeField,
+    derive::{DecomposableField, FheField, Field, NTT, Prime},
     modulus::BarrettModulus,
     reduce::*,
-    Basis, DecomposableField, Field, FieldUniformSampler, ModulusConfig, PrimeField,
 };
 use num_traits::{Inv, One, Zero};
-use rand::{distr::Uniform, Rng};
+use rand::{Rng, distr::Uniform};
 use rand_distr::Distribution;
 
 #[derive(Field, DecomposableField, FheField, Prime, NTT)]
@@ -140,8 +140,8 @@ fn test_decompose() {
 
 #[cfg(feature = "concrete-ntt")]
 use algebra::{
-    modulus::{from_monty, to_canonical_u64, to_monty, BabyBearModulus, GoldilocksModulus},
     BabyBear, Goldilocks,
+    modulus::{BabyBearModulus, GoldilocksModulus, from_monty, to_canonical_u64, to_monty},
 };
 
 #[test]

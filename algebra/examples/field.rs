@@ -1,6 +1,6 @@
 use algebra::{
-    derive::*, Field, FieldBinarySampler, FieldDiscreteGaussianSampler, FieldTernarySampler,
-    FieldUniformSampler, Polynomial, PrimeField,
+    Field, FieldBinarySampler, FieldDiscreteGaussianSampler, FieldTernarySampler,
+    FieldUniformSampler, Polynomial, PrimeField, derive::*,
 };
 use num_traits::{Inv, One, Pow, Zero};
 use rand::prelude::*;

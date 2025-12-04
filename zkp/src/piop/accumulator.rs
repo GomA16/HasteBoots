@@ -8,30 +8,26 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
 
-use algebra::utils::Transcript;
 use algebra::AbstractExtensionField;
+use algebra::utils::Transcript;
 use algebra::{DenseMultilinearExtension, Field, ListOfProductsOfPolynomials};
 use bincode::config::standard;
-use itertools::izip;
 use itertools::Itertools;
+use itertools::izip;
 use pcs::{
+    PolynomialCommitmentScheme,
     multilinear::brakedown::BrakedownPCS,
     utils::code::{LinearCode, LinearCodeSpec},
     utils::hash::Hash,
-    PolynomialCommitmentScheme,
 };
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
 use serde::{Deserialize, Serialize};
-use sumcheck::verifier::SubClaim;
 use sumcheck::MLSumcheck;
 use sumcheck::ProofWrapper;
 use sumcheck::SumcheckKit;
+use sumcheck::verifier::SubClaim;
 
-use super::ntt::NTTRecursiveProof;
-use super::rlwe_mul_rgsw::RlweEval;
-use super::rlwe_mul_rgsw::RlweMultRgswEval;
-use super::rlwe_mul_rgsw::RlweMultRgswInfo;
 use super::DecomposedBits;
 use super::LookupInstance;
 use super::NTTBareIOP;
@@ -39,7 +35,11 @@ use super::RlweCiphertext;
 use super::RlweMultRgswIOP;
 use super::RlweMultRgswIOPPure;
 use super::RlweMultRgswInstance;
-use super::{DecomposedBitsInfo, NTTInstance, NTTInstanceInfo, NTTIOP};
+use super::ntt::NTTRecursiveProof;
+use super::rlwe_mul_rgsw::RlweEval;
+use super::rlwe_mul_rgsw::RlweMultRgswEval;
+use super::rlwe_mul_rgsw::RlweMultRgswInfo;
+use super::{DecomposedBitsInfo, NTTIOP, NTTInstance, NTTInstanceInfo};
 use crate::piop::LookupIOP;
 use crate::utils::{
     add_assign_ef, eval_identity_function, gen_identity_evaluations, print_statistic,
@@ -1748,11 +1748,15 @@ where
 
         println!(
             "The 1st committed polynomial is of {} variables, which consists of {} smaller oracles used in IOP, each of which is of {} variables.",
-            committed_poly.num_vars, instance.num_oracles(), instance.num_vars,
+            committed_poly.num_vars,
+            instance.num_oracles(),
+            instance.num_vars,
         );
         println!(
             "The 2nd committed polynomial is of {} variables, which consists of {} smaller oracles used in IOP, each of which is of {} variables.",
-            second_committed_poly.num_vars, lookup_instance.num_second_oracles(), lookup_instance.num_vars,
+            second_committed_poly.num_vars,
+            lookup_instance.num_second_oracles(),
+            lookup_instance.num_vars,
         );
 
         // // 4. print statistic

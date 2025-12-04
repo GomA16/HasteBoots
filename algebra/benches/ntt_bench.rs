@@ -1,9 +1,9 @@
 use algebra::{
-    transformation::{AbstractNTT, MonomialNTT},
     Basis, FieldUniformSampler, NTTField, Polynomial,
+    transformation::{AbstractNTT, MonomialNTT},
 };
-use algebra_derive::{DecomposableField, FheField, Field, Prime, NTT};
-use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
+use algebra_derive::{DecomposableField, FheField, Field, NTT, Prime};
+use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use rand::prelude::*;
 
 #[derive(Field, Prime, DecomposableField, FheField, NTT)]
@@ -14,7 +14,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let log_n = 10;
     let n = 1 << log_n;
 
-    Fp::init_ntt_table(&[log_n]).unwrap();
+    Fp::init_ntt_table(log_n).unwrap();
 
     let mut rng = rand::rng();
 

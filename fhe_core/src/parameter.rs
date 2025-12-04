@@ -1,6 +1,6 @@
 use algebra::{
-    derive::*, modulus::PowOf2Modulus, Basis, BinomialExtensionField, BinomiallyExtendable, Field,
-    FieldDiscreteGaussianSampler, HasTwoAdicBionmialExtension, NTTField, Packable,
+    Basis, BinomialExtensionField, BinomiallyExtendable, Field, FieldDiscreteGaussianSampler,
+    HasTwoAdicBionmialExtension, NTTField, Packable, derive::*, modulus::PowOf2Modulus,
 };
 use lattice::DiscreteGaussian;
 

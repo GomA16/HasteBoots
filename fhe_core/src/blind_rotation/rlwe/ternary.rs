@@ -1,9 +1,9 @@
 use algebra::{
-    transformation::MonomialNTT, AsInto, Basis, FieldDiscreteGaussianSampler, NTTField,
-    NTTPolynomial, Polynomial,
+    AsInto, Basis, FieldDiscreteGaussianSampler, NTTField, NTTPolynomial, Polynomial,
+    transformation::MonomialNTT,
 };
 use lattice::{
-    DecompositionSpace, NTTRGSWSpace, NTTRLWESpace, PolynomialSpace, RLWESpace, LWE, NTTRGSW, RLWE,
+    DecompositionSpace, LWE, NTTRGSW, NTTRGSWSpace, NTTRLWESpace, PolynomialSpace, RLWE, RLWESpace,
 };
 
 use crate::LWEModulusType;

@@ -1,9 +1,9 @@
 use std::vec;
 
 use algebra::{
-    derive::{DecomposableField, Field, Prime},
     Basis, DenseMultilinearExtension, Field, FieldUniformSampler, ListOfProductsOfPolynomials,
     MultilinearExtension,
+    derive::{DecomposableField, Field, Prime},
 };
 use num_traits::{Pow, Zero};
 use rand_distr::Distribution;

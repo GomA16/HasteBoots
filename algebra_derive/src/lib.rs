@@ -13,7 +13,7 @@ mod ops;
 mod prime;
 
 use proc_macro::TokenStream;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{DeriveInput, parse_macro_input};
 
 /// Derive macro generates an impl of the trait `algebra::Field`.
 ///

@@ -5,8 +5,8 @@ use algebra::transformation::count;
 use fhe_core::utils::nand;
 use rand::Rng;
 use zkfhe::{
-    bfhe::{Evaluator, DEFAULT_TERNARY_128_BITS_PARAMETERS},
     Decryptor, Encryptor, KeyGen,
+    bfhe::{DEFAULT_TERNARY_128_BITS_PARAMETERS, Evaluator},
 };
 
 type M = bool;

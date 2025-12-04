@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use std::{collections::BTreeSet, fmt::Debug, iter};
 
-use rand::{distr::Uniform, CryptoRng, Rng};
+use rand::{CryptoRng, Rng, distr::Uniform};
 
 /// Define the dimension that specifies a sparse matrix.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -156,11 +156,7 @@ pub fn ceil(v: f64) -> usize {
 pub fn div_ceil(dividend: usize, divisor: usize) -> usize {
     let d = dividend / divisor;
     let r = dividend % divisor;
-    if r > 0 {
-        d + 1
-    } else {
-        d
-    }
+    if r > 0 { d + 1 } else { d }
 }
 
 /// Compute the lagrange basis of a given point (which is a series of point of one dimension)

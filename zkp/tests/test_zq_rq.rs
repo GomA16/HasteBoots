@@ -1,7 +1,7 @@
 use algebra::{
-    derive::{DecomposableField, Field, Prime},
     BabyBear, BabyBearExetension, DecomposableField, DenseMultilinearExtension, Field,
     FieldUniformSampler, SparsePolynomial,
+    derive::{DecomposableField, Field, Prime},
 };
 use num_traits::{One, Zero};
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
@@ -9,7 +9,7 @@ use rand_distr::Distribution;
 use sha2::Sha256;
 use std::rc::Rc;
 use std::vec;
-use zkp::piop::{zq_to_rq::ZqToRQSnarks, DecomposedBitsInfo, ZqToRQIOP, ZqToRQInstance};
+use zkp::piop::{DecomposedBitsInfo, ZqToRQIOP, ZqToRQInstance, zq_to_rq::ZqToRQSnarks};
 
 #[derive(Field, DecomposableField)]
 #[modulus = 8]

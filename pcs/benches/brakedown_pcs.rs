@@ -1,15 +1,15 @@
 use std::time::Duration;
 
 use algebra::{
-    utils::Transcript, BabyBear, BabyBearExetension, DenseMultilinearExtension, FieldUniformSampler,
+    BabyBear, BabyBearExetension, DenseMultilinearExtension, FieldUniformSampler, utils::Transcript,
 };
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use pcs::{
+    PolynomialCommitmentScheme,
     multilinear::{
         BrakedownCommitmentState, BrakedownOpenProof, BrakedownPCS, BrakedownPolyCommitment,
     },
     utils::code::{ExpanderCode, ExpanderCodeSpec},
-    PolynomialCommitmentScheme,
 };
 use rand::Rng;
 use sha2::Sha256;

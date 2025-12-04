@@ -24,16 +24,16 @@ use std::time::Instant;
 use std::vec;
 
 use algebra::{
-    utils::Transcript, AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
-    ListOfProductsOfPolynomials,
+    AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
+    ListOfProductsOfPolynomials, utils::Transcript,
 };
 use bincode::config::standard;
 use itertools::izip;
 use pcs::{
+    PolynomialCommitmentScheme,
     multilinear::brakedown::BrakedownPCS,
     utils::code::{LinearCode, LinearCodeSpec},
     utils::hash::Hash,
-    PolynomialCommitmentScheme,
 };
 use serde::{Deserialize, Serialize};
 use sumcheck::verifier::SubClaim;

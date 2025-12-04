@@ -4,15 +4,15 @@ use core::fmt;
 use std::rc::Rc;
 
 use algebra::{
-    utils::Transcript, AbstractExtensionField, DenseMultilinearExtension, Field,
-    ListOfProductsOfPolynomials,
+    AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
+    utils::Transcript,
 };
 use serde::{Deserialize, Serialize};
-use sumcheck::{verifier::SubClaim, MLSumcheck};
+use sumcheck::{MLSumcheck, verifier::SubClaim};
 use sumcheck::{ProofWrapper, SumcheckKit};
 
-use super::lookup::LookupInstanceInfo;
 use super::LookupInstance;
+use super::lookup::LookupInstanceInfo;
 
 use crate::utils::{eval_identity_function, gen_identity_evaluations};
 

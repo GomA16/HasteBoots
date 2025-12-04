@@ -1,8 +1,8 @@
-use rand::{distr::Uniform, prelude::Distribution, rngs::StdRng, SeedableRng};
+use rand::{SeedableRng, distr::Uniform, prelude::Distribution, rngs::StdRng};
 
+use crate::Widening;
 use crate::modulus::BarrettModulus;
 use crate::reduce::{PowReduce, Reduce};
-use crate::Widening;
 
 /// The trait defines some function for prime number
 pub trait Prime {

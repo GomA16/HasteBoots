@@ -1,6 +1,6 @@
 use algebra::{AsInto, Basis, FieldDiscreteGaussianSampler, NTTField, NTTPolynomial, Polynomial};
 use lattice::{
-    DecompositionSpace, NTRUSpace, NTTGadgetNTRU, NTTNTRUSpace, PolynomialSpace, LWE, NTRU,
+    DecompositionSpace, LWE, NTRU, NTRUSpace, NTTGadgetNTRU, NTTNTRUSpace, PolynomialSpace,
 };
 
 use crate::LWEModulusType;

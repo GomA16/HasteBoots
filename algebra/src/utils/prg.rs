@@ -1,10 +1,10 @@
 //! Implement AES-based PRG.
 
-use crate::utils::{aes::Aes, Block};
+use crate::utils::{Block, aes::Aes};
 use rand::Rng;
 use rand_core::{
-    block::{BlockRng, BlockRngCore},
     CryptoRng, RngCore, SeedableRng,
+    block::{BlockRng, BlockRngCore},
 };
 
 ///Struct of PRG Core

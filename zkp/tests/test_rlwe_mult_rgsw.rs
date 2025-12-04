@@ -1,7 +1,7 @@
-use algebra::{transformation::AbstractNTT, NTTField, Polynomial};
 use algebra::{
     BabyBear, BabyBearExetension, Basis, DenseMultilinearExtension, Field, FieldUniformSampler,
 };
+use algebra::{NTTField, Polynomial, transformation::AbstractNTT};
 use itertools::izip;
 use num_traits::One;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
@@ -11,8 +11,8 @@ use std::sync::Arc;
 use std::vec;
 use zkp::piop::RlweMultRgswSnarksOpt;
 use zkp::piop::{
-    rlwe_mul_rgsw::RlweMultRgswSnarks, DecomposedBitsInfo, NTTInstanceInfo, RlweCiphertext,
-    RlweCiphertexts, RlweMultRgswIOP, RlweMultRgswInstance,
+    DecomposedBitsInfo, NTTInstanceInfo, RlweCiphertext, RlweCiphertexts, RlweMultRgswIOP,
+    RlweMultRgswInstance, rlwe_mul_rgsw::RlweMultRgswSnarks,
 };
 
 // field type

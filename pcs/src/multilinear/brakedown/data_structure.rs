@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use algebra::{utils::Prg, AbstractExtensionField, Field};
+use algebra::{AbstractExtensionField, Field, utils::Prg};
 use bincode::error::{DecodeError, EncodeError};
 use serde::{Deserialize, Serialize};
 
@@ -111,10 +111,10 @@ impl<F: Field, EF: AbstractExtensionField<F>, C: LinearCode<F>> BrakedownParams<
 }
 
 impl<
-        F: Field,
-        EF: AbstractExtensionField<F>,
-        C: LinearCode<F> + Serialize + for<'de> Deserialize<'de>,
-    > BrakedownParams<F, EF, C>
+    F: Field,
+    EF: AbstractExtensionField<F>,
+    C: LinearCode<F> + Serialize + for<'de> Deserialize<'de>,
+> BrakedownParams<F, EF, C>
 {
     /// Convert into bytes.
     pub fn to_bytes(&self) -> Result<Vec<u8>, EncodeError> {

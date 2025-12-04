@@ -34,8 +34,8 @@ use crate::utils::{
 };
 use algebra::PolynomialInfo;
 use algebra::{
-    utils::Transcript, AbstractExtensionField, AsFrom, DenseMultilinearExtension, Field,
-    ListOfProductsOfPolynomials,
+    AbstractExtensionField, AsFrom, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
+    utils::Transcript,
 };
 use bincode::config::standard;
 use bincode::error::{DecodeError, EncodeError};
@@ -45,7 +45,7 @@ use rayon::{iter::ParallelIterator, slice::ParallelSlice};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, marker::PhantomData, rc::Rc};
 use sumcheck;
-use sumcheck::{verifier::SubClaim, MLSumcheck, ProofWrapper, SumcheckKit};
+use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit, verifier::SubClaim};
 
 /// Stores the parameters used for lookup and the public info for verifier.
 #[derive(Clone, Serialize, Deserialize)]
@@ -792,13 +792,13 @@ where
     EF: AbstractExtensionField<F> + Serialize,
     S: Clone,
     Pcs: PolynomialCommitmentScheme<
-        F,
-        EF,
-        S,
-        Polynomial = DenseMultilinearExtension<F>,
-        EFPolynomial = DenseMultilinearExtension<EF>,
-        Point = EF,
-    >,
+            F,
+            EF,
+            S,
+            Polynomial = DenseMultilinearExtension<F>,
+            EFPolynomial = DenseMultilinearExtension<EF>,
+            Point = EF,
+        >,
 {
     /// The prover.
     pub fn prove(

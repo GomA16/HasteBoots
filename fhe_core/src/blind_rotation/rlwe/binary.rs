@@ -1,5 +1,5 @@
 use algebra::{AsInto, Basis, FieldDiscreteGaussianSampler, NTTField, NTTPolynomial, Polynomial};
-use lattice::{DecompositionSpace, NTTRLWESpace, PolynomialSpace, RLWESpace, LWE, NTTRGSW, RLWE};
+use lattice::{DecompositionSpace, LWE, NTTRGSW, NTTRLWESpace, PolynomialSpace, RLWE, RLWESpace};
 
 use crate::LWEModulusType;
 use trace::{AccTrace, HadamardProdsTrace};

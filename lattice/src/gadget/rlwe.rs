@@ -1,12 +1,12 @@
 use std::slice::{Iter, IterMut};
 
 use algebra::{
-    transformation::AbstractNTT, Basis, FieldDiscreteGaussianSampler, NTTField, NTTPolynomial,
-    Polynomial,
+    Basis, FieldDiscreteGaussianSampler, NTTField, NTTPolynomial, Polynomial,
+    transformation::AbstractNTT,
 };
 use rand::{CryptoRng, Rng};
 
-use crate::{DecompositionSpace, PolynomialSpace, NTTRLWE, RLWE};
+use crate::{DecompositionSpace, NTTRLWE, PolynomialSpace, RLWE};
 
 use trace::HadamardProdsTrace;
 

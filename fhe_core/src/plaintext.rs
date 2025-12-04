@@ -4,12 +4,12 @@ use std::{
 };
 
 use algebra::{
+    AsFrom, AsInto, Bits,
     modulus::PowOf2Modulus,
     reduce::{
         AddReduce, AddReduceAssign, DotProductReduce, MulReduce, MulReduceAssign, NegReduce,
         NegReduceAssign, SubReduce,
     },
-    AsFrom, AsInto, Bits,
 };
 use num_traits::{ConstOne, ConstZero, PrimInt};
 use rand::distr::uniform::SampleUniform;

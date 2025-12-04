@@ -10,14 +10,14 @@ use num_traits::{Inv, One, Pow, Zero};
 use rand::{CryptoRng, Rng};
 use rand_distr::{Distribution, StandardUniform};
 use serde::{
+    Deserialize, Deserializer, Serialize, Serializer,
     de::{SeqAccess, Visitor},
     ser::SerializeSeq,
-    Deserialize, Deserializer, Serialize, Serializer,
 };
 
 use crate::{
-    field_to_array, powers, AbstractExtensionField, ExtensionField, Field, FieldUniformSampler,
-    HasFrobenius, HasTwoAdicBionmialExtension, PackedField, TwoAdicField,
+    AbstractExtensionField, ExtensionField, Field, FieldUniformSampler, HasFrobenius,
+    HasTwoAdicBionmialExtension, PackedField, TwoAdicField, field_to_array, powers,
 };
 
 use super::{BinomiallyExtendable, Packable};

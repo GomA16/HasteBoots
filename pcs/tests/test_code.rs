@@ -1,4 +1,4 @@
-use algebra::{derive::*, FieldUniformSampler};
+use algebra::{FieldUniformSampler, derive::*};
 use num_traits::{One, Zero};
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec, LinearCode};
 use rand::Rng;

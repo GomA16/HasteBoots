@@ -1,7 +1,7 @@
 use std::hint::black_box;
 
-use algebra::{derive::*, FieldUniformSampler, Polynomial};
-use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
+use algebra::{FieldUniformSampler, Polynomial, derive::*};
+use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use lattice::RLWE;
 
 #[derive(Field, Prime, DecomposableField, FheField, NTT)]

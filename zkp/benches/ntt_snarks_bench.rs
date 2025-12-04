@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use rand::prelude::*;
 use rayon::vec;
 use sha2::Sha256;
@@ -6,15 +6,15 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
 
-use algebra::{transformation::AbstractNTT, NTTField, Polynomial};
 use algebra::{BabyBear, BabyBearExetension, NTTPolynomial};
 use algebra::{DecomposableField, DenseMultilinearExtension, Field};
+use algebra::{NTTField, Polynomial, transformation::AbstractNTT};
 use num_traits::Zero;
 use pcs::utils::code::{self, ExpanderCode, ExpanderCodeSpec};
+use zkp::piop::NTTBareIOP;
 use zkp::piop::ntt::ntt_bare::init_fourier_table;
 use zkp::piop::ntt_revision::NTTSnarks;
 use zkp::piop::ntt_revision::{NTTInstance, NTTInstances};
-use zkp::piop::NTTBareIOP;
 
 type FF = BabyBear;
 type EF = BabyBearExetension;

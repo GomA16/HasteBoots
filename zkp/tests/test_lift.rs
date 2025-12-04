@@ -1,23 +1,23 @@
 use algebra::derive::Field;
-use algebra::{transformation::AbstractNTT, NTTField, Polynomial};
 use algebra::{
     BabyBear, BabyBearExetension, Basis, DenseMultilinearExtension, Field, FieldUniformSampler,
 };
+use algebra::{NTTField, Polynomial, transformation::AbstractNTT};
 use itertools::izip;
 use num_traits::One;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand_distr::Distribution;
-use sha2::digest::Output;
 use sha2::Sha256;
+use sha2::digest::Output;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::vec;
+use zkp::piop::RlweMultRgswSnarksOpt;
 use zkp::piop::lift::{LiftIOP, LiftInstance, LiftSnarks};
 use zkp::piop::ntt_revision::NTTInstanceInfo;
-use zkp::piop::RlweMultRgswSnarksOpt;
 use zkp::piop::{
-    rlwe_mul_rgsw::RlweMultRgswSnarks, DecomposedBitsInfo, RlweCiphertext, RlweCiphertexts,
-    RlweMultRgswIOP, RlweMultRgswInstance,
+    DecomposedBitsInfo, RlweCiphertext, RlweCiphertexts, RlweMultRgswIOP, RlweMultRgswInstance,
+    rlwe_mul_rgsw::RlweMultRgswSnarks,
 };
 
 // field type

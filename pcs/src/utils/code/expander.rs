@@ -1,5 +1,5 @@
 use crate::utils::{
-    arithmetic::{ceil, entropy, SparseMatrix, SparseMatrixDimension},
+    arithmetic::{SparseMatrix, SparseMatrixDimension, ceil, entropy},
     code::{LinearCode, ReedSolomonCode},
 };
 

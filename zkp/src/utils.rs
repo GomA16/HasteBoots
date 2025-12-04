@@ -298,8 +298,8 @@ pub fn batch_inverse<F: Field>(x: &[F]) -> Vec<F> {
 mod test {
     use crate::utils::{eval_identity_function, gen_identity_evaluations};
     use algebra::{
-        derive::{Field, Prime},
         FieldUniformSampler,
+        derive::{Field, Prime},
     };
     use rand_distr::Distribution;
 

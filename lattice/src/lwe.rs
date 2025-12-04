@@ -1,15 +1,15 @@
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 use algebra::{
+    AsFrom,
     reduce::{
         AddReduce, AddReduceAssign, DotProductReduce, MulReduce, MulReduceAssign, NegReduce,
         NegReduceAssign, SubReduce, SubReduceAssign,
     },
-    AsFrom,
 };
 use num_traits::ConstZero;
 use rand::{CryptoRng, Rng};
-use rand_distr::{uniform::SampleUniform, Distribution, Uniform};
+use rand_distr::{Distribution, Uniform, uniform::SampleUniform};
 
 use crate::DiscreteGaussian;
 

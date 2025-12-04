@@ -1,7 +1,7 @@
-use algebra::{transformation::AbstractNTT, NTTField, NTTPolynomial, Polynomial};
 use algebra::{
     BabyBear, BabyBearExetension, Basis, DenseMultilinearExtension, Field, MultilinearExtension,
 };
+use algebra::{NTTField, NTTPolynomial, Polynomial, transformation::AbstractNTT};
 use itertools::izip;
 use num_traits::One;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};

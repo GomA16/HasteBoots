@@ -1,7 +1,7 @@
 use algebra::NTTField;
-use fhe_core::{utils::*, LWECiphertext, LWEModulusType, SecretKeyPack};
+use fhe_core::{LWECiphertext, LWEModulusType, SecretKeyPack, utils::*};
 use rand::Rng;
-use zkfhe::ntru_bfhe::{Evaluator, DEFAULT_TERNARY_128_BITS_NTRU_PARAMETERS};
+use zkfhe::ntru_bfhe::{DEFAULT_TERNARY_128_BITS_NTRU_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor};
 
 type M = bool;

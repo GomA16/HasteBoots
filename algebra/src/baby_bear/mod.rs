@@ -13,13 +13,12 @@ use std::{
 use num_traits::{Inv, One, Pow, Zero};
 
 use crate::{
-    div_ceil,
-    modulus::{self, from_monty, to_monty, BabyBearModulus, MONTY_NEG_ONE, MONTY_ONE, MONTY_ZERO},
+    DecomposableField, FheField, Field, Packable, PrimeField, TwoAdicField, div_ceil,
+    modulus::{self, BabyBearModulus, MONTY_NEG_ONE, MONTY_ONE, MONTY_ZERO, from_monty, to_monty},
     reduce::{
         AddReduce, AddReduceAssign, DivReduce, DivReduceAssign, InvReduce, MulReduce,
         MulReduceAssign, NegReduce, PowReduce, SubReduce, SubReduceAssign,
     },
-    DecomposableField, FheField, Field, Packable, PrimeField, TwoAdicField,
 };
 
 /// Implementation of BabyBear field.

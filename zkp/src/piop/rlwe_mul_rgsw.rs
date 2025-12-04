@@ -24,29 +24,29 @@
 //!
 //! Hence, there are 2k + 2 NTT instances in this single multiplication instance. We can randomize all these 2k+2 NTT instances to obtain a single NTT instance,
 //! and use our NTT IOP to prove this randomized NTT instance.
+use super::LookupInstance;
+use super::NTTBareIOP;
 use super::bit_decomposition::BitDecomposition;
 use super::bit_decomposition::DecomposedBitsEval;
 use super::ntt::NTTRecursiveProof;
-use super::LookupInstance;
-use super::NTTBareIOP;
-use super::{DecomposedBits, DecomposedBitsInfo, NTTInstance, NTTInstanceInfo, NTTIOP};
+use super::{DecomposedBits, DecomposedBitsInfo, NTTIOP, NTTInstance, NTTInstanceInfo};
 use crate::piop::LookupIOP;
 use crate::utils::{
     add_assign_ef, eval_identity_function, gen_identity_evaluations, print_statistic,
     verify_oracle_relation,
 };
 use algebra::{
-    utils::Transcript, AbstractExtensionField, DenseMultilinearExtension, Field,
-    ListOfProductsOfPolynomials,
+    AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
+    utils::Transcript,
 };
 use bincode::config::standard;
 use core::fmt;
 use itertools::izip;
 use pcs::{
+    PolynomialCommitmentScheme,
     multilinear::brakedown::BrakedownPCS,
     utils::code::{LinearCode, LinearCodeSpec},
     utils::hash::Hash,
-    PolynomialCommitmentScheme,
 };
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -54,10 +54,10 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
 use std::vec;
-use sumcheck::verifier::SubClaim;
 use sumcheck::MLSumcheck;
 use sumcheck::ProofWrapper;
 use sumcheck::SumcheckKit;
+use sumcheck::verifier::SubClaim;
 /// IOP for RLWE * RGSW
 pub struct RlweMultRgswIOP<F: Field>(PhantomData<F>);
 

@@ -1,10 +1,10 @@
 use std::hint::black_box;
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use rand::Rng;
 use zkfhe::{
-    bfhe::{Evaluator, DEFAULT_TERNARY_128_BITS_PARAMETERS},
     Encryptor, KeyGen,
+    bfhe::{DEFAULT_TERNARY_128_BITS_PARAMETERS, Evaluator},
 };
 
 type M = bool;

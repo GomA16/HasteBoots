@@ -1,10 +1,10 @@
 use algebra::{
-    transformation::MonomialNTT, AsInto, Basis, FieldDiscreteGaussianSampler, NTTField,
-    NTTPolynomial, Polynomial,
+    AsInto, Basis, FieldDiscreteGaussianSampler, NTTField, NTTPolynomial, Polynomial,
+    transformation::MonomialNTT,
 };
 use lattice::{
-    DecompositionSpace, NTRUSpace, NTTGadgetNTRU, NTTGadgetNTRUSpace, NTTNTRUSpace,
-    PolynomialSpace, LWE, NTRU,
+    DecompositionSpace, LWE, NTRU, NTRUSpace, NTTGadgetNTRU, NTTGadgetNTRUSpace, NTTNTRUSpace,
+    PolynomialSpace,
 };
 
 use crate::LWEModulusType;

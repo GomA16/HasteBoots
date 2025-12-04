@@ -1,8 +1,8 @@
 use algebra::{
-    derive::{DecomposableField, Field, Prime},
-    utils::Transcript,
     BabyBear, BabyBearExetension, Basis, DecomposableField, DenseMultilinearExtension, Field,
     FieldUniformSampler,
+    derive::{DecomposableField, Field, Prime},
+    utils::Transcript,
 };
 use num_traits::{One, Zero};
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};

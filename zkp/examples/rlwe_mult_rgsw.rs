@@ -1,6 +1,6 @@
-use algebra::{transformation::AbstractNTT, NTTField, Polynomial};
 use algebra::{BabyBear, BabyBearExetension, Basis, FieldUniformSampler};
 use algebra::{DenseMultilinearExtension, Field};
+use algebra::{NTTField, Polynomial, transformation::AbstractNTT};
 use itertools::izip;
 use num_traits::One;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};

@@ -6,9 +6,9 @@ use algebra::{DenseMultilinearExtension, Field, FieldUniformSampler};
 use bincode::config::standard;
 use itertools::izip;
 use pcs::{
+    PolynomialCommitmentScheme,
     multilinear::brakedown::BrakedownPCS,
     utils::code::{ExpanderCode, ExpanderCodeSpec},
-    PolynomialCommitmentScheme,
 };
 use rand::prelude::*;
 use rand_distr::Distribution;

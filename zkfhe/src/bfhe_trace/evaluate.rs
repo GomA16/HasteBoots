@@ -1,8 +1,8 @@
 use algebra::{NTTField, Polynomial};
 use fhe_core::{
-    lwe_modulus_switch, lwe_modulus_switch_assign_between_modulus, lwe_modulus_switch_inplace,
     BlindRotationType, KeySwitchingKeyEnum, KeySwitchingLWEKey, KeySwitchingRLWEKey, LWECiphertext,
     LWEModulusType, Parameters, ProcessType, RLWEBlindRotationKey, SecretKeyPack, Steps,
+    lwe_modulus_switch, lwe_modulus_switch_assign_between_modulus, lwe_modulus_switch_inplace,
 };
 use trace::{AccTrace, HadamardProdsTrace};
 

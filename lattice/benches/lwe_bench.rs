@@ -1,7 +1,7 @@
 use std::hint::black_box;
 
 use algebra::modulus::PowOf2Modulus;
-use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
+use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use lattice::LWE;
 use rand::prelude::*;
 use rand_distr::Uniform;

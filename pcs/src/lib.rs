@@ -8,7 +8,7 @@ pub mod multilinear;
 /// utils, mainly used to implement linear time encodable code now
 pub mod utils;
 
-use algebra::{utils::Transcript, AbstractExtensionField, Field, MultilinearExtension};
+use algebra::{AbstractExtensionField, Field, MultilinearExtension, utils::Transcript};
 use serde::{Deserialize, Serialize};
 
 // type Point<F, P> = <P as MultilinearExtension<F>>::Point;

@@ -1,10 +1,10 @@
 use algebra::{
-    utils::Transcript, BabyBear, BabyBearExetension, DenseMultilinearExtension, FieldUniformSampler,
+    BabyBear, BabyBearExetension, DenseMultilinearExtension, FieldUniformSampler, utils::Transcript,
 };
 use pcs::{
-    multilinear::{brakedown::BrakedownPCS, BrakedownOpenProof, BrakedownOpenProofGeneral},
-    utils::code::{ExpanderCode, ExpanderCodeSpec},
     PolynomialCommitmentScheme,
+    multilinear::{BrakedownOpenProof, BrakedownOpenProofGeneral, brakedown::BrakedownPCS},
+    utils::code::{ExpanderCode, ExpanderCodeSpec},
 };
 use rand::Rng;
 use sha2::Sha256;

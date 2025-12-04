@@ -1,7 +1,7 @@
 use algebra::{
+    BabyBear, BabyBearExetension, DenseMultilinearExtension, Field,
     derive::{DecomposableField, Field, Prime},
     utils::Transcript,
-    BabyBear, BabyBearExetension, DenseMultilinearExtension, Field,
 };
 use num_traits::Zero;
 use pcs::{
@@ -13,8 +13,8 @@ use sha2::Sha256;
 use std::rc::Rc;
 use std::vec;
 use zkp::piop::{
-    lookup::{LookupParams, LookupProof, LookupProver, LookupVerifier},
     LookupIOP, LookupInstance,
+    lookup::{LookupParams, LookupProof, LookupProver, LookupVerifier},
 };
 
 type FF = BabyBear;

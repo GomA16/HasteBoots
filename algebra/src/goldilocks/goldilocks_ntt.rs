@@ -1,11 +1,9 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::sync::{Arc, OnceLock};
 
-use num_traits::{pow, Zero};
+use arc_swap::ArcSwap;
+use num_traits::{Zero, pow};
 
-use crate::{transformation::prime64::ConcreteTable, Field, NTTField};
+use crate::{Field, NTTField, transformation::prime64::ConcreteTable};
 
 use super::Goldilocks;
 
@@ -21,11 +19,8 @@ impl From<usize> for Goldilocks {
     }
 }
 
-static mut NTT_TABLE: once_cell::sync::OnceCell<
-    HashMap<u32, Arc<<Goldilocks as NTTField>::Table>>,
-> = once_cell::sync::OnceCell::new();
-
-static NTT_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+type Table = <Goldilocks as NTTField>::Table;
+static NTT_TABLE: OnceLock<ArcSwap<Vec<(u32, Arc<Table>)>>> = OnceLock::new();
 
 impl NTTField for Goldilocks {
     type Table = ConcreteTable<Self>;
@@ -120,50 +115,45 @@ impl NTTField for Goldilocks {
         Self::Table::new(log_n)
     }
 
-    fn init_ntt_table(log_ns: &[u32]) -> Result<(), crate::AlgebraError> {
-        let _g = NTT_MUTEX.lock().unwrap();
-        match unsafe { NTT_TABLE.get_mut() } {
-            Some(tables) => {
-                let new_log_ns: HashSet<u32> = log_ns.iter().copied().collect();
-                let old_log_ns: HashSet<u32> = tables.keys().copied().collect();
+    fn init_ntt_table(log_n: u32) -> Result<(), crate::AlgebraError> {
+        let ntt_tables = NTT_TABLE.get_or_init(|| ArcSwap::from_pointee(Vec::with_capacity(2)));
 
-                let difference = new_log_ns.difference(&old_log_ns);
-
-                for &log_n in difference {
-                    let temp_table = Self::generate_ntt_table(log_n)?;
-                    tables.insert(log_n, Arc::new(temp_table));
-                }
-                Ok(())
-            }
-            None => {
-                let log_ns: HashSet<u32> = log_ns.iter().copied().collect();
-                let mut map = HashMap::with_capacity(log_ns.len());
-
-                for log_n in log_ns {
-                    let temp_table = Self::generate_ntt_table(log_n)?;
-                    map.insert(log_n, Arc::new(temp_table));
-                }
-
-                if unsafe { NTT_TABLE.set(map).is_err() } {
-                    Err(crate::AlgebraError::NTTTableError)
-                } else {
-                    Ok(())
-                }
-            }
+        if let None = ntt_tables.load().iter().find(|(key, _)| *key == log_n) {
+            ntt_tables.rcu(|inner| {
+                let mut tables = inner.as_ref().clone();
+                let temp_table = Self::generate_ntt_table(log_n).unwrap();
+                tables.push((log_n, Arc::new(temp_table)));
+                tables
+            });
         }
+
+        Ok(())
     }
 
     fn get_ntt_table(log_n: u32) -> Result<Arc<Self::Table>, crate::AlgebraError> {
-        if let Some(tables) = unsafe { NTT_TABLE.get() } {
-            if let Some(t) = tables.get(&log_n) {
-                return Ok(Arc::clone(t));
-            }
-        }
+        let ntt_tables = NTT_TABLE.get_or_init(|| ArcSwap::from_pointee(Vec::with_capacity(2)));
 
-        Self::init_ntt_table(&[log_n])?;
-        Ok(Arc::clone(unsafe {
-            NTT_TABLE.get().unwrap().get(&log_n).unwrap()
-        }))
+        if let Some(table) = ntt_tables
+            .load()
+            .iter()
+            .find(|(key, _)| *key == log_n)
+            .map(|(_, v)| Arc::clone(v))
+        {
+            Ok(table)
+        } else {
+            Self::init_ntt_table(log_n)?;
+
+            let ntt_tables = NTT_TABLE.get().unwrap();
+
+            let table = ntt_tables
+                .load()
+                .iter()
+                .find(|(key, _)| *key == log_n)
+                .map(|(_, v)| Arc::clone(v))
+                .unwrap();
+
+            Ok(table)
+        }
     }
 }
 

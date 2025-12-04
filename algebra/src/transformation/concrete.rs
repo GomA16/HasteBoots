@@ -5,8 +5,8 @@ pub mod prime32 {
     use concrete_ntt::prime32::Plan;
 
     use crate::{
-        transformation::{AbstractNTT, MonomialNTT},
         AlgebraError, Field, NTTField,
+        transformation::{AbstractNTT, MonomialNTT},
     };
 
     /// Wrapping concrete NTT for 32bit primes.
@@ -95,8 +95,8 @@ pub mod prime64 {
     use concrete_ntt::prime64::Plan;
 
     use crate::{
-        transformation::{AbstractNTT, MonomialNTT},
         AlgebraError, Field, NTTField,
+        transformation::{AbstractNTT, MonomialNTT},
     };
 
     /// Wrapping concrete NTT for 64bit primes.

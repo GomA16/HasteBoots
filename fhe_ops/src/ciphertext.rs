@@ -58,11 +58,7 @@ impl<F: Field> LWECiphertext<F> {
             .zip(other.a.iter())
             .map(|(x, y)| {
                 let sum = *x + *y;
-                if sum >= modulus {
-                    sum - modulus
-                } else {
-                    sum
-                }
+                if sum >= modulus { sum - modulus } else { sum }
             })
             .collect();
         let b = if self.b + other.b >= modulus {

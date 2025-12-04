@@ -1,8 +1,8 @@
 use algebra::{
-    derive::{DecomposableField, Field, Prime},
-    utils::Transcript,
     BabyBear, BabyBearExetension, Basis, DecomposableField, DenseMultilinearExtension, Field,
     FieldUniformSampler,
+    derive::{DecomposableField, Field, Prime},
+    utils::Transcript,
 };
 use num_traits::{One, Zero};
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
@@ -12,9 +12,9 @@ use sha2::Sha256;
 use std::rc::Rc;
 use std::vec;
 use zkp::piop::{
-    sparse_eval::{SparseEvalIOP, SparseEvalInstance},
     AdditionInZq, AdditionInZqInstance, AdditionInZqPure, AdditionInZqSnarks,
     AdditionInZqSnarksOpt, DecomposedBitsInfo, LookupIOP,
+    sparse_eval::{SparseEvalIOP, SparseEvalInstance},
 };
 
 type FF = BabyBear; // field type

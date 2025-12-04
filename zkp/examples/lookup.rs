@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use algebra::{utils::Transcript, BabyBear, BabyBearExetension, DenseMultilinearExtension, Field};
+use algebra::{BabyBear, BabyBearExetension, DenseMultilinearExtension, Field, utils::Transcript};
 use num_traits::Zero;
 use pcs::{
     multilinear::BrakedownPCS,
@@ -9,8 +9,8 @@ use pcs::{
 use rand::prelude::*;
 use sha2::Sha256;
 use zkp::piop::{
-    lookup::{LookupParams, LookupProof, LookupProver, LookupVerifier},
     LookupInstance,
+    lookup::{LookupParams, LookupProof, LookupProver, LookupVerifier},
 };
 
 type FF = BabyBear;

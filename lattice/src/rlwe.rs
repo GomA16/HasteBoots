@@ -1,14 +1,14 @@
 use std::ops::MulAssign;
 
 use algebra::{
-    ntt_add_mul_assign, ntt_add_mul_assign_fast, ntt_add_mul_inplace, transformation::AbstractNTT,
-    FieldDiscreteGaussianSampler, NTTField, NTTPolynomial, Polynomial,
+    FieldDiscreteGaussianSampler, NTTField, NTTPolynomial, Polynomial, ntt_add_mul_assign,
+    ntt_add_mul_assign_fast, ntt_add_mul_inplace, transformation::AbstractNTT,
 };
 use rand::{CryptoRng, Rng};
 use trace::HadamardProdsTrace;
 
 use crate::{
-    DecompositionSpace, GadgetRLWE, NTTGadgetRLWE, NTTRLWESpace, PolynomialSpace, LWE, NTTRGSW,
+    DecompositionSpace, GadgetRLWE, LWE, NTTGadgetRLWE, NTTRGSW, NTTRLWESpace, PolynomialSpace,
     RGSW,
 };
 

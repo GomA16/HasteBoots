@@ -1,4 +1,4 @@
-use algebra::derive::{DecomposableField, FheField, Field, Prime, NTT};
+use algebra::derive::{DecomposableField, FheField, Field, NTT, Prime};
 use algebra::modulus::PowOf2Modulus;
 use algebra::reduce::{AddReduce, MulReduce, SubReduce};
 use algebra::{

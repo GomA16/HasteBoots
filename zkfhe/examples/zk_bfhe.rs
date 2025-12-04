@@ -1,9 +1,9 @@
 use algebra::NTTField;
-use fhe_core::{utils::*, LWECiphertext, LWEModulusType};
+use fhe_core::{LWECiphertext, LWEModulusType, utils::*};
 use rand::Rng;
 use zkfhe::{
-    bfhe::{Evaluator, DEFAULT_TERNARY_128_BITS_PARAMETERS},
     Decryptor, Encryptor, KeyGen,
+    bfhe::{DEFAULT_TERNARY_128_BITS_PARAMETERS, Evaluator},
 };
 
 type M = bool;

@@ -1,8 +1,8 @@
 use algebra::{NTTField, Polynomial};
 use fhe_core::{
-    lwe_modulus_switch_assign_between_modulus, lwe_modulus_switch_inplace, BlindRotationType,
-    KeySwitchingKeyEnum, KeySwitchingRLWEKey, LWECiphertext, LWEModulusType, NTRUBlindRotationKey,
-    Parameters, ProcessType, SecretKeyPack, Steps,
+    BlindRotationType, KeySwitchingKeyEnum, KeySwitchingRLWEKey, LWECiphertext, LWEModulusType,
+    NTRUBlindRotationKey, Parameters, ProcessType, SecretKeyPack, Steps,
+    lwe_modulus_switch_assign_between_modulus, lwe_modulus_switch_inplace,
 };
 
 /// The evaluator of the homomorphic encryption scheme.
