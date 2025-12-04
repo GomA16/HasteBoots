@@ -1,18 +1,13 @@
-use algebra::AsFrom;
+use std::rc::Rc;
+
 use algebra::derive::{DecomposableField, Field};
 use algebra::{BabyBear, BabyBearExetension, Basis, DenseMultilinearExtension};
-use algebra::{DecomposableField, Field, FieldUniformSampler};
-use itertools::izip;
+use algebra::{Field, FieldUniformSampler};
 use num_traits::{One, Zero};
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
-use rand::prelude::*;
 use rand_distr::Distribution;
 use sha2::Sha256;
-use std::rc::Rc;
-use zkp::piop::{
-    AdditionInZqInstance, AdditionInZqSnarks, AdditionInZqSnarksOpt, BitDecompositionSnarks,
-    DecomposedBits, DecomposedBitsInfo,
-};
+use zkp::piop::{AdditionInZqInstance, AdditionInZqSnarks, DecomposedBitsInfo};
 
 type FF = BabyBear;
 type EF = BabyBearExetension;

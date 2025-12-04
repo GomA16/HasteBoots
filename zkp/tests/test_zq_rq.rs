@@ -1,6 +1,6 @@
 use algebra::{
-    BabyBear, BabyBearExetension, DecomposableField, DenseMultilinearExtension, Field,
-    FieldUniformSampler, SparsePolynomial,
+    BabyBear, BabyBearExetension, DenseMultilinearExtension, Field, FieldUniformSampler,
+    SparsePolynomial,
     derive::{DecomposableField, Field, Prime},
 };
 use num_traits::{One, Zero};

@@ -1,3 +1,7 @@
+use std::rc::Rc;
+use std::time::Instant;
+use std::vec;
+
 use algebra::utils::Transcript;
 use algebra::{
     AbstractExtensionField, BabyBear, BabyBearExetension, Basis, ListOfProductsOfPolynomials,
@@ -10,12 +14,8 @@ use pcs::{
     multilinear::brakedown::BrakedownPCS,
     utils::code::{ExpanderCode, ExpanderCodeSpec},
 };
-use rand::prelude::*;
 use rand_distr::Distribution;
 use sha2::Sha256;
-use std::rc::Rc;
-use std::time::Instant;
-use std::vec;
 use sumcheck::MLSumcheck;
 use zkp::piop::{BitDecomposition, BitDecompositionSnarks, DecomposedBits};
 use zkp::utils::{

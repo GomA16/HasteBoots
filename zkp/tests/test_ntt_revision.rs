@@ -1,7 +1,4 @@
-use algebra::{
-    BabyBear, BabyBearExetension, DecomposableField, DenseMultilinearExtension, Field,
-    NTTPolynomial,
-};
+use algebra::{BabyBear, BabyBearExetension, DenseMultilinearExtension, Field, NTTPolynomial};
 use algebra::{NTTField, Polynomial, transformation::AbstractNTT};
 use num_traits::{One, Zero};
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};

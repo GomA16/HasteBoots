@@ -1,19 +1,15 @@
-use algebra::{
-    BabyBear, BabyBearExetension, Basis, DecomposableField, DenseMultilinearExtension, Field,
-    FieldUniformSampler,
-    derive::{DecomposableField, Field, Prime},
-    utils::Transcript,
-};
-use num_traits::{One, Zero};
-use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
-use rand::prelude::*;
-use rand_distr::Distribution;
-use sha2::Sha256;
 use std::rc::Rc;
 use std::vec;
+
+use algebra::{
+    BabyBear, BabyBearExetension, DenseMultilinearExtension, Field, FieldUniformSampler,
+    derive::Field, utils::Transcript,
+};
+use num_traits::Zero;
+use rand_distr::Distribution;
+use sha2::Sha256;
 use zkp::piop::{
-    AdditionInZq, AdditionInZqInstance, AdditionInZqPure, AdditionInZqSnarks,
-    AdditionInZqSnarksOpt, DecomposedBitsInfo, LookupIOP,
+    LookupIOP,
     sparse_eval::{SparseEvalIOP, SparseEvalInstance},
 };
 

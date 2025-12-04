@@ -1,11 +1,12 @@
+use std::rc::Rc;
+
 use algebra::derive::{DecomposableField, Field};
 use algebra::{BabyBear, BabyBearExetension, DenseMultilinearExtension, SparsePolynomial};
-use algebra::{DecomposableField, Field, FieldUniformSampler};
+use algebra::{Field, FieldUniformSampler};
 use num_traits::{One, Zero};
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand_distr::Distribution;
 use sha2::Sha256;
-use std::rc::Rc;
 use zkp::piop::zq_to_rq::ZqToRQSnarks;
 use zkp::piop::{DecomposedBitsInfo, ZqToRQInstance};
 

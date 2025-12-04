@@ -1,20 +1,20 @@
+use std::rc::Rc;
+use std::vec;
+
 use algebra::{
-    BabyBear, BabyBearExetension, Basis, DecomposableField, DenseMultilinearExtension, Field,
-    FieldUniformSampler,
+    BabyBear, BabyBearExetension, Basis, DenseMultilinearExtension, Field, FieldUniformSampler,
     derive::{DecomposableField, Field, Prime},
     utils::Transcript,
 };
 use num_traits::{One, Zero};
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
-use rand::prelude::*;
 use rand_distr::Distribution;
 use sha2::Sha256;
-use std::rc::Rc;
-use std::vec;
 use zkp::piop::{
     AdditionInZq, AdditionInZqInstance, AdditionInZqPure, AdditionInZqSnarks,
     AdditionInZqSnarksOpt, DecomposedBitsInfo, LookupIOP,
 };
+
 #[derive(Field, DecomposableField, Prime)]
 #[modulus = 59]
 pub struct Fq(u32);

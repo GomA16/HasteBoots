@@ -1,5 +1,5 @@
 use algebra::{BabyBear, BabyBearExetension};
-use algebra::{DecomposableField, DenseMultilinearExtension, Field};
+use algebra::{DenseMultilinearExtension, Field};
 use algebra::{NTTField, Polynomial, transformation::AbstractNTT};
 use num_traits::One;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};

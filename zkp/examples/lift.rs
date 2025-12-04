@@ -1,8 +1,6 @@
 use algebra::derive::Field;
-use algebra::{
-    BabyBear, BabyBearExetension, Basis, FieldUniformSampler, Goldilocks, GoldilocksExtension,
-};
 use algebra::{DenseMultilinearExtension, Field};
+use algebra::{FieldUniformSampler, Goldilocks, GoldilocksExtension};
 use algebra::{NTTField, Polynomial, transformation::AbstractNTT};
 use itertools::izip;
 use num_traits::One;
@@ -12,10 +10,8 @@ use sha2::Sha256;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::vec;
-use zkp::piop::RlweMultRgswSnarksOpt;
 use zkp::piop::lift::{LiftInstance, LiftSnarks};
 use zkp::piop::ntt_revision::NTTInstanceInfo;
-use zkp::piop::{DecomposedBitsInfo, RlweCiphertext, RlweCiphertexts, RlweMultRgswInstance};
 
 type FF = Goldilocks;
 type EF = GoldilocksExtension;

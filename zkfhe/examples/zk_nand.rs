@@ -44,7 +44,7 @@ fn main() {
     // let mut z = enc.encrypt(c);
 
     for i in 0..1 {
-        let start = std::time::Instant::now();
+        let _start = std::time::Instant::now();
         let ct_nand = join_bit_operations(&eval, &x, &y);
 
         // nand

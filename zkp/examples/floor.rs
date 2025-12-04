@@ -1,10 +1,10 @@
+use std::rc::Rc;
+
 use algebra::{BabyBear, BabyBearExetension, DenseMultilinearExtension};
-use algebra::{DecomposableField, Field, FieldUniformSampler};
+use algebra::{Field, FieldUniformSampler};
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
-use rand::prelude::*;
 use rand_distr::Distribution;
 use sha2::Sha256;
-use std::rc::Rc;
 use zkp::piop::floor::FloorSnarks;
 use zkp::piop::{DecomposedBitsInfo, FloorInstance};
 

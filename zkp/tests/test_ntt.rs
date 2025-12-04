@@ -1,18 +1,14 @@
 use algebra::derive::{DecomposableField, FheField, Field, NTT, Prime};
-use algebra::{
-    BabyBear, BabyBearExetension, BinomialExtensionField, DecomposableField,
-    DenseMultilinearExtension, Field, NTTPolynomial,
-};
+use algebra::{DenseMultilinearExtension, Field, NTTPolynomial};
 use algebra::{NTTField, Polynomial, transformation::AbstractNTT};
 use num_traits::{One, Zero};
-use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::prelude::*;
 use sha2::Sha256;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::vec;
+use zkp::piop::ntt::NTTInstances;
 use zkp::piop::ntt::ntt_bare::init_fourier_table;
-use zkp::piop::ntt::{self, NTTInstances, NTTSnarks};
 use zkp::piop::{NTTBareIOP, NTTIOP, NTTInstance};
 
 // field type
