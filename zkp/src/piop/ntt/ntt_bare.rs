@@ -18,12 +18,13 @@
 //! where u is the random challenge from the verifier.
 use sumcheck::verifier::SubClaim;
 use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
-use algebra::{utils::Transcript, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials};
+use algebra::{DenseMultilinearExtension, Field, ListOfProductsOfPolynomials};
 use serde::Serialize;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
 use super::{NTTInstance, NTTInstanceInfo};
+use helper::Transcript;
 
 /// IOP for NTT, i.e. $$a(u) = \sum_{x\in \{0, 1\}^{\log N} c(x)\cdot F(u, x) }$$
 pub struct NTTBareIOP<F: Field>(PhantomData<F>);

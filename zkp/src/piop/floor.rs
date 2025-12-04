@@ -23,7 +23,7 @@ use crate::utils::{
     eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
 };
 use algebra::{
-    utils::Transcript, AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
+    AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
     ListOfProductsOfPolynomials,
 };
 use core::fmt;
@@ -39,6 +39,7 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 use std::time::Instant;
 use std::vec;
+use helper::Transcript;
 
 /// Round IOP
 pub struct FloorIOP<F: Field>(PhantomData<F>);

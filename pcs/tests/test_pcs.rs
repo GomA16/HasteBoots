@@ -1,11 +1,12 @@
 use algebra::{
-    utils::Transcript, BabyBear, BabyBearExetension, DenseMultilinearExtension, FieldUniformSampler,
+    BabyBear, BabyBearExetension, DenseMultilinearExtension, FieldUniformSampler,
 };
 use pcs::{
     multilinear::{brakedown::BrakedownPCS, BrakedownOpenProof, BrakedownOpenProofGeneral},
     utils::code::{ExpanderCode, ExpanderCodeSpec},
     PolynomialCommitmentScheme,
 };
+use helper::Transcript;
 use rand::Rng;
 use sha2::Sha256;
 

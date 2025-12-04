@@ -1,7 +1,7 @@
-use algebra::derive::{DecomposableField, FheField, Field, NTT, Prime};
 use algebra::{transformation::AbstractNTT, NTTField, Polynomial};
 use algebra::{
-    BabyBear, BabyBearExetension, BinomialExtensionField, DecomposableField, DenseMultilinearExtension, Field, NTTPolynomial
+    BabyBear, BabyBearExetension, DecomposableField, DenseMultilinearExtension, Field,
+    NTTPolynomial,
 };
 use num_traits::{One, Zero};
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
@@ -10,48 +10,45 @@ use sha2::Sha256;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::vec;
-use zkp::piop::ntt::ntt_bare::init_fourier_table;
-use zkp::piop::ntt::{self, NTTInstances, NTTSnarks};
-use zkp::piop::{NTTBareIOP, NTTInstance, NTTIOP};
+use piop::ntt::ntt_bare::init_fourier_table;
+use piop::ntt::ntt_bare::NTTBareIOP;
+use piop::ntt::{NTTInstance, NTTInstances, NTTSnarks, NTTIOP};
 
 // field type
-// type FF = BabyBear;
-// type EF = BabyBearExetension;
-
-#[derive(Field, Prime, FheField, DecomposableField, NTT)]
-#[modulus = 132120577]
-pub struct Fp32(u32);
-
-// field type
-type FF = Fp32;
+type FF = BabyBear;
+type EF = BabyBearExetension;
 type Hash = Sha256;
 const BASE_FIELD_BITS: usize = 31;
 type PolyFF = Polynomial<FF>;
 
-fn obtain_fourier_matrix_oracle(log_n: u32) -> DenseMultilinearExtension<FF> {
+// Generate the fourier matrix as a multilinear extension.
+//
+// The special structure of the fourier matrix is defined as:
+// F_matrix[i, j] = w^{(2 * rev_i + 1) * j} where w is the M-th root of unity.
+// With little endian representation, we have:
+// F[x_0, x_1, ..., x_{\logN-1} || y_0, y_1, ..., y_{\logN-1}] = F_matrix[i, j] = w^{(2 * rev_i + 1) * j}
+// where i = \sum_k 2^k * x_k and j = \sum_k 2^k * y_k
+// and rev_i = \sum_k 2^{\logN-1-k} x_k 
+fn generate_fourier_matrix_oracle(log_n: u32) -> DenseMultilinearExtension<FF> {
     let m = 1 << (log_n + 1);
-    let mut ntt_table = Vec::with_capacity(m as usize);
-    let root = FF::get_ntt_table(log_n).unwrap().root();
-    let mut power = FF::one();
-    for _ in 0..m {
-        ntt_table.push(power);
-        power *= root;
-    }
+    let ntt_table = FF::get_ntt_table(log_n).unwrap().root_powers();
 
     let mut fourier_matrix = vec![FF::zero(); (1 << log_n) * (1 << log_n)];
-    // In little endian, the index for F[i, j] is i + (j << dim)
+    
+    
     for i in 0..1 << log_n {
         for j in 0..1 << log_n {
-            let idx_power = (2 * i + 1) * j % m;
+            let rev_i = reverse_bits_order(i, log_n);
+            let idx_power = ((2 * rev_i + 1) * j) as u32 % m;
             let idx_fourier = i + (j << log_n);
-            fourier_matrix[idx_fourier as usize] = ntt_table[idx_power as usize];
+            fourier_matrix[idx_fourier] = ntt_table[idx_power as usize];
         }
     }
     DenseMultilinearExtension::from_evaluations_vec((log_n << 1) as usize, fourier_matrix)
 }
 
 /// Given an `index` of `len` bits, output a new index where the bits are reversed.
-fn reverse_bits(index: usize, len: u32) -> usize {
+fn reverse_bits_order(index: usize, len: u32) -> usize {
     let mut tmp = index;
     let mut reverse_index = 0;
     let mut pow = 1 << (len - 1);
@@ -71,7 +68,7 @@ fn sort_array_with_reversed_bits<F: Clone + Copy>(input: &[F], log_n: u32) -> Ve
     assert_eq!(input.len(), (1 << log_n) as usize);
     let mut output = Vec::with_capacity(input.len());
     for i in 0..input.len() {
-        let reverse_i = reverse_bits(i, log_n);
+        let reverse_i = reverse_bits_order(i, log_n);
         output.push(input[reverse_i]);
     }
     output
@@ -84,55 +81,19 @@ fn sort_array_with_reversed_bits<F: Clone + Copy>(input: &[F], log_n: u32) -> Ve
 ///
 /// bit-reversed order:  0  4  2  6  1  5  3  7
 ///                         -  ----  ----------
-fn ntt_transform_normal_order<F: Field + NTTField>(log_n: u32, coeff: &[F]) -> Vec<F> {
+// fn ntt_transform_normal_order<F: Field + NTTField>(log_n: u32, coeff: &[F]) -> Vec<F> {
+//     assert_eq!(coeff.len(), (1 << log_n) as usize);
+//     let poly = <Polynomial<F>>::from_slice(coeff);
+//     let ntt_form: Vec<_> = F::get_ntt_table(log_n).unwrap().transform(&poly).data();
+//     sort_array_with_reversed_bits(&ntt_form, log_n)
+// }
+
+/// Invoke the existing api to perform ntt transform.
+/// The input is in normal order and the output is in the bit-reversed order
+fn ntt_transform_reverse_order<F: Field + NTTField>(log_n: u32, coeff: &[F]) -> Vec<F> {
     assert_eq!(coeff.len(), (1 << log_n) as usize);
     let poly = <Polynomial<F>>::from_slice(coeff);
-    let ntt_form: Vec<_> = F::get_ntt_table(log_n).unwrap().transform(&poly).data();
-    sort_array_with_reversed_bits(&ntt_form, log_n)
-}
-
-/// Invoke the existing api to perform ntt inverse transform and convert the bit-reversed order to normal order
-/// In other words, the orders of input and output are both normal order.
-fn ntt_inverse_transform_normal_order<F: Field + NTTField>(log_n: u32, points: &[F]) -> Vec<F> {
-    assert_eq!(points.len(), (1 << log_n) as usize);
-    let reversed_points = sort_array_with_reversed_bits(points, log_n);
-    let ntt_poly = <NTTPolynomial<F>>::from_slice(&reversed_points);
-    F::get_ntt_table(log_n)
-        .unwrap()
-        .inverse_transform(&ntt_poly)
-        .data()
-}
-
-/// Construct the fourier matrix and then compute the matrix-vector product with the coefficients.
-/// The output is in the normal order: f(w), f(w^3), f(w^5), ..., f(w^{2n-1})
-fn naive_ntt_transform_normal_order(log_n: u32, coeff: &[FF]) -> Vec<FF> {
-    assert_eq!(coeff.len(), (1 << log_n) as usize);
-    let m = 1 << (log_n + 1);
-    let mut ntt_table = Vec::with_capacity(m as usize);
-    let root = FF::get_ntt_table(log_n).unwrap().root();
-    let mut power = FF::one();
-    for _ in 0..m {
-        ntt_table.push(power);
-        power *= root;
-    }
-
-    let mut fourier_matrix = vec![FF::zero(); (1 << log_n) * (1 << log_n)];
-    // In little endian, the index for F[i, j] is i + (j << dim)
-    for i in 0..1 << log_n {
-        for j in 0..1 << log_n {
-            let idx_power = (2 * i + 1) * j % m;
-            let idx_fourier = i + (j << log_n);
-            fourier_matrix[idx_fourier as usize] = ntt_table[idx_power as usize];
-        }
-    }
-
-    let mut ntt_form = vec![FF::zero(); 1 << log_n];
-    for i in 0..1 << log_n {
-        for j in 0..1 << log_n {
-            ntt_form[i] += coeff[j] * fourier_matrix[i + (j << log_n)];
-        }
-    }
-    ntt_form
+    F::get_ntt_table(log_n).unwrap().transform(&poly).data()
 }
 
 fn generate_single_instance<R: Rng + CryptoRng>(
@@ -143,7 +104,8 @@ fn generate_single_instance<R: Rng + CryptoRng>(
     let coeff = PolyFF::random(1 << log_n, rng).data();
     let point = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
         log_n,
-        ntt_transform_normal_order(log_n as u32, &coeff)
+        // ! reverse order
+        ntt_transform_reverse_order(log_n as u32, &coeff)
             .iter()
             .map(|x| FF::new(x.value()))
             .collect(),
@@ -157,7 +119,7 @@ fn generate_single_instance<R: Rng + CryptoRng>(
 
 #[test]
 fn test_reverse_bits() {
-    assert_eq!(2, reverse_bits(4, 4));
+    assert_eq!(2, reverse_bits_order(4, 4));
 }
 
 #[test]
@@ -171,48 +133,24 @@ fn test_sort_array() {
 }
 
 #[test]
-fn test_ntt_transform_normal_order() {
-    let log_n = 10;
-    let coeff = PolyFF::random(1 << log_n, &mut thread_rng()).data();
-    let points_naive = naive_ntt_transform_normal_order(log_n, &coeff);
-    let points = ntt_transform_normal_order(log_n, &coeff);
-    assert_eq!(points, points_naive);
-}
-
-#[test]
-fn test_ntt_inverse_transform_normal_order() {
-    let log_n = 10;
-    let coeff = PolyFF::random(1 << log_n, &mut thread_rng()).data();
-    let points = ntt_transform_normal_order(log_n, &coeff);
-    let coeff_rec = ntt_inverse_transform_normal_order(log_n, &points);
-    assert_eq!(coeff, coeff_rec);
-
-    let points = PolyFF::random(1 << log_n, &mut thread_rng()).data();
-    let coeff = ntt_inverse_transform_normal_order(log_n, &points);
-    let points_rec = ntt_transform_normal_order(log_n, &coeff);
-    assert_eq!(points, points_rec);
-}
-
-#[test]
 fn test_ntt_bare_without_delegation() {
     let log_n: usize = 10;
     let m = 1 << (log_n + 1);
-    // let mut ntt_table = Vec::with_capacity(m as usize);
-    let plan = FF::get_ntt_table(log_n as u32).unwrap();
-    let ntt_table = Arc::new(plan.root_powers());
-    
-    // let mut power = FF::one();
-    // for _ in 0..m {
-    //     ntt_table.push(power);
-    //     power *= root;
-    // }
-    // let ntt_table = Arc::new(ntt_table);
+    let mut ntt_table = Vec::with_capacity(m as usize);
+    let root = FF::get_ntt_table(log_n as u32).unwrap().root();
+    let mut power = FF::one();
+    for _ in 0..m {
+        ntt_table.push(power);
+        power *= root;
+    }
+    let ntt_table = Arc::new(ntt_table);
 
     let mut rng = thread_rng();
     let coeff = PolyFF::random(1 << log_n, &mut rng).data();
     let points = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
         log_n,
-        ntt_transform_normal_order(log_n as u32, &coeff),
+        // ! reverse order
+        ntt_transform_reverse_order(log_n as u32, &coeff),
     ));
     let coeff = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
         log_n, coeff,
@@ -227,7 +165,7 @@ fn test_ntt_bare_without_delegation() {
 
     let f_u = init_fourier_table(&kit.u, &ntt_instance.ntt_table);
     let f_delegation = f_u.evaluate(&kit.randomness);
-    let f_oracle = obtain_fourier_matrix_oracle(log_n as u32);
+    let f_oracle = generate_fourier_matrix_oracle(log_n as u32);
     let point = [kit.u.clone(), kit.randomness.clone()].concat();
     assert_eq!(f_oracle.evaluate(&point), f_delegation);
 
@@ -238,7 +176,6 @@ fn test_ntt_bare_without_delegation() {
 }
 
 #[test]
-#[cfg(feature = "extension_field")]
 fn test_ntt_bare_without_delegation_extension_field() {
     let log_n: usize = 10;
     let m = 1 << (log_n + 1);
@@ -255,13 +192,15 @@ fn test_ntt_bare_without_delegation_extension_field() {
     let coeff = PolyFF::random(1 << log_n, &mut rng).data();
     let points = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
         log_n,
-        ntt_transform_normal_order(log_n as u32, &coeff),
+        // ! reverse order
+        ntt_transform_reverse_order(log_n as u32, &coeff),
     ));
     let coeff = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
         log_n, coeff,
     ));
 
     let ntt_instance = NTTInstance::from_slice(log_n, &ntt_table, &coeff, &points);
+
     let instance_ef = ntt_instance.to_ef::<EF>();
     let ntt_instance_info = instance_ef.info();
 
@@ -292,7 +231,8 @@ fn test_ntt_with_delegation() {
     let coeff = PolyFF::random(1 << log_n, &mut rng).data();
     let points = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
         log_n,
-        ntt_transform_normal_order(log_n as u32, &coeff),
+        // ! reverse order
+        ntt_transform_reverse_order(log_n as u32, &coeff),
     ));
     let coeff = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
         log_n, coeff,
@@ -318,7 +258,6 @@ fn test_ntt_with_delegation() {
 }
 
 #[test]
-#[cfg(feature = "extension_field")]
 fn test_ntt_with_delegation_extension_field() {
     let log_n: usize = 10;
     let m = 1 << (log_n + 1);
@@ -335,7 +274,8 @@ fn test_ntt_with_delegation_extension_field() {
     let coeff = PolyFF::random(1 << log_n, &mut rng).data();
     let points = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
         log_n,
-        ntt_transform_normal_order(log_n as u32, &coeff),
+        // ! reverse order
+        ntt_transform_reverse_order(log_n as u32, &coeff),
     ));
     let coeff = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
         log_n, coeff,
@@ -362,7 +302,6 @@ fn test_ntt_with_delegation_extension_field() {
 }
 
 #[test]
-#[cfg(feature = "extension_field")]
 fn test_snarks() {
     let num_vars = 10;
     let num_ntt = 5;

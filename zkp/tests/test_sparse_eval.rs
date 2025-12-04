@@ -1,9 +1,9 @@
 use algebra::{
     derive::{DecomposableField, Field, Prime},
-    utils::Transcript,
     BabyBear, BabyBearExetension, Basis, DecomposableField, DenseMultilinearExtension, Field,
     FieldUniformSampler,
 };
+use helper::Transcript;
 use num_traits::{One, Zero};
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::prelude::*;

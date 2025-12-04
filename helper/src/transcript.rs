@@ -3,9 +3,9 @@ use std::marker::PhantomData;
 use rand::SeedableRng;
 use serde::Serialize;
 
-use crate::Field;
+use algebra::Field;
 
-use super::{Block, Prg};
+use algebra::utils::{Block, Prg};
 
 /// A transcript consists of a Merlin transcript and a `sampler``
 /// to sample uniform field elements.

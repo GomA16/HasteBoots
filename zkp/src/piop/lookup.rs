@@ -36,7 +36,7 @@ use crate::utils::{
 };
 use algebra::PolynomialInfo;
 use algebra::{
-    utils::Transcript, AbstractExtensionField, AsFrom, DenseMultilinearExtension, Field,
+    AbstractExtensionField, AsFrom, DenseMultilinearExtension, Field,
     ListOfProductsOfPolynomials,
 };
 use bincode::Result;
@@ -45,6 +45,7 @@ use pcs::PolynomialCommitmentScheme;
 use rayon::{iter::ParallelIterator, slice::ParallelSlice};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, marker::PhantomData, rc::Rc};
+use helper::Transcript;
 
 /// Stores the parameters used for lookup and the public info for verifier.
 #[derive(Clone, Serialize, Deserialize)]

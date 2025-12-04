@@ -1,6 +1,5 @@
 use algebra::{
     derive::{DecomposableField, Field, Prime},
-    utils::Transcript,
     BabyBear, BabyBearExetension, DenseMultilinearExtension, Field,
 };
 use num_traits::Zero;
@@ -16,6 +15,7 @@ use zkp::piop::{
     lookup::{LookupParams, LookupProof, LookupProver, LookupVerifier},
     LookupIOP, LookupInstance,
 };
+use helper::Transcript;
 
 type FF = BabyBear;
 type EF = BabyBearExetension;

@@ -1,8 +1,9 @@
 use std::time::Duration;
 
 use algebra::{
-    utils::Transcript, BabyBear, BabyBearExetension, DenseMultilinearExtension, FieldUniformSampler,
+    BabyBear, BabyBearExetension, DenseMultilinearExtension, FieldUniformSampler,
 };
+use helper::Transcript;
 use criterion::{criterion_group, criterion_main, Criterion};
 use pcs::{
     multilinear::{

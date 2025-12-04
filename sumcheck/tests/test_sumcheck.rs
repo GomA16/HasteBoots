@@ -1,7 +1,8 @@
 use algebra::{
-    utils::Transcript, BabyBear, DenseMultilinearExtension, Field, FieldUniformSampler,
+    BabyBear, DenseMultilinearExtension, Field, FieldUniformSampler,
     ListOfProductsOfPolynomials, MultilinearExtension,
 };
+use helper::Transcript;
 use rand::prelude::*;
 use rand_distr::Distribution;
 use serde::Serialize;

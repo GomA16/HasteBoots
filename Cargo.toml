@@ -9,7 +9,8 @@ members = [
     "fhe_ops",
     "pcs",
     "zkfhe",
-    "zkp", "sumcheck", "trace",
+    "zkp", 
+    "sumcheck", "trace", "piop", "helper",
 ]
 
 resolver = "2"

@@ -1,4 +1,38 @@
-use algebra::{DenseMultilinearExtension, NTTField, NTTPolynomial, transformation::AbstractNTT};
+use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field, NTTField, NTTPolynomial, transformation::AbstractNTT};
+
+mod ntt_trace;
+
+pub use ntt_trace::{NTTTraceMLE, NTTInstanceInfo, NTTTrace};
+
+pub trait ConvertToEF<F: Field, EF: AbstractExtensionField<F>> {
+    type Output;
+    fn into_ef(self) -> Self::Output;
+    fn to_ef(&self) -> Self::Output;
+}
+
+impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for Vec<F> {
+    type Output = Vec<EF>;
+
+    fn into_ef(self) -> Self::Output {
+        self.into_iter().map(EF::from_base).collect()
+    }
+
+    fn to_ef(&self) -> Self::Output {
+        self.iter().map(|&b| EF::from_base(b)).collect()
+    }
+}
+
+pub trait PackTrace<F: Field> {
+    type TraceType;
+
+    fn num_vars(&self) -> usize;
+    fn num_oracles(&self) -> usize;
+    fn log_num_oracles(&self) -> usize {
+        self.num_oracles().next_power_of_two().trailing_zeros() as usize
+    }
+    fn pack_to_vec(&self) -> Vec<F>;
+    fn generate_oracle(&self) -> DenseMultilinearExtension<F>;
+}
 
 /// Store the traces of each round of Hadamard product during blind rotation.
 #[derive(Debug, Clone)]

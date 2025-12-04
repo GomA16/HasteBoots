@@ -36,7 +36,7 @@ use crate::utils::{
     eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
 };
 use algebra::{
-    utils::Transcript, AbstractExtensionField, DenseMultilinearExtension, Field,
+    AbstractExtensionField, DenseMultilinearExtension, Field,
     ListOfProductsOfPolynomials, PolynomialInfo,
 };
 use core::fmt;
@@ -52,6 +52,7 @@ use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::time::Instant;
+use helper::Transcript;
 
 use ntt_bare::NTTBareIOP;
 

@@ -1,7 +1,4 @@
-//! PIOP for NTT Bare without delegation
-//! The algorithm is derived from Chap3.1 in zkCNN: https://eprint.iacr.org/2021/673
-//! The prover wants to convince that Number Theoretic Transform (NTT) algorithm.
-//! NTT is widely used for the multiplication of two polynomials in field.
+//! PIOP for NTT Bare without delegation the evaluation of F(u, r)
 //!
 //! The goal of this IOP is to prove:
 //!
@@ -22,42 +19,39 @@ use algebra::{DenseMultilinearExtension, Field, ListOfProductsOfPolynomials};
 use serde::Serialize;
 use std::marker::PhantomData;
 use std::rc::Rc;
-use helper::Transcript;
 
-use super::{NTTInstance, NTTInstanceInfo};
+use super::{NTTTraceMLE, NTTInstanceInfo};
+use helper::Transcript;
 
 /// IOP for NTT, i.e. $$a(u) = \sum_{x\in \{0, 1\}^{\log N} c(x)\cdot F(u, x) }$$
 pub struct NTTBareIOP<F: Field>(PhantomData<F>);
 
-/// Naive implementation for initializing F(u, x) in NTT, which helps readers to understand the following dynamic programming version (`init_fourier_table``).
-/// The formula is derived from zkCNN (https://eprint.iacr.org/2021/673)
-/// In NTT, the Fourier matrix is different since we choose these points: ω^1, ω^3, ..., ω^{2N-1}
-/// Compared to the original induction, the main differences here are F(y, x)  = ω^{(2Y+1) * X} and Y = \sum_{i = 0} y_i * 2^i.
-/// The latter one indicates that we use little-endian.
-/// As a result, the equation (8) in zkCNN is = ω^X * \prod_{i=0}^{\log{N-1}} ((1 - u_i) + u_i * ω^{2^{i + 1} * X}) in this case.
-///
-/// # Arguments
-/// * u: the random point
-/// * ntt_table: It stores the NTT table: ω^0, ω^1, ..., ω^{2N - 1}
-///
-/// In order to delegate the computation F(u, v) to prover, we decompose the ω^X term into the grand product.
-///
-/// Hence, the final equation is = \prod_{i=0}^{\log{N-1}} ((1 - u_i) + u_i * ω^{2^{i + 1} * X}) * ω^{2^i * x_i}
+
+// Naive implementation for initializing F(u, x) in NTT (for testing purpose).
+// In negacyclic NTT where the ring is defined as R = F[x] / (x^N + 1), the Fourier matrix is different since we choose these points: 
+// X = ω^1, ω^3, ..., ω^{2N-1} such that X^N = -1.
+//
+// # Arguments
+// * u: the random point
+// * ntt_table: It stores the NTT table: ω^0, ω^1, ..., ω^{2N - 1}
+//
+// # Returns
+// * The MLE for F(u, x)
 pub fn naive_init_fourier_table<F: Field>(
     u: &[F],
     ntt_table: &[F],
 ) -> DenseMultilinearExtension<F> {
     let log_n = u.len();
-    let m = ntt_table.len(); // m = 2n = 2 * (1 << dim)
+    let m = ntt_table.len(); // M = 2N = 2 * (1 << dim)
 
     let mut evaluations = vec![F::one(); 1 << log_n];
 
+    // F^R(u, x) = \prod_{i=0}^{\log{N-1}} ((1 - u_i) + u_i * {ω_{2^{i + 1}} ^ X}) * ω^{2^i * x_i}
+    // ω_{2^{i + 1}} = ω^ (M / (2^{i+1})), which is the 2^{i+1}-th root of unity
     for (x, eval_at_x) in evaluations.iter_mut().enumerate() {
         for (i, &u_i) in u.iter().enumerate().take(log_n) {
-            // ! modify here
-            // let idx = (1 << (i + 1)) * x % m;
             let idx = (1 << (log_n - i)) * x % m;
-
+            // use little-endian representation so that x_i is the i-th bit of x
             let x_i = (x >> i) & 1;
             let x_i_idx = (1 << i) * x_i;
             *eval_at_x *= ((F::one() - u_i) + u_i * ntt_table[idx]) * ntt_table[x_i_idx];
@@ -68,17 +62,7 @@ pub fn naive_init_fourier_table<F: Field>(
 }
 
 /// Generate MLE for the Fourier function F(u, x) for x \in \{0, 1\}^dim where u is the random point.
-/// Dynamic programming implementation for initializing F(u, x) in NTT (derived from zkCNN: https://eprint.iacr.org/2021/673)
-/// `N` is the dimension of the vector used to represent the polynomial in NTT.
-///
-/// In NTT, the Fourier matrix is different since we choose these points: ω^1, ω^3, ..., ω^{2N-1}
-/// Compared to the original induction, the main differences here are F(y, x)  = ω^{(2Y+1) * X} and Y = \sum_{i = 0} y_i * 2^i.
-/// The latter one indicates that we use little-endian.
-/// As a result, the equation (8) in zkCNN is = ω^X * \prod_{i=0}^{\log{N-1}} ((1 - u_i) + u_i * ω^{2^{i + 1} * X})
-///
-/// In order to delegate the computation F(u, v) to prover, we decompose the ω^X term into the grand product.
-/// Hence, the final equation is = \prod_{i=0}^{\log{N-1}} ((1 - u_i) + u_i * ω^{2^{i + 1} * X}) * ω^{2^i * x_i}
-/// * (This function is the dynamic programming version of the above function.)
+/// Dynamic programming implementation for initializing F(u, x) in NTT with linear time complexity O(N).
 ///
 /// # Arguments
 /// * u: the random point
@@ -87,37 +71,27 @@ pub fn init_fourier_table<F: Field>(u: &[F], ntt_table: &[F]) -> DenseMultilinea
     let log_n = u.len(); // n = 1 << dim
     let m = ntt_table.len(); // m = 2n = 2 * (1 << dim)
 
-    // It store the evaluations of all F(u, x) for x \in \{0, 1\}^dim.
+    // It stores the evaluations of all F(u, x) for x \in {0, 1}^dim.
     // Note that in our implementation, we use little endian form, so the index `0b1011`
-    // represents the point `P(1,1,0,1)` in {0,1}^`dim`
+    // represents the point `P(1,1,0,1)` in {0,1}^`dim` where x_0 = 1, x_1 = 1, x_2 = 0, x_3 = 1.
     let mut evaluations: Vec<_> = vec![F::zero(); 1 << log_n];
     evaluations[0] = F::one();
 
-    // * Compute \prod_{i=0}^{\log{N-1}} ((1 - u_i) + u_i * ω^{2^{i + 1} * X}) * ω^{2^i * x_i}
-    // The reason why we update the table with u_i in reverse order is that
-    // in round i, ω^{2^{i + 1} is the (M / (2^{i+1}))-th root of unity, e.g. i = dim - 1, ω^{2^{i + 1} is the 2-th root of unity.
-    // Hence, we need to align this with the update method in dynamic programming.
-    //
-    // Note that the last term ω^{2^i * x_i} is indeed multiplied in the normal order, from x_0 to x_{log{n-1}}
-    // since we actually iterate from the LSB to MSB  when updating the table from size 1, 2, 4, 8, ..., n in dynamic programming.
-    // !modify here
+    // * Compute \prod_{i=0}^{\log{N-1}} ((1 - u_i) + u_i * {ω_{2^{i + 1}} ^ X}) * ω^{2^i * x_i}
+    // We need to update the table from i = 0 to log_n - 1 since ω_{2^{i + 1}} ^ X takes on only 2^{i + 1} distinct values.
     for (i, u_i) in u.iter().enumerate() {
-        // i starts from log_n - 1 and ends to 0
-        // let k = log_n - 1 - i;
         let last_table_size = 1 << i;
 
         for j in (0..1 << (i + 1)).rev() {
-            // idx is to indicate the power ω^{2^{i + 1} * j} in ntt_table
-            // !modify here
+            // `idx` denotes the index for ω^{2^{i+1} * X} stored in the NTT table where X shares the same last i + 1 bits with j
             let idx = (1 << (log_n - i)) * j % m;
-            // bit is the most significant bit of j. If bit = 1, we need to multiply by ω^{2^k * 1}
+            // `bit` denotes the most significant bit of j. If bit = 1, we need to multiply by ω^{2^i}
             let bit = j >> i;
             if bit == 1 {
                 evaluations[j] = evaluations[j % last_table_size]
                     * (F::one() - *u_i + *u_i * ntt_table[idx])
                     * ntt_table[last_table_size];
             }
-            // If bit = 0, we do not need to multiply because ω^{2^k * 0} = 1
             else {
                 evaluations[j] =
                     evaluations[j % last_table_size] * (F::one() - u_i + *u_i * ntt_table[idx]);
@@ -129,14 +103,14 @@ pub fn init_fourier_table<F: Field>(u: &[F], ntt_table: &[F]) -> DenseMultilinea
 
 impl<F: Field + Serialize> NTTBareIOP<F> {
     /// Prove NTT instance without delegation
-    pub fn prove(instance: &NTTInstance<F>) -> SumcheckKit<F> {
+    pub fn prove(instance: &NTTTraceMLE<F>) -> SumcheckKit<F> {
         let mut trans = Transcript::<F>::new();
         let u = trans.get_vec_challenge(
             b"random point used to instantiate sumcheck protocol",
-            instance.num_vars,
+            instance.num_vars(),
         );
 
-        let mut poly = ListOfProductsOfPolynomials::<F>::new(instance.num_vars);
+        let mut poly = ListOfProductsOfPolynomials::<F>::new(instance.num_vars());
         let randomness = F::one();
         let mut claimed_sum = F::zero();
         Self::prove_as_subprotocol(randomness, &mut poly, &mut claimed_sum, instance, &u);
@@ -159,12 +133,12 @@ impl<F: Field + Serialize> NTTBareIOP<F> {
         randomness: F,
         poly: &mut ListOfProductsOfPolynomials<F>,
         claimed_sum: &mut F,
-        instance: &NTTInstance<F>,
+        instance: &NTTTraceMLE<F>,
         u: &[F],
     ) {
         let f_u = Rc::new(init_fourier_table(u, &instance.ntt_table));
-        poly.add_product([Rc::clone(&f_u), Rc::clone(&instance.coeffs)], randomness);
-        *claimed_sum += randomness * instance.points.evaluate(u);
+        poly.add_product([Rc::clone(&f_u), Rc::clone(&instance.coefficients)], randomness);
+        *claimed_sum += randomness * instance.evaluations.evaluate(u);
     }
 
     /// Verify NTT instance without delegation
@@ -178,7 +152,7 @@ impl<F: Field + Serialize> NTTBareIOP<F> {
 
         let u = trans.get_vec_challenge(
             b"random point used to instantiate sumcheck protocol",
-            info.num_vars,
+            info.num_vars(),
         );
 
         let f_u = init_fourier_table(&u, &info.ntt_table);
@@ -348,13 +322,13 @@ mod test {
         // rev_i = \sum_k 2^{\logN-1-k} x_k and j = \sum_k 2^k * y_k
         for i in 0..1 << dim {
             for j in 0..1 << dim {
-                // ! Modified Formula
                 let rev_i = reverse_bits(i, dim);
                 let idx_power = ((2 * rev_i + 1) * j) as u32 % m;
                 let idx_fourier = i + (j << dim);
                 fourier_matrix[idx_fourier] = ntt_table[idx_power as usize];
             }
         }
+        
 
         let fourier_mle = DenseMultilinearExtension::from_evaluations_vec(dim << 1, fourier_matrix);
         // It includes the evaluations of f(u, x) for x \in \{0, 1\}^N

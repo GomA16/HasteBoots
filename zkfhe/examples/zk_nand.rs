@@ -2,8 +2,7 @@ use algebra::NTTField;
 use fhe_core::{utils::*, LWECiphertext, LWEModulusType};
 use rand::Rng;
 use zkfhe::{
-    bfhe_trace::{Evaluator, DEFAULT_TERNARY_128_BITS_PARAMETERS},
-    Decryptor, Encryptor, KeyGen,
+    Decryptor, Encryptor, KeyGen, bfhe_trace::{BabyBear_TERNARY_128_BITS_PARAMETERS, DEFAULT_TERNARY_128_BITS_PARAMETERS, Evaluator, Goldilocks_TERNARY_128_BITS_PARAMETERS}
 };
 
 type M = bool;
@@ -15,6 +14,7 @@ fn main() {
 
     // set parameter
     let params = *DEFAULT_TERNARY_128_BITS_PARAMETERS;
+    println!("Parameters: {params:?}\n");
 
     let noise_max = (params.lwe_cipher_modulus_value() as f64 / 16.0) as C;
 

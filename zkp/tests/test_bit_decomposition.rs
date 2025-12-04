@@ -1,4 +1,3 @@
-use algebra::utils::Transcript;
 use algebra::{
     AbstractExtensionField, BabyBear, BabyBearExetension, Basis, ListOfProductsOfPolynomials,
 };
@@ -9,6 +8,7 @@ use pcs::{
     utils::code::{ExpanderCode, ExpanderCodeSpec},
     PolynomialCommitmentScheme,
 };
+use helper::Transcript;
 use rand::prelude::*;
 use rand_distr::Distribution;
 use sha2::Sha256;

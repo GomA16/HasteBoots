@@ -30,7 +30,6 @@ use crate::utils::{
     add_assign_ef, eval_identity_function, gen_identity_evaluations, print_statistic,
     verify_oracle_relation,
 };
-use algebra::utils::Transcript;
 use algebra::AbstractExtensionField;
 use algebra::{DenseMultilinearExtension, Field, ListOfProductsOfPolynomials};
 use itertools::izip;
@@ -44,6 +43,7 @@ use pcs::{
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
 use serde::{Deserialize, Serialize};
+use helper::Transcript;
 
 /// IOP for Accumulator
 pub struct AccumulatorIOP<F: Field>(PhantomData<F>);

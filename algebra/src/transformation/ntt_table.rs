@@ -295,8 +295,8 @@ where
     }
 
     #[inline]
-    fn root_powers(&self, powers: &mut [F]) {
-        panic!("Not implemented");
+    fn root_powers(&self) -> Vec<F> {
+          self.root_powers.iter().map(|&v| F::from_root(v)).collect()
     }
 
     fn transform_slice(&self, values: &mut [F]) {

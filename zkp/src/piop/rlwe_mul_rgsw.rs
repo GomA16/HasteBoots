@@ -40,7 +40,7 @@ use crate::utils::{
     verify_oracle_relation,
 };
 use algebra::{
-    utils::Transcript, AbstractExtensionField, DenseMultilinearExtension, Field,
+    AbstractExtensionField, DenseMultilinearExtension, Field,
     ListOfProductsOfPolynomials,
 };
 use core::fmt;
@@ -57,6 +57,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
 use std::vec;
+use helper::Transcript;
 /// IOP for RLWE * RGSW
 pub struct RlweMultRgswIOP<F: Field>(PhantomData<F>);
 

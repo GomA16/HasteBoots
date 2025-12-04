@@ -32,14 +32,16 @@
 
 use sumcheck::{prover::ProverState, verifier::SubClaim, MLSumcheck, Proof};
 use sumcheck::{ProofWrapper, SumcheckKit};
-use crate::utils::{
+use helper::utils::{
     eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
 };
 use algebra::{
     AbstractExtensionField, DenseMultilinearExtension, Field,
     ListOfProductsOfPolynomials, PolynomialInfo,
 };
+use helper::Transcript;
 use core::fmt;
+use std::sync::Arc;
 use itertools::izip;
 use pcs::{
     multilinear::brakedown::BrakedownPCS,
@@ -50,30 +52,23 @@ use pcs::{
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::rc::Rc;
-use std::sync::Arc;
 use std::time::Instant;
 
 use ntt_bare::NTTBareIOP;
-use helper::Transcript;
+use ntt_delegation::IntermediateMLEs;
+use ntt_delegation::{init_fourier_table_with_mle, eval_w_power_times_x};
+use trace::{NTTTraceMLE, NTTInstanceInfo};
 
 pub mod ntt_bare;
+pub mod ntt_delegation;
+pub mod ntt_relation;
+pub mod ntt_fourier_eval;
 /// IOP for NTT, i.e. $$a(u) = \sum_{x\in \{0, 1\}^{\log N} c(x)\cdot F(u, x) }$$
 pub struct NTTIOP<F: Field>(PhantomData<F>);
 /// SNARKs for NTT compiled with PCS
 pub struct NTTSnarks<F: Field, EF: AbstractExtensionField<F>>(PhantomData<F>, PhantomData<EF>);
 
-/// Stores the NTT instance with the corresponding NTT table
-pub struct NTTInstance<F: Field> {
-    /// log_n is the number of the variables
-    /// the degree of the polynomial is N - 1
-    pub num_vars: usize,
-    /// stores {ω^0, ω^1, ..., ω^{2N-1}}
-    pub ntt_table: Arc<Vec<F>>,
-    /// coefficient representation of the polynomial
-    pub coeffs: Rc<DenseMultilinearExtension<F>>,
-    /// point-evaluation representation of the polynomial
-    pub points: Rc<DenseMultilinearExtension<F>>,
-}
+
 
 /// All the proofs generated only in the recursive phase to prove F(u, v), which does not contain the ntt_bare_proof.
 #[derive(Serialize)]
@@ -87,407 +82,6 @@ pub struct NTTRecursiveProof<F: Field> {
     pub final_claim: F,
 }
 
-/// Store all the NTT instances over Field to be proved, which will be randomized into a single random NTT instance over Extension Field.
-pub struct NTTInstances<F: Field> {
-    /// number of ntt instances
-    pub num_ntt: usize,
-    /// number of variables, which equals to logN.
-    /// the degree of the polynomial is N - 1
-    pub num_vars: usize,
-    /// stores {ω^0, ω^1, ..., ω^{2N-1}}
-    pub ntt_table: Arc<Vec<F>>,
-    /// store the coefficient representations
-    pub coeffs: Vec<Rc<DenseMultilinearExtension<F>>>,
-    /// store the point-evaluation representation
-    pub points: Vec<Rc<DenseMultilinearExtension<F>>>,
-}
-
-/// Stores the corresponding NTT table for the verifier
-#[derive(Clone, Debug)]
-pub struct NTTInstanceInfo<F: Field> {
-    /// number of instances randomized into this NTT instance
-    pub num_ntt: usize,
-    /// log_n is the number of the variables
-    /// the degree of the polynomial is N - 1
-    pub num_vars: usize,
-    /// stores {ω^0, ω^1, ..., ω^{2N-1}}
-    pub ntt_table: Arc<Vec<F>>,
-}
-
-impl<F: Field> fmt::Display for NTTInstanceInfo<F> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "a NTT instance randomized from {} NTT instances",
-            self.num_ntt,
-        )
-    }
-}
-
-impl<F: Field> NTTInstanceInfo<F> {
-    /// Convert to EF version
-    pub fn to_ef<EF: AbstractExtensionField<F>>(&self) -> NTTInstanceInfo<EF> {
-        NTTInstanceInfo {
-            num_ntt: self.num_ntt,
-            num_vars: self.num_vars,
-            ntt_table: Arc::new(self.ntt_table.iter().map(|x| EF::from_base(*x)).collect()),
-        }
-    }
-}
-
-/// store the intermediate mles generated in each iteration in the `init_fourier_table_overall` algorithm
-pub struct IntermediateMLEs<F: Field> {
-    f_mles: Vec<Rc<DenseMultilinearExtension<F>>>,
-    w_mles: Vec<Rc<DenseMultilinearExtension<F>>>,
-}
-
-impl<F: Field> IntermediateMLEs<F> {
-    /// Initiate the vector
-    pub fn new(n_rounds: u32) -> Self {
-        IntermediateMLEs {
-            f_mles: Vec::with_capacity(n_rounds as usize),
-            w_mles: Vec::with_capacity(n_rounds as usize),
-        }
-    }
-
-    /// Add the intermediate mles generated in each round
-    pub fn add_round_mles(&mut self, num_vars: usize, f_mle: &[F], w_mle: Vec<F>) {
-        self.f_mles
-            .push(Rc::new(DenseMultilinearExtension::from_evaluations_slice(
-                num_vars, f_mle,
-            )));
-        self.w_mles
-            .push(Rc::new(DenseMultilinearExtension::from_evaluations_vec(
-                num_vars, w_mle,
-            )));
-    }
-}
-
-/// Generate MLE for the Fourier function F(u, x) for x \in \{0, 1\}^dim where u is the random point.
-/// Dynamic programming implementation for initializing F(u, x) in NTT (derived from zkCNN: https://eprint.iacr.org/2021/673)
-/// `N` is the dimension of the vector used to represent the polynomial in NTT.
-///
-/// In NTT, the Fourier matrix is different since we choose these points: ω^1, ω^3, ..., ω^{2N-1}
-/// Compared to the original induction, the main differences here are F(y, x)  = ω^{(2Y+1) * X} and Y = \sum_{i = 0} y_i * 2^i.
-/// The latter one indicates that we use little-endian.
-/// As a result, the equation (8) in zkCNN is F(u, x) = ω^X * \prod_{i=0}^{\log{N-1}} ((1 - u_i) + u_i * ω^{2^{i + 1} * X})
-///
-/// In order to delegate the computation F(u, v) to prover, we decompose the ω^X term into the grand product.
-/// Hence, the final equation is F(u, x) = \prod_{i=0}^{\log{N-1}} ((1 - u_i) + u_i * ω^{2^{i + 1} * X}) * ω^{2^i * x_i}
-///
-/// * In order to comprehend this implementation, it is strongly recommended to read the pure version `naive_init_fourier_table` and `init_fourier_table` in the `ntt_bare.rs`.
-///
-/// `naive_init_fourier_table` shows the original formula of this algorithm.
-///
-/// `init_fourier_table` shows the dynamic programming version of this algorithm.
-///
-/// `init_fourier_table_overall` (this function) stores many intermediate evaluations for the ease of the delegation of F(u, v)
-///
-/// # Arguments
-/// * u: the random point
-/// * ntt_table: It stores the NTT table: ω^0, ω^1, ..., ω^{2N - 1}
-pub fn init_fourier_table_overall<F: Field>(u: &[F], ntt_table: &[F]) -> IntermediateMLEs<F> {
-    let log_n = u.len(); // N = 1 << dim
-    let m = ntt_table.len(); // M = 2N = 2 * (1 << dim)
-
-    // It store the evaluations of all F(u, x) for x \in \{0, 1\}^dim.
-    // Note that in our implementation, we use little endian form, so the index `0b1011`
-    // represents the point `P(1,1,0,1)` in {0,1}^`dim`
-    let mut evaluations: Vec<_> = vec![F::zero(); 1 << log_n];
-    evaluations[0] = F::one();
-
-    // stores all the intermediate evaluations of the table (i.e. F(u, x)) and the term ω^{2^{i + 1} * X} in each iteration
-    let mut intermediate_mles = <IntermediateMLEs<F>>::new(log_n as u32);
-
-    // * Compute \prod_{i=0}^{\log{N-1}} ((1 - u_i) + u_i * ω^{2^{i + 1} * X}) * ω^{2^i * x_i}
-    // The reason why we update the table with u_i in reverse order is that
-    // in round i, ω^{2^{i + 1} is the (M / (2^{i+1}))-th root of unity, e.g. i = dim - 1, ω^{2^{i + 1} is the 2-th root of unity.
-    // Hence, we need to align this with the update method in dynamic programming.
-    //
-    // Note that the last term ω^{2^i * x_i} is indeed multiplied in the normal order, from x_0 to x_{log{n-1}}
-    // since we actually iterate from the LSB to MSB  when updating the table from size 1, 2, 4, 8, ..., n in dynamic programming.
-    for i in (0..log_n).rev() {
-        // i starts from log_n - 1 and ends to 0
-        let this_round_dim = log_n - i;
-        let last_round_dim = this_round_dim - 1;
-        let this_round_table_size = 1 << this_round_dim;
-        let last_round_table_size = 1 << last_round_dim;
-
-        let mut evaluations_w_term = vec![F::zero(); this_round_table_size];
-        for x in (0..this_round_table_size).rev() {
-            // idx is to indicate the power ω^{2^{i + 1} * X} in ntt_table
-            let idx = (1 << (i + 1)) * x % m;
-            // the bit index in this iteration is last_round_dim = this_round_dim - 1
-            // If x >= last_round_table_size, meaning the bit = 1, we need to multiply by ω^{2^last_round_dim * 1}
-            if x >= last_round_table_size {
-                evaluations[x] = evaluations[x % last_round_table_size]
-                    * (F::one() - u[i] + u[i] * ntt_table[idx])
-                    * ntt_table[1 << last_round_dim];
-            }
-            // the bit index in this iteration is last_round_dim = this_round_dim - 1
-            // If x < last_round_table_size, meaning the bit = 0, we do not need to multiply because ω^{2^last_round_dim * 0} = 1
-            else {
-                evaluations[x] = evaluations[x % last_round_table_size]
-                    * (F::one() - u[i] + u[i] * ntt_table[idx]);
-            }
-            evaluations_w_term[x] = ntt_table[idx];
-        }
-        intermediate_mles.add_round_mles(
-            this_round_dim,
-            &evaluations[..this_round_table_size],
-            evaluations_w_term,
-        );
-    }
-
-    intermediate_mles
-}
-
-/// Naive implementation for computing the MLE: w^{2^exp \cdot x} for x \in \{0, 1\}^x_dim in a naive method
-///
-/// # Arguments:
-///
-/// * ntt_table: NTT table for w (M-th root of unity) containing {1, w, w^1, ..., w^{M-1}}
-/// * log_m: log of M
-/// * x_dim: dimension of x or the num of variables of the outputted mle
-/// * exp: the exponent of the function defined above
-pub fn naive_w_power_times_x_table<F: Field>(
-    ntt_table: &[F],
-    log_m: usize,
-    x_dim: usize,
-    exp: usize,
-) -> DenseMultilinearExtension<F> {
-    let m = 1 << log_m; // M = 2N = 2 * (1 << dim)
-    assert_eq!(ntt_table.len(), m);
-
-    let mut evaluations: Vec<_> = (0..(1 << x_dim)).map(|_| F::one()).collect();
-    for x in 0..(1 << x_dim) {
-        evaluations[x] = ntt_table[(1 << exp) * x % m];
-    }
-    DenseMultilinearExtension::from_evaluations_vec(x_dim, evaluations)
-}
-
-/// Evaluate the mle w^{2^exp * x} for a random point r \in F^{x_dim}
-/// This formula is also derived from the techniques in [zkCNN](https://eprint.iacr.org/2021/673).
-///
-/// w^{2^exp * r} = \sum_x eq(x, r) *  w^{2^exp * x}
-///               = \prod_i (1 - r_i + r_i * w^{2^ {(exp + i) % log_m})
-///
-/// * Note that the above equation only holds for exp <= logM - x_dim;
-/// * otherwise, the exponent 2^exp * x involves a modular addition, disabling the decomposition.
-///
-/// (Although I am not clearly making it out, the experiment result shows the above argument.)
-///
-/// # Arguments:
-///
-/// * ntt_table: NTT table for w (M-th root of unity) containing {1, w, w^1, ..., w^{M-1}}
-/// * log_m: log of M
-/// * x_dim: dimension of x or the num of variables of the outputted mle
-/// * exp: the exponent of the function defined above
-/// * r: random point in F^{x_dim}
-pub fn eval_w_power_times_x<F: Field>(
-    ntt_table: &[F],
-    log_m: usize,
-    x_dim: usize,
-    exp: usize,
-    r: &[F],
-) -> F {
-    assert_eq!(ntt_table.len(), 1 << log_m);
-    assert_eq!(x_dim, r.len());
-    assert!(exp + x_dim <= log_m);
-    let mut prod = F::one();
-
-    for (i, &r_i) in r.iter().enumerate() {
-        let log_exp = (exp + i) % log_m;
-        prod *= F::one() - r_i + r_i * ntt_table[1 << log_exp];
-    }
-
-    prod
-}
-
-impl<F: Field> NTTInstance<F> {
-    /// Extract the information of the NTT Instance for verification
-    #[inline]
-    pub fn info(&self) -> NTTInstanceInfo<F> {
-        NTTInstanceInfo {
-            num_ntt: 1,
-            num_vars: self.num_vars,
-            ntt_table: Arc::clone(&self.ntt_table),
-        }
-    }
-
-    /// Construct a new instance from slice
-    #[inline]
-    pub fn from_slice(
-        log_n: usize,
-        ntt_table: &Arc<Vec<F>>,
-        coeffs: &Rc<DenseMultilinearExtension<F>>,
-        points: &Rc<DenseMultilinearExtension<F>>,
-    ) -> Self {
-        Self {
-            num_vars: log_n,
-            ntt_table: ntt_table.clone(),
-            coeffs: Rc::clone(coeffs),
-            points: Rc::clone(points),
-        }
-    }
-
-    /// Construct a ntt instance defined over Extension Field
-    #[inline]
-    pub fn to_ef<EF: AbstractExtensionField<F>>(&self) -> NTTInstance<EF> {
-        NTTInstance::<EF> {
-            num_vars: self.num_vars,
-            ntt_table: Arc::new(self.ntt_table.iter().map(|x| EF::from_base(*x)).collect()),
-            coeffs: Rc::new(self.coeffs.to_ef::<EF>()),
-            points: Rc::new(self.points.to_ef::<EF>()),
-        }
-    }
-}
-
-impl<F: Field> NTTInstances<F> {
-    /// Construct an empty container
-    #[inline]
-    pub fn new(num_vars: usize, ntt_table: &Arc<Vec<F>>) -> Self {
-        Self {
-            num_ntt: 0,
-            num_vars,
-            ntt_table: Arc::clone(ntt_table),
-            coeffs: Vec::new(),
-            points: Vec::new(),
-        }
-    }
-
-    /// Extract the information of the NTT Instance for verification
-    #[inline]
-    pub fn info(&self) -> NTTInstanceInfo<F> {
-        NTTInstanceInfo {
-            num_ntt: self.num_ntt,
-            num_vars: self.num_vars,
-            ntt_table: Arc::clone(&self.ntt_table),
-        }
-    }
-
-    /// Return the number of coefficient / point oracles
-    #[inline]
-    pub fn num_oracles(&self) -> usize {
-        self.num_ntt
-    }
-
-    /// Return the log of the number of small polynomials used in IOP
-    #[inline]
-    pub fn log_num_oracles(&self) -> usize {
-        self.num_oracles().next_power_of_two().ilog2() as usize
-    }
-
-    /// Add a ntt instance into the container
-    #[inline]
-    pub fn add_ntt(
-        &mut self,
-        coeff: &Rc<DenseMultilinearExtension<F>>,
-        point: &Rc<DenseMultilinearExtension<F>>,
-    ) {
-        self.num_ntt += 1;
-        assert_eq!(self.num_vars, coeff.num_vars);
-        assert_eq!(self.num_vars, point.num_vars);
-        self.coeffs.push(Rc::clone(coeff));
-        self.points.push(Rc::clone(point));
-    }
-
-    /// Pack all the involved small polynomials into a single vector of evaluations.
-    /// The arrangement of this packed MLE is not as compact as others.
-    /// We deliberately do like this for ease of requested evaluation on the committed polynomial.
-    #[inline]
-    pub fn pack_all_mles(&self) -> Vec<F> {
-        let num_vars_added_half = self.log_num_oracles();
-        let num_zeros_padded_half =
-            ((1 << num_vars_added_half) - self.num_oracles()) * (1 << self.num_vars);
-
-        // arrangement: all coeffs || padded zeros || all points || padded zeros
-        // The advantage of this arrangement is that F(0, x) packs all evaluations of coeff-MLEs and F(1, x) packs all evaluations of point-MLEs
-        let padded_zeros = vec![F::zero(); num_zeros_padded_half];
-        self.coeffs
-            .iter()
-            .flat_map(|coeff| coeff.iter())
-            .chain(padded_zeros.iter())
-            .chain(self.points.iter().flat_map(|point| point.iter()))
-            .chain(padded_zeros.iter())
-            .copied()
-            .collect::<Vec<F>>()
-    }
-
-    /// Generate the oracle to be committed that is composed of all the small oracles used in IOP.
-    /// The evaluations of this oracle is generated by the evaluations of all mles and the padded zeros.
-    /// The arrangement of this oracle should be consistent to its usage in verifying the subclaim.
-    #[inline]
-    pub fn generate_oracle(&self) -> DenseMultilinearExtension<F> {
-        let num_oracles_half = self.num_ntt;
-        let num_vars_added_half = num_oracles_half.next_power_of_two().ilog2() as usize;
-        let num_vars = self.num_vars + num_vars_added_half + 1;
-
-        // arrangement: all coeffs || padded zeros || all points || padded zeros
-        // The advantage of this arrangement is that F(0, x) packs all evaluations of coeff-MLEs and F(1, x) packs all evaluations of point-MLEs
-        let evals = self.pack_all_mles();
-        <DenseMultilinearExtension<F>>::from_evaluations_vec(num_vars, evals)
-    }
-
-    /// Construct a random ntt instances from all the ntt instances to be proved, with randomness defined over Field
-    #[inline]
-    pub fn extract_ntt_instance(&self, randomness: &[F]) -> NTTInstance<F> {
-        assert_eq!(randomness.len(), self.num_ntt);
-        let mut random_coeffs = <DenseMultilinearExtension<F>>::from_evaluations_vec(
-            self.num_vars,
-            vec![F::zero(); 1 << self.num_vars],
-        );
-        let mut random_points = <DenseMultilinearExtension<F>>::from_evaluations_vec(
-            self.num_vars,
-            vec![F::zero(); 1 << self.num_vars],
-        );
-        for (r, coeff, point) in izip!(randomness, &self.coeffs, &self.points) {
-            random_coeffs += (*r, coeff.as_ref());
-            random_points += (*r, point.as_ref());
-        }
-        NTTInstance::<F> {
-            num_vars: self.num_vars,
-            ntt_table: Arc::clone(&self.ntt_table),
-            coeffs: Rc::new(random_coeffs),
-            points: Rc::new(random_points),
-        }
-    }
-
-    /// Construct a random ntt instances from all the ntt instances to be proved, with randomness defined over Extension Field
-    #[inline]
-    pub fn extract_ntt_instance_to_ef<EF: AbstractExtensionField<F>>(
-        &self,
-        randomness: &[EF],
-    ) -> NTTInstance<EF> {
-        assert_eq!(randomness.len(), self.num_ntt);
-        let mut random_coeffs = <DenseMultilinearExtension<EF>>::from_evaluations_vec(
-            self.num_vars,
-            vec![EF::zero(); 1 << self.num_vars],
-        );
-        let mut random_points = <DenseMultilinearExtension<EF>>::from_evaluations_vec(
-            self.num_vars,
-            vec![EF::zero(); 1 << self.num_vars],
-        );
-        for (r, coeff, point) in izip!(randomness, &self.coeffs, &self.points) {
-            // multiplication between EF (r) and F (y)
-            random_coeffs
-                .iter_mut()
-                .zip(coeff.iter())
-                .for_each(|(x, y)| *x += *r * *y);
-            random_points
-                .iter_mut()
-                .zip(point.iter())
-                .for_each(|(x, y)| *x += *r * *y);
-        }
-        NTTInstance::<EF> {
-            num_vars: self.num_vars,
-            ntt_table: Arc::new(self.ntt_table.iter().map(|x| EF::from_base(*x)).collect()),
-            coeffs: Rc::new(random_coeffs),
-            points: Rc::new(random_points),
-        }
-    }
-}
-
 impl<F: Field + Serialize> NTTIOP<F> {
     /// sample the random coins before proving sumcheck protocol
     pub fn sample_coins(trans: &mut Transcript<F>, num_ntt: usize) -> Vec<F> {
@@ -499,15 +93,15 @@ impl<F: Field + Serialize> NTTIOP<F> {
 
     /// return the number of coins used in this IOP
     pub fn num_coins(info: &NTTInstanceInfo<F>) -> usize {
-        info.num_ntt
+        info.num_ntt()
     }
 
     /// Prove NTT instance with delegation
-    pub fn prove(instance: &NTTInstance<F>) -> (SumcheckKit<F>, NTTRecursiveProof<F>) {
+    pub fn prove(instance: &NTTTraceMLE<F>) -> (SumcheckKit<F>, NTTRecursiveProof<F>) {
         let mut trans = Transcript::new();
         let u = trans.get_vec_challenge(
             b"random point used to instantiate sumcheck protocol",
-            instance.num_vars,
+            instance.num_vars(),
         );
 
         let mut poly = ListOfProductsOfPolynomials::<F>::new(instance.num_vars);
@@ -583,6 +177,7 @@ impl<F: Field + Serialize> NTTIOP<F> {
 
         <NTTIOP<F>>::verify_recursive(&mut trans, recursive_proof, info, &u, &subclaim)
     }
+
     /// The delegation of F(u, v) consists of logN - 1 rounds, each of which is a sumcheck protocol.
     ///
     /// We define $A_{F}^{(k)}:\{0,1\}^{k+1} -> \mathbb{F}$ and $ω^{(k)}_{i+1}:\{0,1\}^{k+1} -> \mathbb{F}$.
@@ -659,10 +254,9 @@ impl<F: Field + Serialize> NTTIOP<F> {
         info: &NTTInstanceInfo<F>,
         u: &[F],
     ) -> NTTRecursiveProof<F> {
-        let log_n = info.num_vars;
+        let log_n = info.num_vars();
 
-        let intermediate_mles = init_fourier_table_overall(u, &info.ntt_table);
-        let (f_mles, w_mles) = (intermediate_mles.f_mles, intermediate_mles.w_mles);
+        let (f_mles, w_mles) = init_fourier_table_with_mle(u, &info.ntt_table).into_mles();
 
         // 1. (detached) prove a(u) = \sum_{x\in \{0, 1\}^{\log N} c(x)\cdot F(u, x) } for a random point u
 
@@ -677,9 +271,10 @@ impl<F: Field + Serialize> NTTIOP<F> {
         let mut delegation_sumcheck_msgs = Vec::with_capacity(log_n - 1);
         // store the claimed sum of the sumcheck protocol in each round
         let mut delegation_claimed_sums = Vec::with_capacity(log_n - 1);
+        // ! Modified Formula
         for k in (1..log_n).rev() {
             // start form log_n - 1;
-            let i = log_n - 1 - k;
+            // let i = log_n - 1 - k;
             delegation_claimed_sums.push(reduced_claim);
 
             let w_coeff = info.ntt_table[1 << k];
@@ -688,7 +283,8 @@ impl<F: Field + Serialize> NTTIOP<F> {
                 trans,
                 k,
                 &requested_point,
-                u[i],
+                // ! Modified Formula
+                u[k],
                 w_coeff,
                 f,
                 &w_mles[k],
@@ -734,7 +330,7 @@ impl<F: Field + Serialize> NTTIOP<F> {
         reduced_claim: F,
         ntt_instance_info: &NTTInstanceInfo<F>,
     ) -> bool {
-        let log_n = ntt_instance_info.num_vars;
+        let log_n = ntt_instance_info.num_vars();
         let ntt_table = &ntt_instance_info.ntt_table;
 
         // r_left = (r, 0) and r_right = (r, 0)
@@ -747,10 +343,12 @@ impl<F: Field + Serialize> NTTIOP<F> {
 
         // compute $\ω^{(k)}_{i+1}(x,b ) = \ω^{2^{i+1}\cdot j}$ for $j = X+2^{i+1}\cdot b$ at point (r, 0) and (r, 1)
         // exp: i + 1 = n - k
-        let exp = log_n - round;
+        // let exp = log_n - round;
+        // ! Modified Formula
+        let sub = round + 1;
         // w_left = \tilde{ω}^{(k)}_{i+1}(r, 0) and w_right = \tilde{ω}^{(k)}_{i+1}(r, 0)
-        let w_left = eval_w_power_times_x(ntt_table, log_n + 1, round + 1, exp, &r_left);
-        let w_right = eval_w_power_times_x(ntt_table, log_n + 1, round + 1, exp, &r_right);
+        let w_left = eval_w_power_times_x(ntt_table, log_n + 1, round + 1, sub, &r_left);
+        let w_right = eval_w_power_times_x(ntt_table, log_n + 1, round + 1, sub, &r_right);
 
         let eval = eval_identity_function(x_b_point, &r_left)
             * reduced_claim
@@ -772,7 +370,7 @@ impl<F: Field + Serialize> NTTIOP<F> {
         u: &[F],
         subclaim: &SubClaim<F>,
     ) -> bool {
-        let log_n = info.num_vars;
+        let log_n = info.num_vars();
         assert_eq!(proof.delegation_sumcheck_msgs.len(), log_n - 1);
         assert_eq!(proof.delegation_claimed_sums.len(), log_n - 1);
 
@@ -782,7 +380,7 @@ impl<F: Field + Serialize> NTTIOP<F> {
         // 2. verify the computation of F(u, v) in log_n - 1 rounds
         let mut requested_point = subclaim.point.clone();
         for (cnt, k) in (1..log_n).rev().enumerate() {
-            let i = log_n - 1 - k;
+            // let i = log_n - 1 - k;
 
             // verify the proof of the sumcheck protocol
             let poly_info = PolynomialInfo {
@@ -809,7 +407,8 @@ impl<F: Field + Serialize> NTTIOP<F> {
             if !Self::delegation_verify_round(
                 k,
                 &requested_point,
-                u[i],
+                // ! Modified Formula
+                u[k],
                 &subclaim,
                 reduced_claim,
                 info,
@@ -825,10 +424,11 @@ impl<F: Field + Serialize> NTTIOP<F> {
         assert_eq!(final_point.len(), 1);
 
         // check the final claim returned from the last round of delegation
-        let idx = 1 << (info.num_vars);
+        // ! Modified Formula
+        let idx = 1 << (info.num_vars());
         let eval = eval_identity_function(&final_point, &[F::zero()])
             + eval_identity_function(&final_point, &[F::one()])
-                * (F::one() - u[info.num_vars - 1] + u[info.num_vars - 1] * info.ntt_table[idx])
+                * (F::one() - u[0] + u[0] * info.ntt_table[idx])
                 * info.ntt_table[1];
 
         delegation_final_claim == eval
@@ -1075,94 +675,3 @@ where
     }
 }
 
-#[cfg(test)]
-mod test {
-    use crate::piop::ntt::{eval_w_power_times_x, naive_w_power_times_x_table};
-    use algebra::{
-        derive::{DecomposableField, FheField, Field, Prime, NTT},
-        DenseMultilinearExtension, FieldUniformSampler, NTTField,
-    };
-    use num_traits::{One, Zero};
-    use rand::thread_rng;
-    use rand_distr::Distribution;
-
-    use super::init_fourier_table_overall;
-
-    #[derive(Field, DecomposableField, FheField, Prime, NTT)]
-    #[modulus = 132120577]
-    pub struct Fp32(u32);
-    // field type
-    type FF = Fp32;
-
-    #[test]
-    fn test_init_fourier_table_overall() {
-        let sampler = <FieldUniformSampler<FF>>::new();
-        let mut rng = thread_rng();
-
-        let dim = 10;
-        let m = 1 << (dim + 1); // M = 2N = 2 * (1 << dim)
-        let u: Vec<_> = (0..dim).map(|_| sampler.sample(&mut rng)).collect();
-        let v: Vec<_> = (0..dim).map(|_| sampler.sample(&mut rng)).collect();
-
-        let mut u_v: Vec<_> = Vec::with_capacity(dim << 1);
-        u_v.extend(&u);
-        u_v.extend(&v);
-
-        // root is the M-th root of unity
-        let root = FF::try_minimal_primitive_root(m).unwrap();
-
-        let mut fourier_matrix: Vec<_> = (0..(1 << dim) * (1 << dim)).map(|_| FF::zero()).collect();
-        let mut ntt_table = Vec::with_capacity(m as usize);
-
-        let mut power = FF::one();
-        for _ in 0..m {
-            ntt_table.push(power);
-            power *= root;
-        }
-
-        // In little endian, the index for F[i, j] is i + (j << dim)
-        for i in 0..1 << dim {
-            for j in 0..1 << dim {
-                let idx_power = (2 * i + 1) * j % m;
-                let idx_fourier = i + (j << dim);
-                fourier_matrix[idx_fourier as usize] = ntt_table[idx_power as usize];
-            }
-        }
-
-        let fourier_mle = DenseMultilinearExtension::from_evaluations_vec(dim << 1, fourier_matrix);
-        let partial_fourier_mle = &init_fourier_table_overall(&u, &ntt_table).f_mles[dim - 1];
-
-        assert_eq!(fourier_mle.evaluate(&u_v), partial_fourier_mle.evaluate(&v));
-    }
-
-    #[test]
-    fn test_w_power_x() {
-        let dim = 10; // meaning x\in \{0, 1\}^{dim} and N = 1 << dim
-        let log_m = dim + 1;
-        let m = 1 << log_m; // M = 2N
-
-        // root is the M-th root of unity
-        let root = FF::try_minimal_primitive_root(m).unwrap();
-
-        let mut ntt_table = Vec::with_capacity(m as usize);
-
-        let mut power = FF::one();
-        for _ in 0..m {
-            ntt_table.push(power);
-            power *= root;
-        }
-
-        let sampler = <FieldUniformSampler<FF>>::new();
-        let mut rng = thread_rng();
-
-        for x_dim in 0..=dim {
-            let max_exp = log_m - x_dim;
-            for exp in 0..=max_exp {
-                let r: Vec<_> = (0..x_dim).map(|_| sampler.sample(&mut rng)).collect();
-                let w_mle = naive_w_power_times_x_table(&ntt_table, log_m, x_dim, exp);
-                let w_eval = eval_w_power_times_x(&ntt_table, log_m, x_dim, exp, &r);
-                assert_eq!(w_eval, w_mle.evaluate(&r));
-            }
-        }
-    }
-}

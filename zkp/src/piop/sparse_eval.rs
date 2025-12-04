@@ -6,7 +6,7 @@ use crate::utils::{
     eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
 };
 use algebra::{
-    utils::Transcript, AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
+    AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
     ListOfProductsOfPolynomials,
 };
 use core::fmt;
@@ -24,6 +24,7 @@ use std::time::Instant;
 use super::bit_decomposition::DecomposedBitsEval;
 use super::lookup::LookupInstanceInfo;
 use super::{BitDecomposition, DecomposedBits, DecomposedBitsInfo, LookupInstance};
+use helper::Transcript;
 
 /// Sparse Matrix Instance used as prover keys
 pub struct SparseEvalInstance<F: Field> {

@@ -10,6 +10,7 @@ algebra = { path = "../algebra" }
 pcs = { path = "../pcs" }
 fhe_core = { path = "../fhe_core" }
 sumcheck = { path = "../sumcheck" }
+helper = { path = "../helper" }
 
 thiserror = { workspace = true }
 rand = { workspace = true }
