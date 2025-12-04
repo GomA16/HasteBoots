@@ -1,7 +1,7 @@
-use algebra::{transformation::AbstractNTT, NTTField, Polynomial};
 use algebra::{
     BabyBear, BabyBearExetension, Basis, DenseMultilinearExtension, Field, FieldUniformSampler,
 };
+use algebra::{NTTField, Polynomial, transformation::AbstractNTT};
 use itertools::izip;
 use num_traits::One;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
@@ -11,8 +11,8 @@ use std::sync::Arc;
 use std::vec;
 use zkp::piop::RlweMultRgswSnarksOpt;
 use zkp::piop::{
-    rlwe_mul_rgsw::RlweMultRgswSnarks, DecomposedBitsInfo, NTTInstanceInfo, RlweCiphertext,
-    RlweCiphertexts, RlweMultRgswIOP, RlweMultRgswInstance,
+    DecomposedBitsInfo, NTTInstanceInfo, RlweCiphertext, RlweCiphertexts, RlweMultRgswIOP,
+    RlweMultRgswInstance, rlwe_mul_rgsw::RlweMultRgswSnarks,
 };
 
 // field type
@@ -179,7 +179,7 @@ fn generate_rlwe_mult_rgsw_instance<F: Field + NTTField>(
 
 #[test]
 fn test_random_rlwe_mult_rgsw() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
 
     // information used to decompose bits
@@ -270,7 +270,7 @@ fn test_random_rlwe_mult_rgsw() {
 
 #[test]
 fn test_random_rlwe_mult_rgsw_extension_field() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
 
     // information used to decompose bits
@@ -362,7 +362,7 @@ fn test_random_rlwe_mult_rgsw_extension_field() {
 
 #[test]
 fn test_snarks() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
 
     // information used to decompose bits
@@ -441,7 +441,7 @@ fn test_snarks() {
 
 #[test]
 fn test_snarks_with_lookup() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
 
     // information used to decompose bits

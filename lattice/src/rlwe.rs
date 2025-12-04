@@ -1,14 +1,14 @@
 use std::ops::MulAssign;
 
 use algebra::{
-    ntt_add_mul_assign, ntt_add_mul_assign_fast, ntt_add_mul_inplace, transformation::AbstractNTT,
-    FieldDiscreteGaussianSampler, NTTField, NTTPolynomial, Polynomial,
+    FieldDiscreteGaussianSampler, NTTField, NTTPolynomial, Polynomial, ntt_add_mul_assign,
+    ntt_add_mul_assign_fast, ntt_add_mul_inplace, transformation::AbstractNTT,
 };
 use rand::{CryptoRng, Rng};
 use trace::HadamardProdsTrace;
 
 use crate::{
-    DecompositionSpace, GadgetRLWE, NTTGadgetRLWE, NTTRLWESpace, PolynomialSpace, LWE, NTTRGSW,
+    DecompositionSpace, GadgetRLWE, LWE, NTTGadgetRLWE, NTTRGSW, NTTRLWESpace, PolynomialSpace,
     RGSW,
 };
 
@@ -1044,7 +1044,7 @@ impl<F: NTTField> NTTRLWE<F> {
 
         gadget_rlwe.iter().enumerate().for_each(|(i, g)| {
             polynomial_space.decompose_lsb_bits_inplace(basis, decompose_space.as_mut_slice());
-            
+
             let trace = trace.get_trace_mul(i);
             trace.append_bit_poly(decompose_space.as_slice());
 

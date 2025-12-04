@@ -9,8 +9,8 @@ pub mod multilinear;
 pub mod utils;
 
 use algebra::{AbstractExtensionField, Field, MultilinearExtension};
-use serde::{Deserialize, Serialize};
 use helper::Transcript;
+use serde::{Deserialize, Serialize};
 
 // type Point<F, P> = <P as MultilinearExtension<F>>::Point;
 

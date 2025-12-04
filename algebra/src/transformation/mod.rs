@@ -10,9 +10,9 @@ mod ntt_table;
 
 #[cfg(feature = "concrete-ntt")]
 pub use concrete::{prime32, prime64};
+pub use ntt_table::NTTTable;
 #[cfg(feature = "count_ntt")]
 pub use ntt_table::count;
-pub use ntt_table::NTTTable;
 
 use crate::{NTTField, NTTPolynomial, Polynomial};
 

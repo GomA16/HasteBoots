@@ -4,15 +4,17 @@
 //! Interactive Proof Protocol used for Multilinear Sumcheck
 // It is derived from https://github.com/arkworks-rs/sumcheck/blob/master/src/ml_sumcheck/protocol/mod.rs.
 
+use std::marker::PhantomData;
+
 use algebra::{Field, ListOfProductsOfPolynomials, PolynomialInfo};
+use helper::Transcript;
 use prover::{ProverMsg, ProverState};
 use serde::Serialize;
-use std::marker::PhantomData;
 use verifier::SubClaim;
-use helper::Transcript;
+
+pub mod error;
 pub mod prover;
 pub mod verifier;
-pub mod error;
 
 /// IP for MLSumcheck   
 pub struct IPForMLSumcheck<F: Field> {
@@ -83,8 +85,14 @@ impl<F: Field + Serialize> MLSumcheck<F> {
         polynomial: &ListOfProductsOfPolynomials<F>,
     ) -> Result<(Proof<F>, ProverState<F>), crate::error::Error> {
         trans.append_message(b"polynomial info", &polynomial.info());
-        println!("[sumcheck] The polynomial (degree = {}) to be proved consists of {} MLEs (#vars = {}) in the form of {} products.", polynomial.max_multiplicands, polynomial.flattened_ml_extensions.len(), polynomial.num_variables, polynomial.products.len());
-        
+        println!(
+            "[sumcheck] The polynomial (degree = {}) to be proved consists of {} MLEs (#vars = {}) in the form of {} products.",
+            polynomial.max_multiplicands,
+            polynomial.flattened_ml_extensions.len(),
+            polynomial.num_variables,
+            polynomial.products.len()
+        );
+
         let mut prover_state = IPForMLSumcheck::prover_init(polynomial);
         let mut verifier_msg = None;
         let mut prover_msgs = Vec::with_capacity(polynomial.num_variables);

@@ -2,9 +2,9 @@ use std::ops::ShrAssign;
 
 use num_traits::PrimInt;
 
-use crate::{reduce::*, Bits};
+use crate::{Bits, reduce::*};
 
-use super::{from_monty, monty_reduce, try_inverse, BabyBearModulus, P};
+use super::{BabyBearModulus, P, from_monty, monty_reduce, try_inverse};
 
 impl AddReduce<BabyBearModulus> for u32 {
     type Output = Self;

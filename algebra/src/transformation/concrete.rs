@@ -5,8 +5,8 @@ pub mod prime32 {
     use concrete_ntt::prime32::Plan;
 
     use crate::{
-        transformation::{AbstractNTT, MonomialNTT},
         AlgebraError, Field, NTTField,
+        transformation::{AbstractNTT, MonomialNTT},
     };
 
     /// Wrapping concrete NTT for 32bit primes.
@@ -42,11 +42,9 @@ pub mod prime32 {
         }
 
         #[inline]
-        fn root_powers(&self) -> Vec<F>{
+        fn root_powers(&self) -> Vec<F> {
             let u32_slice = self.plan.root_powers();
-            u32_slice.iter().map(
-                |&v| F::new(v)
-            ).collect()
+            u32_slice.iter().map(|&v| F::new(v)).collect()
         }
 
         #[inline]
@@ -94,8 +92,8 @@ pub mod prime64 {
     use concrete_ntt::prime64::Plan;
 
     use crate::{
-        transformation::{AbstractNTT, MonomialNTT},
         AlgebraError, Field, NTTField,
+        transformation::{AbstractNTT, MonomialNTT},
     };
 
     /// Wrapping concrete NTT for 64bit primes.
@@ -133,10 +131,7 @@ pub mod prime64 {
         #[inline]
         fn root_powers(&self) -> Vec<F> {
             let u64_slice = self.plan.root_powers();
-            u64_slice
-                .iter()
-                .map(|&v| F::new(v))
-                .collect::<Vec<F>>()
+            u64_slice.iter().map(|&v| F::new(v)).collect::<Vec<F>>()
         }
 
         #[inline]

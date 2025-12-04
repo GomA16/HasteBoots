@@ -1,12 +1,12 @@
 use std::cell::RefCell;
 
-use algebra::{utils::Prg, NTTField, NTTPolynomial, Polynomial};
+use algebra::{NTTField, NTTPolynomial, Polynomial, utils::Prg};
 use lattice::{sample_binary_values, sample_ternary_values};
 use num_traits::Inv;
 
 use crate::{
-    ciphertext::LWECiphertext, decode, encode, parameter::LWEParameters, BlindRotationType,
-    LWEModulusType, LWEMsgType, Parameters, Steps,
+    BlindRotationType, LWEModulusType, LWEMsgType, Parameters, Steps, ciphertext::LWECiphertext,
+    decode, encode, parameter::LWEParameters,
 };
 
 /// The distribution type of the LWE Secret Key.

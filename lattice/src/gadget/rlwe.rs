@@ -1,14 +1,14 @@
-use std::{slice::{Iter, IterMut}, vec};
+use std::slice::{Iter, IterMut};
 
 use algebra::{
-    transformation::AbstractNTT, Basis, FieldDiscreteGaussianSampler, NTTField, NTTPolynomial,
-    Polynomial,
+    Basis, FieldDiscreteGaussianSampler, NTTField, NTTPolynomial, Polynomial,
+    transformation::AbstractNTT,
 };
 use rand::{CryptoRng, Rng};
 
-use crate::{DecompositionSpace, PolynomialSpace, NTTRLWE, RLWE};
+use crate::{DecompositionSpace, NTTRLWE, PolynomialSpace, RLWE};
 
-use trace::{HadamardProdsTrace};
+use trace::HadamardProdsTrace;
 
 /// A representation of Ring Learning with Errors (RLWE) ciphertexts with respect to different powers
 /// of a base, used to control noise growth in polynomial multiplications.
@@ -451,7 +451,7 @@ impl<F: NTTField> NTTGadgetRLWE<F> {
             ntt_table.transform_slice(decompose_space.as_mut_slice());
             trace.append_bit_ntt(decompose_space.as_slice());
 
-            destination.add_ntt_rlwe_mul_ntt_polynomial_assign_fast(g_rlwe, &decompose_space);
+            destination.add_ntt_rlwe_mul_ntt_polynomial_assign_fast(g_rlwe, decompose_space);
             trace.append_key_ntt(g_rlwe.a_b_slice());
         });
     }

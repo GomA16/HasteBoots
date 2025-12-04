@@ -1,6 +1,6 @@
 use crate::{
-    extension::TwoAdicField, field::Field, BinomialExtensionField, BinomiallyExtendable,
-    Goldilocks, HasTwoAdicBionmialExtension,
+    BinomialExtensionField, BinomiallyExtendable, Goldilocks, HasTwoAdicBionmialExtension,
+    extension::TwoAdicField, field::Field,
 };
 
 use num_traits::Zero;

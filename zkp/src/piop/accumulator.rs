@@ -1,49 +1,43 @@
 //! IOP for Accumulator updating t times
 //! ACC = ACC + (X^{-a_u} - 1) * ACC * RGSW(Z_u)
 //! Each updation contains two single ntt operations and one multiplication between RLWE and RGSW
-use crate::piop;
-use crate::piop::LookupIOP;
-use sumcheck::verifier::SubClaim;
-use sumcheck::MLSumcheck;
-use sumcheck::ProofWrapper;
-use sumcheck::SumcheckKit;
+
 use core::fmt;
-use core::time;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
 
-use super::ntt::NTTRecursiveProof;
-use super::rlwe_mul_rgsw::RlweEval;
-use super::rlwe_mul_rgsw::RlweMultRgswEval;
-use super::rlwe_mul_rgsw::RlweMultRgswInfo;
-use super::DecomposedBits;
-use super::LookupInstance;
-use super::NTTBareIOP;
-use super::RlweCiphertext;
-use super::RlweMultRgswIOP;
-use super::RlweMultRgswIOPPure;
-use super::RlweMultRgswInstance;
-use super::{DecomposedBitsInfo, NTTInstance, NTTInstanceInfo, NTTIOP};
-use crate::utils::{
-    add_assign_ef, eval_identity_function, gen_identity_evaluations, print_statistic,
-    verify_oracle_relation,
+use algebra::{
+    AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
 };
-use algebra::AbstractExtensionField;
-use algebra::{DenseMultilinearExtension, Field, ListOfProductsOfPolynomials};
-use itertools::izip;
-use itertools::Itertools;
+use bincode::config::standard;
+use helper::Transcript;
+use itertools::{Itertools, izip};
 use pcs::{
+    PolynomialCommitmentScheme,
     multilinear::brakedown::BrakedownPCS,
     utils::code::{LinearCode, LinearCodeSpec},
     utils::hash::Hash,
-    PolynomialCommitmentScheme,
 };
-use rayon::iter::IntoParallelRefIterator;
-use rayon::iter::ParallelIterator;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
-use helper::Transcript;
+use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit, verifier::SubClaim};
+
+use super::ntt::NTTRecursiveProof;
+use super::rlwe_mul_rgsw::{RlweEval, RlweMultRgswEval, RlweMultRgswInfo};
+use super::{
+    DecomposedBits, DecomposedBitsInfo, LookupInstance, NTTBareIOP, NTTIOP, NTTInstance,
+    NTTInstanceInfo, RlweCiphertext, RlweMultRgswIOP, RlweMultRgswIOPPure, RlweMultRgswInstance,
+};
+
+use crate::{
+    piop::LookupIOP,
+    utils::{
+        add_assign_ef, eval_identity_function, gen_identity_evaluations, print_statistic,
+        verify_oracle_relation,
+    },
+};
 
 /// IOP for Accumulator
 pub struct AccumulatorIOP<F: Field>(PhantomData<F>);
@@ -962,7 +956,9 @@ where
         let (sumcheck_proof, sumcheck_state) =
             <MLSumcheck<EF>>::prove(&mut prover_trans, &sumcheck_poly)
                 .expect("Proof generated in Accumulator");
-        iop_proof_size += bincode::serialize(&sumcheck_proof).unwrap().len();
+        iop_proof_size += bincode::serde::encode_to_vec(&sumcheck_proof, standard())
+            .unwrap()
+            .len();
 
         // 2.? [one more step] Prover recursive prove the evaluation of F(u, v)
         let recursive_proof = <NTTIOP<EF>>::prove_recursive(
@@ -971,7 +967,9 @@ where
             &ntt_instance_info,
             &prover_u,
         );
-        iop_proof_size += bincode::serialize(&recursive_proof).unwrap().len();
+        iop_proof_size += bincode::serde::encode_to_vec(&recursive_proof, standard())
+            .unwrap()
+            .len();
         let iop_prover_time = prover_start.elapsed().as_millis();
 
         // 2.4 Compute all the evaluations of these small polynomials used in IOP over the random point returned from the sumcheck protocol
@@ -1114,10 +1112,18 @@ where
         );
         assert!(check_pcs_at_r && check_pcs_at_u);
         let pcs_verifier_time = start.elapsed().as_millis();
-        pcs_proof_size += bincode::serialize(&eval_proof_at_r).unwrap().len()
-            + bincode::serialize(&eval_proof_at_u).unwrap().len()
-            + bincode::serialize(&flatten_evals_at_r).unwrap().len()
-            + bincode::serialize(&flatten_evals_at_u).unwrap().len();
+        pcs_proof_size += bincode::serde::encode_to_vec(&eval_proof_at_r, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&eval_proof_at_u, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&flatten_evals_at_r, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&flatten_evals_at_u, standard())
+                .unwrap()
+                .len();
 
         // 4. print statistic
         print_statistic(
@@ -1411,12 +1417,15 @@ where
         let mut piop_time = time_mark.elapsed().as_millis();
 
         let time_mark = Instant::now();
-        let second_pp =
-            BrakedownPCS::<F, H, C, S, EF>::setup(second_committed_poly.num_vars, Some(code_spec.clone()));
+        let second_pp = BrakedownPCS::<F, H, C, S, EF>::setup(
+            second_committed_poly.num_vars,
+            Some(code_spec.clone()),
+        );
         setup_time += time_mark.elapsed().as_millis();
 
         let time_mark = Instant::now();
-        let (second_comm, second_comm_state) = BrakedownPCS::<F, H, C, S, EF>::commit_ef(&second_pp, &second_committed_poly);
+        let (second_comm, second_comm_state) =
+            BrakedownPCS::<F, H, C, S, EF>::commit_ef(&second_pp, &second_committed_poly);
         commit_time += time_mark.elapsed().as_millis();
         // println!("batch inverse: {:?} ms", start.elapsed().as_millis());
         // --------------------
@@ -1696,28 +1705,51 @@ where
         println!("[PCS] verifier time: {:?} ms", pcs_verifier_time);
         println!("[PIOP] verifier time: {:?} ms", verifier_time);
         println!("[PIOP] vtotal: {:?} ms", pcs_verifier_time + verifier_time);
-        
-        let pcs_proof_size = bincode::serialize(&comm).unwrap().len()
-            + bincode::serialize(&second_comm).unwrap().len()
-            + bincode::serialize(&eval_proof_at_r).unwrap().len()
-            + bincode::serialize(&eval_proof_at_u).unwrap().len()
-            + bincode::serialize(&second_eval_proof).unwrap().len();
-        let piop_proof_size = bincode::serialize(&sumcheck_proof).unwrap().len()
-            + bincode::serialize(&recursive_proof).unwrap().len()
-            + bincode::serialize(&flatten_evals_at_r).unwrap().len()
-            + bincode::serialize(&flatten_evals_at_u).unwrap().len()
-            + bincode::serialize(&lookup_evals.h_vec).unwrap().len();
+
+        let pcs_proof_size = bincode::serde::encode_to_vec(&comm, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&second_comm, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&eval_proof_at_r, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&eval_proof_at_u, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&second_eval_proof, standard())
+                .unwrap()
+                .len();
+        let piop_proof_size = bincode::serde::encode_to_vec(&sumcheck_proof, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&recursive_proof, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&flatten_evals_at_r, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&flatten_evals_at_u, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&lookup_evals.h_vec, standard())
+                .unwrap()
+                .len();
         println!("[PCS] Proof Size: {:?} Bytes", pcs_proof_size);
         println!("[PIOP] Proof Size: {:?} Bytes", piop_proof_size);
 
-
         println!(
             "The 1st committed polynomial is of {} variables, which consists of {} smaller oracles used in IOP, each of which is of {} variables.",
-            committed_poly.num_vars, instance.num_oracles(), instance.num_vars,
+            committed_poly.num_vars,
+            instance.num_oracles(),
+            instance.num_vars,
         );
         println!(
             "The 2nd committed polynomial is of {} variables, which consists of {} smaller oracles used in IOP, each of which is of {} variables.",
-            second_committed_poly.num_vars, lookup_instance.num_second_oracles(), lookup_instance.num_vars,
+            second_committed_poly.num_vars,
+            lookup_instance.num_second_oracles(),
+            lookup_instance.num_vars,
         );
 
         // // 4. print statistic
@@ -1737,9 +1769,5 @@ where
         //     pcs_verifier_time,
         //     pcs_proof_size,
         // );
-        
     }
-
-    
 }
- 

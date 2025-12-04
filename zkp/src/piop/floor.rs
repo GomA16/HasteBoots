@@ -7,39 +7,42 @@
 //! The prover is going to prove: for x \in {0, 1}^\logM
 //! 1. b(x) \in [q] -> which can be proven with a range check since q is a power-of-two
 //! 2. c(x) \in [1, ..., k]
-//!     meant to prove c(x) - 1 \in [k]
-//!     Let L denote the logarithm of the next power-of-two number that is bigger or equal to k.
-//!     Let delta denote 2^L - k
-//!     It is necessary to be proven with 2 range checks:
-//!         one is to prove c(x) - 1 \in [2^L]
-//!         the other is to prove c(x) - 1 + delta \in [2^L]
+//!    meant to prove c(x) - 1 \in [k]
+//!    Let L denote the logarithm of the next power-of-two number that is bigger or equal to k.
+//!    Let delta denote 2^L - k
+//!    It is necessary to be proven with 2 range checks:
+//!       one is to prove c(x) - 1 \in [2^L]
+//!       the other is to prove c(x) - 1 + delta \in [2^L]
 //! 3. w(x)(1 - w(x)) = 0 where w indicates the option in the following constraint
 //! 4. w(x)(a(x)\cdot \lambda_1+b(x)\cdot \lambda_2)+(1-w(x))(a(x)-b(x)\cdot k-c(x))=0
-//!     where \lambda_1 and \lambda_2 are chosen by the verifier
-use super::{BitDecomposition, DecomposedBits, DecomposedBitsEval, DecomposedBitsInfo};
-use sumcheck::verifier::SubClaim;
-use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
-use crate::utils::{
-    eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
-};
-use algebra::{
-    AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
-    ListOfProductsOfPolynomials,
-};
+//!    where \lambda_1 and \lambda_2 are chosen by the verifier
+
 use core::fmt;
-use itertools::izip;
-use pcs::{
-    multilinear::brakedown::BrakedownPCS,
-    utils::code::{LinearCode, LinearCodeSpec},
-    utils::hash::Hash,
-    PolynomialCommitmentScheme,
-};
-use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::time::Instant;
 use std::vec;
+
+use algebra::{
+    AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
+    ListOfProductsOfPolynomials,
+};
+use bincode::config::standard;
 use helper::Transcript;
+use itertools::izip;
+use pcs::{
+    PolynomialCommitmentScheme,
+    multilinear::brakedown::BrakedownPCS,
+    utils::code::{LinearCode, LinearCodeSpec},
+    utils::hash::Hash,
+};
+use serde::{Deserialize, Serialize};
+use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit, verifier::SubClaim};
+
+use crate::piop::{BitDecomposition, DecomposedBits, DecomposedBitsEval, DecomposedBitsInfo};
+use crate::utils::{
+    eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
+};
 
 /// Round IOP
 pub struct FloorIOP<F: Field>(PhantomData<F>);
@@ -701,7 +704,9 @@ where
         let (sumcheck_proof, sumcheck_state) =
             <MLSumcheck<EF>>::prove(&mut prover_trans, &sumcheck_poly)
                 .expect("Proof generated in Addition In Zq");
-        iop_proof_size += bincode::serialize(&sumcheck_proof).unwrap().len();
+        iop_proof_size += bincode::serde::encode_to_vec(&sumcheck_proof, standard())
+            .unwrap()
+            .len();
         let iop_prover_time = prover_start.elapsed().as_millis();
 
         // 2.4 Compute all the evaluations of these small polynomials used in IOP over the random point returned from the sumcheck protocol
@@ -785,8 +790,12 @@ where
         );
         assert!(check_pcs);
         let pcs_verifier_time = start.elapsed().as_millis();
-        pcs_proof_size += bincode::serialize(&eval_proof).unwrap().len()
-            + bincode::serialize(&flatten_evals).unwrap().len();
+        pcs_proof_size += bincode::serde::encode_to_vec(&eval_proof, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&flatten_evals, standard())
+                .unwrap()
+                .len();
 
         // 4. print statistic
         print_statistic(

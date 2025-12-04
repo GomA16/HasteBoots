@@ -28,7 +28,7 @@ pub use parameter::{
 pub use ciphertext::{
     LWECiphertext, NTRUCiphertext, NTTNTRUCiphertext, NTTRLWECiphertext, RLWECiphertext,
 };
-pub use plaintext::{decode, encode, LWEModulusType, LWEMsgType};
+pub use plaintext::{LWEModulusType, LWEMsgType, decode, encode};
 
 pub use secret_key::{
     LWESecretKeyType, NTTRingSecretKey, RingSecretKey, RingSecretKeyType, SecretKeyPack,
@@ -38,6 +38,6 @@ pub use blind_rotation::{NTRUBlindRotationKey, RLWEBlindRotationKey};
 pub use key_switch::{KeySwitchingKeyEnum, KeySwitchingLWEKey, KeySwitchingRLWEKey};
 
 pub use modulus_switch::{
-    lwe_modulus_switch, lwe_modulus_switch_assign_between_modulus, lwe_modulus_switch_inplace,
-    ModulusSwitchRoundMethod,
+    ModulusSwitchRoundMethod, lwe_modulus_switch, lwe_modulus_switch_assign_between_modulus,
+    lwe_modulus_switch_inplace,
 };

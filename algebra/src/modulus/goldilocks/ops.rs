@@ -2,20 +2,16 @@ use std::ops::ShrAssign;
 
 use num_traits::PrimInt;
 
-use crate::{reduce::*, Bits};
+use crate::{Bits, reduce::*};
 
-use super::{reduce128, try_inverse, GoldilocksModulus, EPSILON, P};
+use super::{EPSILON, GoldilocksModulus, P, reduce128, try_inverse};
 
 impl Reduce<GoldilocksModulus> for u64 {
     type Output = Self;
 
     #[inline]
     fn reduce(self, _: GoldilocksModulus) -> Self::Output {
-        if self > P {
-            self - P
-        } else {
-            self
-        }
+        if self > P { self - P } else { self }
     }
 }
 
@@ -75,11 +71,7 @@ impl NegReduce<GoldilocksModulus> for u64 {
 
     #[inline]
     fn neg_reduce(self, _: GoldilocksModulus) -> Self::Output {
-        if self == 0 {
-            0
-        } else {
-            P - self
-        }
+        if self == 0 { 0 } else { P - self }
     }
 }
 

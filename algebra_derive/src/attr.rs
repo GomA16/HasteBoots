@@ -54,14 +54,12 @@ pub(crate) fn get(node: &DeriveInput, field: crate::ast::Field) -> syn::Result<A
     let modulus_type = ModulusType::Barrett;
 
     for attr in node.attrs.iter() {
-        if attr.path().is_ident("modulus") {
-            if let Meta::NameValue(meta) = &attr.meta {
-                if let Expr::Lit(expr) = &meta.value {
-                    if let Lit::Int(lit_str) = &expr.lit {
-                        return parse_modulus_value(lit_str, modulus_type, field);
-                    }
-                }
-            }
+        if attr.path().is_ident("modulus")
+            && let Meta::NameValue(meta) = &attr.meta
+            && let Expr::Lit(expr) = &meta.value
+            && let Lit::Int(lit_str) = &expr.lit
+        {
+            return parse_modulus_value(lit_str, modulus_type, field);
         }
     }
 

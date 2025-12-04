@@ -8,7 +8,7 @@ use helper::Transcript;
 
 use crate::error::Error;
 
-use super::{prover::ProverMsg, IPForMLSumcheck};
+use super::{IPForMLSumcheck, prover::ProverMsg};
 
 #[derive(Clone)]
 /// verifier message
@@ -228,8 +228,8 @@ fn field_factorial<F: Field>(a: usize) -> F {
 mod test {
     use crate::verifier::interpolate_uni_poly;
     use algebra::{
-        derive::{Field, Prime},
         Field, FieldUniformSampler, Polynomial,
+        derive::{Field, Prime},
     };
     use num_traits::{One, Zero};
     use rand::SeedableRng;

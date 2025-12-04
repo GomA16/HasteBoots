@@ -30,29 +30,33 @@
 //!         \tilde{\beta}((x, b),(z,0)) * \tilde{A}_{F}^{(k-1)}(z) ( (1-u_{i})+u_{i} * \tilde{ω}^{(k)}_{i+1}(z, 0)
 //!       + \tilde{\beta}((x, b),(z,1)) * \tilde{A}_{F}^{(k-1)}(z) ( (1-u_{i})+u_{i} * \tilde{ω}^{(k)}_{i+1}(z, 1) * ω^{2^k}
 
-use sumcheck::{prover::ProverState, verifier::SubClaim, MLSumcheck, Proof};
-use sumcheck::{ProofWrapper, SumcheckKit};
-use crate::utils::{
-    eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
-};
-use algebra::{
-    AbstractExtensionField, DenseMultilinearExtension, Field,
-    ListOfProductsOfPolynomials, PolynomialInfo,
-};
-use core::fmt;
+use std::marker::PhantomData;
+use std::rc::Rc;
 use std::sync::Arc;
+use std::time::Instant;
+
+use algebra::{
+    AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
+    PolynomialInfo,
+};
+use bincode::config::standard;
+use core::fmt;
+use helper::Transcript;
 use itertools::izip;
 use pcs::{
+    PolynomialCommitmentScheme,
     multilinear::brakedown::BrakedownPCS,
     utils::code::{LinearCode, LinearCodeSpec},
     utils::hash::Hash,
-    PolynomialCommitmentScheme,
 };
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
-use std::rc::Rc;
-use std::time::Instant;
-use helper::Transcript;
+use sumcheck::{
+    MLSumcheck, Proof, ProofWrapper, SumcheckKit, prover::ProverState, verifier::SubClaim,
+};
+
+use crate::utils::{
+    eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
+};
 
 use ntt_bare::NTTBareIOP;
 
@@ -903,7 +907,9 @@ where
         let (sumcheck_proof, sumcheck_state) =
             <MLSumcheck<EF>>::prove(&mut prover_trans, &sumcheck_poly)
                 .expect("Proof generated in Addition In Zq");
-        iop_proof_size += bincode::serialize(&sumcheck_proof).unwrap().len();
+        iop_proof_size += bincode::serde::encode_to_vec(&sumcheck_proof, standard())
+            .unwrap()
+            .len();
 
         // 2.? [one more step] Prover recursive prove the evaluation of F(u, v)
         let recursive_proof = <NTTIOP<EF>>::prove_recursive(
@@ -912,7 +918,9 @@ where
             &instance_ef_info,
             &prover_u,
         );
-        iop_proof_size += bincode::serialize(&recursive_proof).unwrap().len();
+        iop_proof_size += bincode::serde::encode_to_vec(&recursive_proof, standard())
+            .unwrap()
+            .len();
         let iop_prover_time = prover_start.elapsed().as_millis();
 
         // 2.4 Compute all the evaluations of these small polynomials used in IOP over the random point returned from the sumcheck protocol
@@ -1058,10 +1066,18 @@ where
         assert!(check_pcs_coeff);
         assert!(check_pcs_point);
         let pcs_verifier_time = start.elapsed().as_millis();
-        pcs_proof_size += bincode::serialize(&coeff_eval_proof).unwrap().len()
-            + bincode::serialize(&coeff_evals_at_r).unwrap().len()
-            + bincode::serialize(&point_eval_proof).unwrap().len()
-            + bincode::serialize(&point_evals_at_u).unwrap().len();
+        pcs_proof_size += bincode::serde::encode_to_vec(&coeff_eval_proof, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&coeff_evals_at_r, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&point_eval_proof, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&point_evals_at_u, standard())
+                .unwrap()
+                .len();
 
         // 4. print statistic
         print_statistic(
@@ -1087,11 +1103,10 @@ where
 mod test {
     use crate::piop::ntt::{eval_w_power_times_x, naive_w_power_times_x_table};
     use algebra::{
-        derive::{DecomposableField, FheField, Field, Prime, NTT},
         DenseMultilinearExtension, FieldUniformSampler, NTTField,
+        derive::{DecomposableField, FheField, Field, NTT, Prime},
     };
     use num_traits::{One, Zero};
-    use rand::thread_rng;
     use rand_distr::Distribution;
 
     use super::init_fourier_table_overall;
@@ -1118,7 +1133,7 @@ mod test {
     #[test]
     fn test_init_fourier_table_overall() {
         let sampler = <FieldUniformSampler<FF>>::new();
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
         let dim = 10;
         let m = 1 << (dim + 1); // M = 2N = 2 * (1 << dim)
@@ -1179,7 +1194,7 @@ mod test {
         }
 
         let sampler = <FieldUniformSampler<FF>>::new();
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
         for x_dim in 0..=dim {
             let max_exp = log_m - x_dim;

@@ -1,15 +1,15 @@
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 use algebra::{
+    AsFrom,
     reduce::{
         AddReduce, AddReduceAssign, DotProductReduce, MulReduce, MulReduceAssign, NegReduce,
         NegReduceAssign, SubReduce, SubReduceAssign,
     },
-    AsFrom,
 };
 use num_traits::ConstZero;
 use rand::{CryptoRng, Rng};
-use rand_distr::{uniform::SampleUniform, Distribution, Uniform};
+use rand_distr::{Distribution, Uniform, uniform::SampleUniform};
 
 use crate::DiscreteGaussian;
 
@@ -343,7 +343,7 @@ impl<T: Copy> LWE<T> {
         R: Rng + CryptoRng,
     {
         let len = secret_key.len();
-        let uniform = Uniform::new(T::ZERO, modulus_value);
+        let uniform = Uniform::new(T::ZERO, modulus_value).unwrap();
 
         let a: Vec<T> = uniform.sample_iter(&mut *rng).take(len).collect();
         let b = T::dot_product_reduce(&a, secret_key, modulus)

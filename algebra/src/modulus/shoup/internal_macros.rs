@@ -73,11 +73,7 @@ macro_rules! impl_shoup_factor_ops {
             fn mul_reduce(self, rhs: ShoupFactor<Self>, modulus: Self) -> Self::Output {
                 let tmp = rhs.mul_reduce_lazy(self, modulus);
 
-                if tmp >= modulus {
-                    tmp - modulus
-                } else {
-                    tmp
-                }
+                if tmp >= modulus { tmp - modulus } else { tmp }
             }
         }
 
@@ -91,11 +87,7 @@ macro_rules! impl_shoup_factor_ops {
             fn mul_reduce(self, rhs: $SelfT, modulus: $SelfT) -> Self::Output {
                 let tmp = self.mul_reduce_lazy(rhs, modulus);
 
-                if tmp >= modulus {
-                    tmp - modulus
-                } else {
-                    tmp
-                }
+                if tmp >= modulus { tmp - modulus } else { tmp }
             }
         }
 

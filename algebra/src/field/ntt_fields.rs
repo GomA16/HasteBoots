@@ -69,5 +69,5 @@ pub trait NTTField: PrimeField + FheField + From<usize> {
     fn get_ntt_table(log_n: u32) -> Result<Arc<Self::Table>, crate::AlgebraError>;
 
     /// Init ntt table with `log_n` slice.
-    fn init_ntt_table(log_n_slice: &[u32]) -> Result<(), crate::AlgebraError>;
+    fn init_ntt_table(log_n: u32) -> Result<(), crate::AlgebraError>;
 }

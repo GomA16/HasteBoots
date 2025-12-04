@@ -2,7 +2,7 @@ use std::ops::{Deref, DerefMut};
 
 use algebra::{Basis, NTTField, NTTPolynomial, Polynomial};
 
-use crate::{NTTGadgetNTRU, NTRU, NTTNTRU, NTTRGSW, NTTRLWE, RLWE};
+use crate::{NTRU, NTTGadgetNTRU, NTTNTRU, NTTRGSW, NTTRLWE, RLWE};
 
 /// Pre allocated space for inplace decomposition.
 #[derive(Debug, Clone)]

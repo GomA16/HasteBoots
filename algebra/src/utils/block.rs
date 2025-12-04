@@ -230,29 +230,29 @@ impl BitAndAssign for Block {
     }
 }
 
-impl rand::distributions::Distribution<Block> for rand::distributions::Standard {
+impl rand::distr::Distribution<Block> for rand::distr::StandardUniform {
     #[inline]
     fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Block {
-        Block::from(rng.gen::<u128>())
+        Block::from(rng.random::<u128>())
     }
 }
 
 #[test]
 fn type_test() {
-    use rand::{thread_rng, Rng};
-    let mut rng = thread_rng();
+    use rand::Rng;
+    let mut rng = rand::rng();
 
-    let x: [u8; 16] = rng.gen();
+    let x: [u8; 16] = rng.random();
     let blk = Block::from(x);
     let _x: [u8; 16] = blk.into();
     assert_eq!(x, _x);
 
-    let x: [u64; 2] = rng.gen();
+    let x: [u64; 2] = rng.random();
     let blk = Block::from(x);
     let _x: [u64; 2] = blk.into();
     assert_eq!(x, _x);
 
-    let x: u128 = rng.gen();
+    let x: u128 = rng.random();
     let blk = Block::from(x);
     let _x: u128 = blk.into();
     assert_eq!(x, _x);
@@ -263,10 +263,10 @@ fn type_test() {
 
 #[test]
 fn bit_test() {
-    use rand::{thread_rng, Rng};
-    let mut rng = thread_rng();
-    let x: u128 = rng.gen();
-    let y: u128 = rng.gen();
+    use rand::Rng;
+    let mut rng = rand::rng();
+    let x: u128 = rng.random();
+    let y: u128 = rng.random();
 
     let x: Block = Block::from(x);
     let y: Block = Block::from(y);
@@ -293,13 +293,13 @@ fn bit_test() {
 
 #[test]
 fn to_bytes_test() {
-    use rand::{thread_rng, Rng};
-    let mut rng = thread_rng();
+    use rand::Rng;
+    let mut rng = rand::rng();
 
-    let x: Block = rng.gen::<u128>().into();
+    let x: Block = rng.random::<u128>().into();
     assert_eq!(x, Block::try_from_slice(x.as_ref()).unwrap());
 
-    let mut y: Block = rng.gen::<u128>().into();
+    let mut y: Block = rng.random::<u128>().into();
     let _y = Block::try_from_slice(y.as_mut()).unwrap();
     assert_eq!(y, _y);
 }

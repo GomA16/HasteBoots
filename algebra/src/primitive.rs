@@ -134,11 +134,7 @@ bits!(usize, 64);
 pub const fn div_ceil(lhs: u32, rhs: u32) -> u32 {
     let d = lhs / rhs;
     let r = lhs % rhs;
-    if r > 0 {
-        d + 1
-    } else {
-        d
-    }
+    if r > 0 { d + 1 } else { d }
 }
 
 /// A trait for big number calculation

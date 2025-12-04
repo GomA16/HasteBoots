@@ -1,6 +1,6 @@
 use algebra::{
-    derive::*, DecomposableField, Field, FieldBinarySampler, FieldDiscreteGaussianSampler,
-    FieldTernarySampler, FieldUniformSampler, Polynomial, PrimeField,
+    Field, FieldBinarySampler, FieldDiscreteGaussianSampler, FieldTernarySampler,
+    FieldUniformSampler, Polynomial, PrimeField, derive::*,
 };
 use num_traits::{Inv, One, Pow, Zero};
 use rand::prelude::*;
@@ -30,7 +30,7 @@ use rand::prelude::*;
 pub struct FF(u64);
 
 fn main() -> Result<(), algebra::AlgebraError> {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
 
     // You can generate a value by yourself
     let mut a = FF::new(9);

@@ -49,21 +49,24 @@ mod tests {
 
     #[test]
     fn test_modulus_create() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
-        let _m = PowOf2Modulus::<u8>::new(rng.gen_range(2..=(u8::MAX >> 2)).next_power_of_two());
-        let _m = PowOf2Modulus::<u16>::new(rng.gen_range(2..=(u16::MAX >> 2)).next_power_of_two());
-        let _m = PowOf2Modulus::<u32>::new(rng.gen_range(2..=(u32::MAX >> 2)).next_power_of_two());
-        let _m = PowOf2Modulus::<u64>::new(rng.gen_range(2..=(u64::MAX >> 2)).next_power_of_two());
+        let _m = PowOf2Modulus::<u8>::new(rng.random_range(2..=(u8::MAX >> 2)).next_power_of_two());
+        let _m =
+            PowOf2Modulus::<u16>::new(rng.random_range(2..=(u16::MAX >> 2)).next_power_of_two());
+        let _m =
+            PowOf2Modulus::<u32>::new(rng.random_range(2..=(u32::MAX >> 2)).next_power_of_two());
+        let _m =
+            PowOf2Modulus::<u64>::new(rng.random_range(2..=(u64::MAX >> 2)).next_power_of_two());
     }
 
     #[test]
     #[should_panic]
     fn test_modulus_create_panic() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let m;
         loop {
-            let r = rng.gen_range(0..=(u64::MAX >> 2));
+            let r = rng.random_range(0..=(u64::MAX >> 2));
             if !r.is_power_of_two() {
                 m = r;
                 break;
@@ -75,11 +78,11 @@ mod tests {
 
     #[test]
     fn test_reduce() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
-        let m: u64 = rng.gen_range(2..=(u64::MAX >> 2)).next_power_of_two();
+        let m: u64 = rng.random_range(2..=(u64::MAX >> 2)).next_power_of_two();
         let modulus = PowOf2Modulus::<u64>::new(m);
-        let dis = Uniform::new_inclusive(0, modulus.mask());
+        let dis = Uniform::new_inclusive(0, modulus.mask()).unwrap();
 
         let v: u64 = rng.sample(dis);
         assert_eq!(v.reduce(modulus), v % m);

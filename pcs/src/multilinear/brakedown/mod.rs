@@ -8,24 +8,24 @@ pub use data_structure::{
 };
 
 use algebra::{
-    utils::{Block, Prg},
     AbstractExtensionField, DenseMultilinearExtension, Field,
+    utils::{Block, Prg},
 };
 use helper::Transcript;
-use itertools::{izip, Itertools};
+use itertools::{Itertools, izip};
 use rand::SeedableRng;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
 use crate::{
+    PolynomialCommitmentScheme,
     utils::{
         arithmetic::lagrange_basis,
         code::{LinearCode, LinearCodeSpec},
         hash::Hash,
         merkle_tree::MerkleTree,
     },
-    PolynomialCommitmentScheme,
 };
 
 /// The security parameter

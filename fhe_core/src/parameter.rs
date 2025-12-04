@@ -1,6 +1,6 @@
 use algebra::{
-    derive::*, modulus::PowOf2Modulus, Basis, BinomialExtensionField, BinomiallyExtendable, Field,
-    FieldDiscreteGaussianSampler, HasTwoAdicBionmialExtension, NTTField, Packable,
+    Basis, BinomialExtensionField, BinomiallyExtendable, Field, FieldDiscreteGaussianSampler,
+    HasTwoAdicBionmialExtension, NTTField, Packable, derive::*, modulus::PowOf2Modulus,
 };
 use lattice::DiscreteGaussian;
 
@@ -537,10 +537,9 @@ mod tests {
         use crate::{DefaultExtendsionFieldU32x4, DefaultFieldU32};
         use algebra::{AbstractExtensionField, FieldUniformSampler};
         use num_traits::{Inv, One};
-        use rand::distributions::Distribution;
-        use rand::thread_rng;
+        use rand::distr::Distribution;
 
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
         let a = DefaultExtendsionFieldU32x4::random(&mut rng);
 

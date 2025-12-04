@@ -29,7 +29,7 @@ macro_rules! uniform_int_impl {
 
             #[inline]
             fn gen_sample<R: Rng + ?Sized>(rng: &mut R) -> Self::Sample {
-                rng.gen::<$sample_ty>()
+                rng.random::<$sample_ty>()
             }
         }
     };
@@ -62,11 +62,7 @@ impl<F: Field> FieldUniformSampler<F> {
 
     /// Samples a uniformly random value in a smaller range `[0, range)` of a specific field.
     #[inline]
-    pub fn sample_range<R: Rng + ?Sized>(
-        &self,
-        rng: &mut R,
-        range: F::Value,
-    ) -> F {
+    pub fn sample_range<R: Rng + ?Sized>(&self, rng: &mut R, range: F::Value) -> F {
         let range = <F::Value as UniformBase>::Sample::as_from(range);
         let thresh = range.wrapping_neg() % range;
 

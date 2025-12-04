@@ -1,21 +1,17 @@
 use algebra::derive::Field;
-use algebra::{transformation::AbstractNTT, NTTField, Polynomial};
-use algebra::{BabyBear, BabyBearExetension, Basis, FieldUniformSampler, Goldilocks, GoldilocksExtension};
 use algebra::{DenseMultilinearExtension, Field};
+use algebra::{FieldUniformSampler, Goldilocks, GoldilocksExtension};
+use algebra::{NTTField, Polynomial, transformation::AbstractNTT};
 use itertools::izip;
 use num_traits::One;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::prelude::*;
 use sha2::Sha256;
-use zkp::piop::lift::{LiftInstance, LiftSnarks};
-use zkp::piop::ntt_revision::NTTInstanceInfo;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::vec;
-use zkp::piop::RlweMultRgswSnarksOpt;
-use zkp::piop::{
-    DecomposedBitsInfo, RlweCiphertext, RlweCiphertexts, RlweMultRgswInstance,
-};
+use zkp::piop::lift::{LiftInstance, LiftSnarks};
+use zkp::piop::ntt_revision::NTTInstanceInfo;
 
 type FF = Goldilocks;
 type EF = GoldilocksExtension;
@@ -103,7 +99,7 @@ fn generate_instance<F: Field + NTTField>(
 }
 
 fn main() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<F32>>::new();
 
     let num_vars = LOG_DIM_RLWE;
@@ -129,17 +125,12 @@ fn main() {
     let input = Rc::new(DenseMultilinearExtension::<FF>::from_evaluations_vec(
         num_vars,
         (0..1 << num_vars)
-        .map(|_| FF::new(uniform.sample(&mut rng).value()))
-        .collect()
-        ,
+            .map(|_| FF::new(uniform.sample(&mut rng).value()))
+            .collect(),
     ));
 
     let instance = generate_instance(num_vars, log_n, N, input, &ntt_info);
 
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
-    <LiftSnarks<FF, EF>>::snarks::<Hash, ExpanderCode<FF>, ExpanderCodeSpec>(
-        &instance, &code_spec,
-    );
-}   
-
-
+    <LiftSnarks<FF, EF>>::snarks::<Hash, ExpanderCode<FF>, ExpanderCodeSpec>(&instance, &code_spec);
+}

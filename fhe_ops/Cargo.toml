@@ -1,7 +1,7 @@
 [package]
 name = "fhe_ops"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "FHE operations library"
 license = "MIT"
 
@@ -14,7 +14,7 @@ num-traits = { workspace = true }
 
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = { workspace = true }
 
 [features]
 default = []

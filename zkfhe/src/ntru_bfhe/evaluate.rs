@@ -1,8 +1,8 @@
 use algebra::{NTTField, Polynomial};
 use fhe_core::{
-    lwe_modulus_switch_assign_between_modulus, lwe_modulus_switch_inplace, BlindRotationType,
-    KeySwitchingKeyEnum, KeySwitchingRLWEKey, LWECiphertext, LWEModulusType, NTRUBlindRotationKey,
-    Parameters, ProcessType, SecretKeyPack, Steps,
+    BlindRotationType, KeySwitchingKeyEnum, KeySwitchingRLWEKey, LWECiphertext, LWEModulusType,
+    NTRUBlindRotationKey, Parameters, ProcessType, SecretKeyPack, Steps,
+    lwe_modulus_switch_assign_between_modulus, lwe_modulus_switch_inplace,
 };
 
 /// The evaluator of the homomorphic encryption scheme.
@@ -252,7 +252,7 @@ impl<C: LWEModulusType, Q: NTTField> Evaluator<C, Q> {
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Input: ciphertext `c2`, with message `c`.
     /// * Output: ciphertext with message `(a & b) | (b & c) | (a & c)`.
-    ///     If there are two or three `true`(resp. `false`) in `a`, `b` and `c`, it will return `true`(resp. `false`).
+    ///   If there are two or three `true`(resp. `false`) in `a`, `b` and `c`, it will return `true`(resp. `false`).
     pub fn majority(
         &self,
         c0: &LWECiphertext<C>,
@@ -278,7 +278,7 @@ impl<C: LWEModulusType, Q: NTTField> Evaluator<C, Q> {
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Input: ciphertext `c2`, with message `c`.
     /// * Output: ciphertext with message `if a {b} else {c}`.
-    ///     If `a` is `true`, it will return `b`. If `a` is `false`, it will return `c`.
+    ///   If `a` is `true`, it will return `b`. If `a` is `false`, it will return `c`.
     pub fn mux(
         &self,
         c0: &LWECiphertext<C>,

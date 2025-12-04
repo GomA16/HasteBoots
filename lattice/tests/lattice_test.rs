@@ -1,14 +1,14 @@
-use algebra::derive::{DecomposableField, FheField, Field, Prime, NTT};
+use algebra::derive::{DecomposableField, FheField, Field, NTT, Prime};
 use algebra::modulus::PowOf2Modulus;
 use algebra::reduce::{AddReduce, MulReduce, SubReduce};
 use algebra::{
-    Basis, DecomposableField, Field, FieldDiscreteGaussianSampler, FieldTernarySampler,
-    FieldUniformSampler, ModulusConfig, Polynomial,
+    Basis, Field, FieldDiscreteGaussianSampler, FieldTernarySampler, FieldUniformSampler,
+    ModulusConfig, Polynomial,
 };
 use lattice::*;
 use num_traits::{Inv, One};
 use rand::prelude::*;
-use rand_distr::{Standard, Uniform};
+use rand_distr::{StandardUniform, Uniform};
 
 #[derive(Field, Prime, DecomposableField, FheField, NTT)]
 #[modulus = 132120577]
@@ -30,9 +30,9 @@ const FT: Inner = 4; // message space
 
 #[test]
 fn test_lwe() {
-    let rng = &mut rand::thread_rng();
+    let rng = &mut rand::rng();
 
-    let dis = Uniform::new(0u32, RR);
+    let dis = Uniform::new(0u32, RR).unwrap();
     let modulus = <PowOf2Modulus<u32>>::new(RR);
 
     let a1 = rng.sample_iter(dis).take(N).collect::<Vec<Inner>>();
@@ -70,13 +70,13 @@ fn test_lwe_he() {
         (c as f64 * RT as f64 / RP as f64).round() as Inner % RT
     }
 
-    let rng = &mut rand::thread_rng();
+    let rng = &mut rand::rng();
 
-    let dis = Uniform::new(0u32, RR);
+    let dis = Uniform::new(0u32, RR).unwrap();
     let modulus = <PowOf2Modulus<u32>>::new(RR);
 
-    let v0: Inner = rng.gen_range(0..RT);
-    let v1: Inner = rng.gen_range(0..RT);
+    let v0: Inner = rng.random_range(0..RT);
+    let v1: Inner = rng.random_range(0..RT);
 
     let s = rng.sample_iter(dis).take(N).collect::<Vec<Inner>>();
 
@@ -89,13 +89,16 @@ fn test_lwe_he() {
                 x.mul_reduce(y, modulus).add_reduce(acc, modulus)
             })
             .add_reduce(encode(v0), modulus)
-            .add_reduce(rng.gen_range(0..EMAX), modulus);
+            .add_reduce(rng.random_range(0..EMAX), modulus);
 
         LWE::new(a, b)
     };
 
     let lwe2 = {
-        let a = rng.sample_iter(Standard).take(N).collect::<Vec<Inner>>();
+        let a = rng
+            .sample_iter(StandardUniform)
+            .take(N)
+            .collect::<Vec<Inner>>();
 
         let b = a
             .iter()
@@ -104,7 +107,7 @@ fn test_lwe_he() {
                 x.mul_reduce(y, modulus).add_reduce(acc, modulus)
             })
             .add_reduce(encode(v1), modulus)
-            .add_reduce(rng.gen_range(0..EMAX), modulus);
+            .add_reduce(rng.random_range(0..EMAX), modulus);
 
         LWE::new(a, b)
     };
@@ -121,7 +124,7 @@ fn test_lwe_he() {
 
 #[test]
 fn test_rlwe() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let r: PolyFF = PolyFF::random(N, &mut rng);
 
@@ -167,9 +170,9 @@ fn min_to_zero(value: FF) -> Inner {
 
 #[test]
 fn test_rlwe_he() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let chi = FieldDiscreteGaussianSampler::new(0., 3.2).unwrap();
-    let dis = Uniform::new(0, FT);
+    let dis = Uniform::new(0, FT).unwrap();
 
     let v0: Vec<Inner> = dis.sample_iter(&mut rng).take(N).collect();
     let v1: Vec<Inner> = dis.sample_iter(&mut rng).take(N).collect();
@@ -211,9 +214,9 @@ fn test_rlwe_he() {
 
 #[test]
 fn test_ntru_he() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let chi = FieldDiscreteGaussianSampler::new(0., 3.2).unwrap();
-    let dis = Uniform::new(0, FT);
+    let dis = Uniform::new(0, FT).unwrap();
 
     let v0: Vec<Inner> = dis.sample_iter(&mut rng).take(N).collect();
     let v1: Vec<Inner> = dis.sample_iter(&mut rng).take(N).collect();
@@ -257,7 +260,7 @@ fn test_ntru_he() {
 
 #[test]
 fn extract_lwe_test() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
 
     let s_vec: Vec<FF> = uniform.sample_iter(&mut rng).take(N).collect();
@@ -282,7 +285,7 @@ fn extract_lwe_test() {
 
 #[test]
 fn test_gadget_rlwe() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let chi = FieldDiscreteGaussianSampler::new(0., 3.2).unwrap();
 
     let m = PolyFF::random(N, &mut rng);
@@ -347,7 +350,7 @@ fn test_gadget_rlwe() {
 
 #[test]
 fn test_rgsw_mul_rlwe() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let chi = FieldDiscreteGaussianSampler::new(0., 3.2).unwrap();
 
     let m0 = PolyFF::random(N, &mut rng);
@@ -404,7 +407,7 @@ fn test_rgsw_mul_rlwe() {
 
 #[test]
 fn test_rgsw_mul_rgsw() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let chi = FieldDiscreteGaussianSampler::new(0., 3.2).unwrap();
 
     let m0 = PolyFF::random(N, &mut rng);
@@ -490,10 +493,10 @@ fn test_rgsw_mul_rgsw() {
 
 #[test]
 fn test_gadget_ntru_mul_ntru() {
-    let mut rng = rand::thread_rng();
-    let chi = FieldDiscreteGaussianSampler::new(0., 3.2).unwrap();
+    let mut rng = rand::rng();
 
-    let dis = Uniform::new(0, FT);
+    let chi = FieldDiscreteGaussianSampler::new(0., 3.2).unwrap();
+    let dis = Uniform::new(0, FT).unwrap();
 
     let v0: Vec<Inner> = dis.sample_iter(&mut rng).take(N).collect();
 

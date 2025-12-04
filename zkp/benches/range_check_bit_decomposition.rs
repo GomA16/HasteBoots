@@ -32,7 +32,7 @@
 //     let base: FF = FF::new(1 << base_len);
 //     let bits_len: u32 = <Basis<Fq>>::new(base_len).decompose_len() as u32;
 
-//     let mut rng = thread_rng();
+//     let mut rng = rand::rng();
 //     let uniform_fq = <FieldUniformSampler<Fq>>::new();
 //     let uniform_ff = <FieldUniformSampler<FF>>::new();
 

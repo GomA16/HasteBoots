@@ -2,7 +2,7 @@ use algebra::{
     modulus::{to_monty, *},
     reduce::*,
 };
-use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
+use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use rand::prelude::*;
 use rand_distr::Uniform;
 
@@ -14,16 +14,16 @@ const GOLDILOCKS_P: u64 = 0xFFFF_FFFF_0000_0001;
 fn bench_u32_barrett_modulus(c: &mut Criterion) {
     let barrett = <BarrettModulus<u32>>::new(BARRETT_U32_P);
 
-    let all: Uniform<u32> = Uniform::new(0, BARRETT_U32_P);
-    let positive = Uniform::new(1, BARRETT_U32_P);
+    let all: Uniform<u32> = Uniform::new(0, BARRETT_U32_P).unwrap();
+    let positive = Uniform::new(1, BARRETT_U32_P).unwrap();
 
     let setup_two = || -> (u32, u32) {
         (
-            all.sample(&mut thread_rng()),
-            positive.sample(&mut thread_rng()),
+            all.sample(&mut rand::rng()),
+            positive.sample(&mut rand::rng()),
         )
     };
-    let setup_one = || -> u32 { positive.sample(&mut thread_rng()) };
+    let setup_one = || -> u32 { positive.sample(&mut rand::rng()) };
 
     let mut group = c.benchmark_group("u32 barrett modulus");
 
@@ -75,16 +75,16 @@ fn bench_u32_barrett_modulus(c: &mut Criterion) {
 }
 
 fn bench_baby_bear_modulus(c: &mut Criterion) {
-    let all: Uniform<u32> = Uniform::new(0, BABY_BEAR_P);
-    let positive = Uniform::new(1, BABY_BEAR_P);
+    let all: Uniform<u32> = Uniform::new(0, BABY_BEAR_P).unwrap();
+    let positive = Uniform::new(1, BABY_BEAR_P).unwrap();
 
     let setup_two = || -> (u32, u32) {
         (
-            to_monty(all.sample(&mut thread_rng())),
-            to_monty(positive.sample(&mut thread_rng())),
+            to_monty(all.sample(&mut rand::rng())),
+            to_monty(positive.sample(&mut rand::rng())),
         )
     };
-    let setup_one = || -> u32 { to_monty(positive.sample(&mut thread_rng())) };
+    let setup_one = || -> u32 { to_monty(positive.sample(&mut rand::rng())) };
 
     let mut group = c.benchmark_group("baby bear modulus");
 
@@ -142,16 +142,16 @@ fn bench_baby_bear_modulus(c: &mut Criterion) {
 fn bench_u64_barrett_modulus(c: &mut Criterion) {
     let barrett = <BarrettModulus<u64>>::new(BARRETT_U64_P);
 
-    let all: Uniform<u64> = Uniform::new(0, BARRETT_U64_P);
-    let positive = Uniform::new(1, BARRETT_U64_P);
+    let all: Uniform<u64> = Uniform::new(0, BARRETT_U64_P).unwrap();
+    let positive = Uniform::new(1, BARRETT_U64_P).unwrap();
 
     let setup_two = || -> (u64, u64) {
         (
-            all.sample(&mut thread_rng()),
-            positive.sample(&mut thread_rng()),
+            all.sample(&mut rand::rng()),
+            positive.sample(&mut rand::rng()),
         )
     };
-    let setup_one = || -> u64 { positive.sample(&mut thread_rng()) };
+    let setup_one = || -> u64 { positive.sample(&mut rand::rng()) };
 
     let mut group = c.benchmark_group("u64 barrett modulus");
 
@@ -203,16 +203,16 @@ fn bench_u64_barrett_modulus(c: &mut Criterion) {
 }
 
 pub fn bench_goldilocks_modulus(c: &mut Criterion) {
-    let all: Uniform<u64> = Uniform::new(0, GOLDILOCKS_P);
-    let positive = Uniform::new(1, GOLDILOCKS_P);
+    let all: Uniform<u64> = Uniform::new(0, GOLDILOCKS_P).unwrap();
+    let positive = Uniform::new(1, GOLDILOCKS_P).unwrap();
 
     let setup_two = || -> (u64, u64) {
         (
-            all.sample(&mut thread_rng()),
-            positive.sample(&mut thread_rng()),
+            all.sample(&mut rand::rng()),
+            positive.sample(&mut rand::rng()),
         )
     };
-    let setup_one = || -> u64 { positive.sample(&mut thread_rng()) };
+    let setup_one = || -> u64 { positive.sample(&mut rand::rng()) };
 
     let mut group = c.benchmark_group("goldilocks modulus");
 

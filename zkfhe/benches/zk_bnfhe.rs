@@ -1,15 +1,17 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use std::hint::black_box;
+
+use criterion::{Criterion, criterion_group, criterion_main};
 use rand::Rng;
 use zkfhe::{
-    ntru_bfhe::{Evaluator, DEFAULT_TERNARY_128_BITS_NTRU_PARAMETERS},
     Encryptor, KeyGen,
+    ntru_bfhe::{DEFAULT_TERNARY_128_BITS_NTRU_PARAMETERS, Evaluator},
 };
 
 type M = bool;
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     // set random generator
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     // set parameter
     let default_parameters = *DEFAULT_TERNARY_128_BITS_NTRU_PARAMETERS;
@@ -22,13 +24,13 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let encryptor = Encryptor::new(sk);
     println!("Evaluation Key Generation done!\n");
 
-    let m0: M = rng.gen();
+    let m0: M = rng.random();
     let c0 = encryptor.encrypt(m0);
 
-    let m1: M = rng.gen();
+    let m1: M = rng.random();
     let c1 = encryptor.encrypt(m1);
 
-    let m2: M = rng.gen();
+    let m2: M = rng.random();
     let c2 = encryptor.encrypt(m2);
 
     c.bench_function("ntru not", |b| b.iter(|| evaluator.not(black_box(&c0))));

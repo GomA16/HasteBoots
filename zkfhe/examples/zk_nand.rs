@@ -1,16 +1,15 @@
 use algebra::NTTField;
-use fhe_core::{utils::*, LWECiphertext, LWEModulusType};
+use fhe_core::{LWECiphertext, LWEModulusType, utils::*};
 use rand::Rng;
-use zkfhe::{
-    Decryptor, Encryptor, KeyGen, bfhe_trace::{BabyBear_TERNARY_128_BITS_PARAMETERS, DEFAULT_TERNARY_128_BITS_PARAMETERS, Evaluator, Goldilocks_TERNARY_128_BITS_PARAMETERS}
-};
+use zkfhe::bfhe_trace::{DEFAULT_TERNARY_128_BITS_PARAMETERS, Evaluator};
+use zkfhe::{Decryptor, Encryptor, KeyGen};
 
 type M = bool;
 type C = u16;
 
 fn main() {
     // set random generator
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     // set parameter
     let params = *DEFAULT_TERNARY_128_BITS_PARAMETERS;
@@ -35,16 +34,16 @@ fn main() {
     let dec = Decryptor::new(sk);
     println!("Evaluation Key Generation done!\n");
 
-    let mut a = rng.gen();
-    let mut b = rng.gen();
-    // let mut c = rng.gen();
+    let a = rng.random();
+    let b = rng.random();
+    // let mut c = rng.random();
 
-    let mut x = enc.encrypt(a);
-    let mut y = enc.encrypt(b);
+    let x = enc.encrypt(a);
+    let y = enc.encrypt(b);
     // let mut z = enc.encrypt(c);
 
     for i in 0..1 {
-        let start = std::time::Instant::now();
+        let _start = std::time::Instant::now();
         let ct_nand = join_bit_operations(&eval, &x, &y);
 
         // nand
@@ -61,9 +60,6 @@ fn join_bit_operations<T: LWEModulusType, F: NTTField>(
     eval: &Evaluator<T, F>,
     x: &LWECiphertext<T>,
     y: &LWECiphertext<T>,
-) -> 
-    LWECiphertext<T>
-{
-
+) -> LWECiphertext<T> {
     eval.nand(x, y)
 }

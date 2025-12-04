@@ -1,5 +1,7 @@
-use algebra::{derive::*, FieldUniformSampler, Polynomial};
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
+use std::hint::black_box;
+
+use algebra::{FieldUniformSampler, Polynomial, derive::*};
+use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use lattice::RLWE;
 
 #[derive(Field, Prime, DecomposableField, FheField, NTT)]
@@ -9,7 +11,7 @@ pub struct FF(u32);
 const M: usize = 1024;
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let ff_dis = FieldUniformSampler::new();
 

@@ -6,12 +6,11 @@ mod tests {
         GoldilocksExtension,
     };
     use num_traits::{Inv, One};
-    use rand::thread_rng;
     use rand_distr::Distribution;
 
     #[test]
     fn baby_bear_extension_test() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
         let a = BabyBearExetension::random(&mut rng);
 
@@ -36,7 +35,7 @@ mod tests {
 
     #[test]
     fn goldilocks_extension_test() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
         let a = GoldilocksExtension::random(&mut rng);
 

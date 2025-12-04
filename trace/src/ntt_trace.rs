@@ -1,13 +1,13 @@
+use std::rc::Rc;
+
 use algebra::{
     AbstractExtensionField, DenseMultilinearExtension, Field, FieldUniformSampler, NTTField,
     transformation::AbstractNTT,
 };
 use rand_distr::Distribution;
 use serde::Serialize;
-use std::rc::Rc;
-use std::sync::Arc;
 
-use crate::{ConvertToEF, ntt_trace};
+use crate::ConvertToEF;
 
 pub struct NTTTrace<F: Field> {
     pub log_coeff_count: usize,
@@ -49,7 +49,6 @@ impl<F: Field> NTTTrace<F> {
         }
     }
 }
-
 
 impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for NTTTrace<F> {
     type Output = NTTTrace<EF>;
@@ -139,7 +138,6 @@ impl<F: NTTField> NTTBatchedTrace<F> {
 }
 
 impl<F: Field> NTTBatchedTrace<F> {
-
     #[inline]
     pub fn to_random_instance(&self, randomness: &[F]) -> NTTTraceMLE<F> {
         let size = 1 << self.log_coeff_count;
@@ -245,7 +243,7 @@ impl<F: Field> From<NTTTrace<F>> for NTTTraceMLE<F> {
 }
 
 impl<F: Field> NTTTraceMLE<F> {
-    /// Get NTT instance info
+    // /// Get NTT instance info
     // #[inline]
     // pub fn info(&self) -> NTTInstanceInfo<F> {
     //     NTTInstanceInfo {

@@ -144,10 +144,10 @@ mod tests {
 
     #[test]
     fn test_extended_gcd() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
-        let x = rng.gen_range(0..=(u64::MAX >> 2));
-        let y = rng.gen_range(0..=(u64::MAX >> 2));
+        let x = rng.random_range(0..=(u64::MAX >> 2));
+        let y = rng.random_range(0..=(u64::MAX >> 2));
 
         let (a, b, d) = u64::extended_gcd(x, y);
 

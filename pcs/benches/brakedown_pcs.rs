@@ -1,16 +1,14 @@
 use std::time::Duration;
 
-use algebra::{
-    BabyBear, BabyBearExetension, DenseMultilinearExtension, FieldUniformSampler,
-};
+use algebra::{BabyBear, BabyBearExetension, DenseMultilinearExtension, FieldUniformSampler};
+use criterion::{Criterion, criterion_group, criterion_main};
 use helper::Transcript;
-use criterion::{criterion_group, criterion_main, Criterion};
 use pcs::{
+    PolynomialCommitmentScheme,
     multilinear::{
         BrakedownCommitmentState, BrakedownOpenProof, BrakedownPCS, BrakedownPolyCommitment,
     },
     utils::code::{ExpanderCode, ExpanderCodeSpec},
-    PolynomialCommitmentScheme,
 };
 use rand::Rng;
 use sha2::Sha256;
@@ -22,7 +20,7 @@ const BASE_FIELD_BITS: usize = 31;
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     let num_vars = 24;
-    let evaluations: Vec<FF> = rand::thread_rng()
+    let evaluations: Vec<FF> = rand::rng()
         .sample_iter(FieldUniformSampler::new())
         .take(1 << num_vars)
         .collect();
@@ -31,7 +29,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0284, 1.9, BASE_FIELD_BITS, 10);
 
-    let point: Vec<EF> = rand::thread_rng()
+    let point: Vec<EF> = rand::rng()
         .sample_iter(FieldUniformSampler::new())
         .take(num_vars)
         .collect();

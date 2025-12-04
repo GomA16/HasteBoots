@@ -50,15 +50,15 @@ mod tests {
 
     #[test]
     fn test_shoup_factor() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
-        let modulus_value: u64 = rng.gen_range(2..=(u64::MAX >> 2));
+        let modulus_value: u64 = rng.random_range(2..=(u64::MAX >> 2));
         let modulus = BarrettModulus::<u64>::new(modulus_value);
 
-        let a = rng.gen_range(0..modulus_value);
+        let a = rng.random_range(0..modulus_value);
         let factor = <ShoupFactor<u64>>::new(a, modulus_value);
 
-        let b: u64 = rng.gen();
+        let b: u64 = rng.random();
 
         assert_eq!(
             a.mul_reduce(b.reduce(modulus), modulus),

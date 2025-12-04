@@ -1,4 +1,4 @@
-use algebra::{BabyBear, Field};
+use algebra::Field;
 use fhe_core::{
     BlindRotationType, ConstParameters, DefaultFieldU32, LWESecretKeyType,
     ModulusSwitchRoundMethod, Parameters, RingSecretKeyType, Steps,

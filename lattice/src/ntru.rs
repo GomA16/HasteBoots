@@ -1,11 +1,11 @@
 use algebra::transformation::AbstractNTT;
 use algebra::{
-    ntt_add_mul_assign, ntt_add_mul_inplace, FieldDiscreteGaussianSampler, NTTField, NTTPolynomial,
-    Polynomial,
+    FieldDiscreteGaussianSampler, NTTField, NTTPolynomial, Polynomial, ntt_add_mul_assign,
+    ntt_add_mul_inplace,
 };
 use rand::{CryptoRng, Rng};
 
-use crate::{DecompositionSpace, NTTGadgetNTRU, NTTNTRUSpace, PolynomialSpace, LWE};
+use crate::{DecompositionSpace, LWE, NTTGadgetNTRU, NTTNTRUSpace, PolynomialSpace};
 
 /// A cryptographic structure for NTRU.
 /// This structure is used in advanced cryptographic systems and protocols, particularly

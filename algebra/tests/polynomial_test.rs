@@ -1,10 +1,10 @@
 use algebra::{
-    derive::{DecomposableField, FheField, Field, Prime, NTT},
-    transformation::{AbstractNTT, MonomialNTT},
     Basis, Field, FieldUniformSampler, ModulusConfig, NTTField, NTTPolynomial, Polynomial,
+    derive::{DecomposableField, FheField, Field, NTT, Prime},
+    transformation::{AbstractNTT, MonomialNTT},
 };
 use num_traits::{One, Zero};
-use rand::{thread_rng, Rng};
+use rand::Rng;
 use rand_distr::Distribution;
 
 #[derive(Field, Prime, DecomposableField, FheField, NTT)]
@@ -24,9 +24,9 @@ const P: Inner = FF::MODULUS.value(); // ciphertext space
 
 #[test]
 fn test_transform() {
-    FF::init_ntt_table(&[LOG_N as u32]).unwrap();
+    FF::init_ntt_table(LOG_N as u32).unwrap();
 
-    let a = PolyFF::random(N, &mut thread_rng());
+    let a = PolyFF::random(N, &mut rand::rng());
     let b = a.clone().into_ntt_polynomial();
     let c = b.clone().into_native_polynomial();
     let d = c.clone().into_ntt_polynomial();
@@ -36,10 +36,10 @@ fn test_transform() {
 
 #[test]
 fn test_transform_monomial() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
 
     let uniform = <FieldUniformSampler<FF>>::new();
-    let degree = rng.gen_range(0..N);
+    let degree = rng.random_range(0..N);
     let coeff = uniform.sample(&mut rng);
     let mut a = PolyFF::zero(N);
     let mut b = NTTPolyFF::zero(N);
@@ -63,11 +63,11 @@ fn test_transform_monomial() {
 
 #[test]
 fn test_monomial_property() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
 
     let table = Fp32::get_ntt_table(LOG_N as u32).unwrap();
 
-    let degree = rng.gen_range(0..N);
+    let degree = rng.random_range(0..N);
 
     let mut a = NTTPolyFF::zero(N);
     let mut b = NTTPolyFF::zero(N);
@@ -80,7 +80,7 @@ fn test_monomial_property() {
     table.transform_monomial(Fp32::one(), degree + N, b.as_mut_slice());
     assert_eq!(a, b);
 
-    let degree = rng.gen_range(N..N * 2);
+    let degree = rng.random_range(N..N * 2);
 
     table.transform_monomial(Fp32::neg_one(), N * 2 - degree, a.as_mut_slice());
     table.transform_monomial(Fp32::one(), N * 2 - (degree - N), b.as_mut_slice());
@@ -109,9 +109,9 @@ fn test_native_poly() {
 
 #[test]
 fn test_native_poly_mul() {
-    FF::init_ntt_table(&[LOG_N as u32]).unwrap();
+    FF::init_ntt_table(LOG_N as u32).unwrap();
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
 
     let a = PolyFF::random(N, &mut rng);
     let b = PolyFF::random(N, &mut rng);
@@ -155,7 +155,7 @@ fn simple_mul<F: Field>(lhs: &Polynomial<F>, rhs: &Polynomial<F>) -> Polynomial<
 
 #[test]
 fn test_poly_decompose() {
-    let rng = &mut thread_rng();
+    let rng = &mut rand::rng();
     let poly = PolyFF::random(N, rng);
     let basis = <Basis<Fp32>>::new(BITS);
     let decompose = poly.clone().decompose(basis);
@@ -171,7 +171,7 @@ fn test_poly_decompose() {
 
 #[test]
 fn test_poly_decompose_mul() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
 
     let poly1 = PolyFF::random(N, &mut rng);
     let poly2 = PolyFF::random(N, &mut rng);
@@ -217,7 +217,7 @@ fn test_ntt_poly() {
 
 #[test]
 fn test_poly_eval() {
-    let rng = &mut thread_rng();
+    let rng = &mut rand::rng();
     let poly = PolyFF::random(N, rng);
 
     assert_eq!(

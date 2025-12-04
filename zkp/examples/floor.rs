@@ -1,10 +1,10 @@
+use std::rc::Rc;
+
 use algebra::{BabyBear, BabyBearExetension, DenseMultilinearExtension};
-use algebra::{DecomposableField, Field, FieldUniformSampler};
+use algebra::{Field, FieldUniformSampler};
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
-use rand::prelude::*;
 use rand_distr::Distribution;
 use sha2::Sha256;
-use std::rc::Rc;
 use zkp::piop::floor::FloorSnarks;
 use zkp::piop::{DecomposedBitsInfo, FloorInstance};
 
@@ -42,7 +42,7 @@ fn generate_instance(num_vars: usize) -> FloorInstance<FF> {
     let base_len = BASE_LEN as usize;
     let base: FF = FF::new(1 << base_len);
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
     let input = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
         num_vars,

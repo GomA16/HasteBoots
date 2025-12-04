@@ -1,11 +1,11 @@
 use algebra::{
-    derive::{DecomposableField, FheField, Field, Prime, NTT},
+    Basis, DecomposableField, Field, FieldUniformSampler, ModulusConfig, PrimeField,
+    derive::{DecomposableField, FheField, Field, NTT, Prime},
     modulus::BarrettModulus,
     reduce::*,
-    Basis, DecomposableField, Field, FieldUniformSampler, ModulusConfig, PrimeField,
 };
 use num_traits::{Inv, One, Zero};
-use rand::{distributions::Uniform, thread_rng, Rng};
+use rand::{Rng, distr::Uniform};
 use rand_distr::Distribution;
 
 #[derive(Field, DecomposableField, FheField, Prime, NTT)]
@@ -20,8 +20,8 @@ type W = u64;
 fn test_fp() {
     let p = FF::MODULUS.value();
 
-    let distr = Uniform::new(0, p);
-    let mut rng = thread_rng();
+    let distr = Uniform::new(0, p).unwrap();
+    let mut rng = rand::rng();
 
     assert!(FF::is_prime_field());
 
@@ -38,7 +38,7 @@ fn test_fp() {
 
     // sub
     let a = rng.sample(distr);
-    let b = rng.gen_range(0..=a);
+    let b = rng.random_range(0..=a);
     let c = (a - b) % p;
     assert_eq!(FF::new(a) - FF::new(b), FF::new(c));
 
@@ -123,7 +123,7 @@ fn test_decompose() {
     const BITS: u32 = 2;
     const B: u32 = 1 << BITS;
     let basis = <Basis<Fp32>>::new(BITS);
-    let rng = &mut thread_rng();
+    let rng = &mut rand::rng();
 
     let uniform = <FieldUniformSampler<FF>>::new();
     let a: FF = uniform.sample(rng);
@@ -140,8 +140,8 @@ fn test_decompose() {
 
 #[cfg(feature = "concrete-ntt")]
 use algebra::{
-    modulus::{from_monty, to_canonical_u64, to_monty, BabyBearModulus, GoldilocksModulus},
     BabyBear, Goldilocks,
+    modulus::{BabyBearModulus, GoldilocksModulus, from_monty, to_canonical_u64, to_monty},
 };
 
 #[test]
@@ -149,8 +149,8 @@ use algebra::{
 fn baby_bear_test() {
     let p = BabyBear::MODULUS_VALUE;
 
-    let distr = Uniform::new(0, p);
-    let mut rng = thread_rng();
+    let distr = Uniform::new(0, p).unwrap();
+    let mut rng = rand::rng();
 
     assert!(BabyBear::is_prime_field());
 
@@ -167,7 +167,7 @@ fn baby_bear_test() {
 
     // sub
     let a = rng.sample(distr);
-    let b = rng.gen_range(0..=a);
+    let b = rng.random_range(0..=a);
     let c = (a - b) % p;
     assert_eq!(BabyBear::new(a) - BabyBear::new(b), BabyBear::new(c));
 
@@ -255,7 +255,7 @@ fn baby_bear_test() {
     const BITS: u32 = 2;
     const B: u32 = 1 << BITS;
     let basis = <Basis<BabyBear>>::new(BITS);
-    let rng = &mut thread_rng();
+    let rng = &mut rand::rng();
 
     let uniform = <FieldUniformSampler<BabyBear>>::new();
     let a: BabyBear = uniform.sample(rng);
@@ -275,8 +275,8 @@ fn baby_bear_test() {
 fn goldilocks_test() {
     let p = Goldilocks::MODULUS_VALUE;
 
-    let distr = Uniform::new(0, p);
-    let mut rng = thread_rng();
+    let distr = Uniform::new(0, p).unwrap();
+    let mut rng = rand::rng();
 
     assert!(Goldilocks::is_prime_field());
 
@@ -293,7 +293,7 @@ fn goldilocks_test() {
 
     // sub
     let a = rng.sample(distr);
-    let b = rng.gen_range(0..=a);
+    let b = rng.random_range(0..=a);
     let c = (a - b) % p;
     assert_eq!(Goldilocks::new(a) - Goldilocks::new(b), Goldilocks::new(c));
 
@@ -384,7 +384,7 @@ fn goldilocks_test() {
     const BITS: u32 = 2;
     const B: u32 = 1 << BITS;
     let basis = <Basis<Goldilocks>>::new(BITS);
-    let rng = &mut thread_rng();
+    let rng = &mut rand::rng();
 
     let uniform = <FieldUniformSampler<Goldilocks>>::new();
     let a: Goldilocks = uniform.sample(rng);

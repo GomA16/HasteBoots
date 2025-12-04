@@ -1,15 +1,13 @@
+use std::rc::Rc;
+
 use algebra::derive::{DecomposableField, Field};
-use algebra::AsFrom;
 use algebra::{BabyBear, BabyBearExetension, Basis, DenseMultilinearExtension};
-use algebra::{DecomposableField, Field, FieldUniformSampler};
-use itertools::izip;
+use algebra::{Field, FieldUniformSampler};
 use num_traits::{One, Zero};
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
-use rand::prelude::*;
 use rand_distr::Distribution;
 use sha2::Sha256;
-use std::rc::Rc;
-use zkp::piop::{AdditionInZqInstance, AdditionInZqSnarks, AdditionInZqSnarksOpt, BitDecompositionSnarks, DecomposedBits, DecomposedBitsInfo};
+use zkp::piop::{AdditionInZqInstance, AdditionInZqSnarks, DecomposedBitsInfo};
 
 type FF = BabyBear;
 type EF = BabyBearExetension;
@@ -26,7 +24,7 @@ const MOD_LWE: usize = 1024;
 const LOG_B: u32 = 1;
 
 fn main() {
-let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let uniform_fq = <FieldUniformSampler<Fq>>::new();
     let num_vars = LOG_DIM_RLWE;
     let q = FF::new(MOD_LWE as u32);
@@ -88,6 +86,6 @@ let mut rng = thread_rng();
 
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
     <AdditionInZqSnarks<FF, EF>>::snarks::<Hash, ExpanderCode<FF>, ExpanderCodeSpec>(
-        &instance, &code_spec
+        &instance, &code_spec,
     );
 }

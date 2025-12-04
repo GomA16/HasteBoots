@@ -1,7 +1,7 @@
 use algebra::NTTField;
-use fhe_core::{utils::*, LWECiphertext, LWEModulusType, SecretKeyPack};
+use fhe_core::{LWECiphertext, LWEModulusType, SecretKeyPack, utils::*};
 use rand::Rng;
-use zkfhe::ntru_bfhe::{Evaluator, DEFAULT_TERNARY_128_BITS_NTRU_PARAMETERS};
+use zkfhe::ntru_bfhe::{DEFAULT_TERNARY_128_BITS_NTRU_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor};
 
 type M = bool;
@@ -9,7 +9,7 @@ type C = u16;
 
 fn main() {
     // set random generator
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     // set parameter
     let params = *DEFAULT_TERNARY_128_BITS_NTRU_PARAMETERS;
@@ -33,9 +33,9 @@ fn main() {
     let decryptor = Decryptor::new(sk);
     println!("Evaluation Key Generation done!\n");
 
-    let mut a = rng.gen();
-    let mut b = rng.gen();
-    let mut c = rng.gen();
+    let mut a = rng.random();
+    let mut b = rng.random();
+    let mut c = rng.random();
 
     let mut x = encryptor.encrypt(a);
     let mut y = encryptor.encrypt(b);

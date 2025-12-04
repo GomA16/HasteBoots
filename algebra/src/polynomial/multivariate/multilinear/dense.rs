@@ -379,7 +379,7 @@ impl<'a, F: Field> Add<&'a DenseMultilinearExtension<F>> for DenseMultilinearExt
     }
 }
 
-impl<'a, 'b, F: Field> Add<&'a DenseMultilinearExtension<F>> for &'b DenseMultilinearExtension<F> {
+impl<'a, F: Field> Add<&'a DenseMultilinearExtension<F>> for &DenseMultilinearExtension<F> {
     type Output = DenseMultilinearExtension<F>;
 
     #[inline]
@@ -452,7 +452,7 @@ impl<'a, F: Field> Sub<&'a DenseMultilinearExtension<F>> for DenseMultilinearExt
     }
 }
 
-impl<'a, 'b, F: Field> Sub<&'a DenseMultilinearExtension<F>> for &'b DenseMultilinearExtension<F> {
+impl<'a, F: Field> Sub<&'a DenseMultilinearExtension<F>> for &DenseMultilinearExtension<F> {
     type Output = DenseMultilinearExtension<F>;
 
     #[inline]

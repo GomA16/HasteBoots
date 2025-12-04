@@ -1,7 +1,7 @@
 use std::slice::ChunksExact;
 
 use algebra::{Basis, NTTField, NTTPolynomial, Polynomial};
-use lattice::{DecompositionSpace, NTTGadgetRLWE, PolynomialSpace, LWE, NTTRLWE, RLWE};
+use lattice::{DecompositionSpace, LWE, NTTGadgetRLWE, NTTRLWE, PolynomialSpace, RLWE};
 
 use crate::{LWEModulusType, NTRUCiphertext, SecretKeyPack};
 

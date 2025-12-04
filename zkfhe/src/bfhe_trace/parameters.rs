@@ -5,7 +5,7 @@ use fhe_core::{
 };
 use once_cell::sync::Lazy;
 
-pub static Goldilocks_TERNARY_128_BITS_PARAMETERS: Lazy<Parameters<u16, Goldilocks>> =
+pub static GOLDILOCKS_TERNARY_128_BITS_PARAMETERS: Lazy<Parameters<u16, Goldilocks>> =
     Lazy::new(|| {
         Parameters::<u16, Goldilocks>::new(ConstParameters {
             lwe_dimension: 1024,
@@ -28,7 +28,7 @@ pub static Goldilocks_TERNARY_128_BITS_PARAMETERS: Lazy<Parameters<u16, Goldiloc
     });
 
 /// BabyBear field type with ternary secret key and 128-bits security Parameters
-pub static BabyBear_TERNARY_128_BITS_PARAMETERS: Lazy<Parameters<u16, BabyBear>> =
+pub static BABY_BEAR_TERNARY_128_BITS_PARAMETERS: Lazy<Parameters<u16, BabyBear>> =
     Lazy::new(|| {
         Parameters::<u16, BabyBear>::new(ConstParameters {
             lwe_dimension: 1024,

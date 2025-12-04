@@ -1,12 +1,11 @@
 use std::vec;
 
 use algebra::{
-    derive::{DecomposableField, Field, Prime},
     Basis, DenseMultilinearExtension, Field, FieldUniformSampler, ListOfProductsOfPolynomials,
     MultilinearExtension,
+    derive::{DecomposableField, Field, Prime},
 };
 use num_traits::{Pow, Zero};
-use rand::thread_rng;
 use rand_distr::Distribution;
 use std::rc::Rc;
 
@@ -54,7 +53,7 @@ fn evaluate_mle_at_a_point() {
 
 #[test]
 fn evaluate_mle_at_a_random_point() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let poly = PolyFf::random(2, &mut rng);
     let uniform = <FieldUniformSampler<FF>>::new();
     let point: Vec<_> = (0..2).map(|_| uniform.sample(&mut rng)).collect();
@@ -67,7 +66,7 @@ fn evaluate_mle_at_a_random_point() {
 #[test]
 fn mle_arithmetic() {
     const NV: usize = 10;
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
     for _ in 0..20 {
         let point: Vec<_> = (0..NV).map(|_| uniform.sample(&mut rng)).collect();
@@ -138,7 +137,7 @@ fn trivial_decomposed_mles() {
 
     let uniform = <FieldUniformSampler<FF>>::new();
     let point: Vec<_> = (0..num_vars)
-        .map(|_| uniform.sample(&mut thread_rng()))
+        .map(|_| uniform.sample(&mut rand::rng()))
         .collect();
     let evaluation = decomposed_polys
         .iter()

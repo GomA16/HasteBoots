@@ -1,7 +1,7 @@
 use algebra::{
+    BabyBear, BabyBearExetension, DenseMultilinearExtension, Field, FieldUniformSampler,
+    SparsePolynomial,
     derive::{DecomposableField, Field, Prime},
-    BabyBear, BabyBearExetension, DecomposableField, DenseMultilinearExtension, Field,
-    FieldUniformSampler, SparsePolynomial,
 };
 use num_traits::{One, Zero};
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
@@ -9,7 +9,7 @@ use rand_distr::Distribution;
 use sha2::Sha256;
 use std::rc::Rc;
 use std::vec;
-use zkp::piop::{zq_to_rq::ZqToRQSnarks, DecomposedBitsInfo, ZqToRQIOP, ZqToRQInstance};
+use zkp::piop::{DecomposedBitsInfo, ZqToRQIOP, ZqToRQInstance, zq_to_rq::ZqToRQSnarks};
 
 #[derive(Field, DecomposableField)]
 #[modulus = 8]
@@ -191,7 +191,7 @@ fn transform(
 
 #[test]
 fn test_random_zq_to_rq() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<Fq>>::new();
 
     let base_len = 1;
@@ -246,7 +246,7 @@ fn test_random_zq_to_rq() {
 
 #[test]
 fn test_random_zq_to_rq_extension_field() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<Fq>>::new();
 
     let base_len = 1;
@@ -303,7 +303,7 @@ fn test_random_zq_to_rq_extension_field() {
 
 #[test]
 fn test_snarks() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<Fq>>::new();
 
     let base_len = 1;

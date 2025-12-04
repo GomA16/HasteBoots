@@ -93,21 +93,23 @@ fn try_inverse(value: u64) -> Option<u64> {
 unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
     let res_wrapped: u64;
     let adjustment: u64;
-    core::arch::asm!(
-        "add {0}, {1}",
-        // Trick. The carry flag is set iff the addition overflowed.
-        // sbb x, y does x := x - y - CF. In our case, x and y are both {1:e}, so it simply does
-        // {1:e} := 0xffffffff on overflow and {1:e} := 0 otherwise. {1:e} is the low 32 bits of
-        // {1}; the high 32-bits are zeroed on write. In the end, we end up with 0xffffffff in {1}
-        // on overflow; this happens be EPSILON.
-        // Note that the CPU does not realize that the result of sbb x, x does not actually depend
-        // on x. We must write the result to a register that we know to be ready. We have a
-        // dependency on {1} anyway, so let's use it.
-        "sbb {1:e}, {1:e}",
-        inlateout(reg) x => res_wrapped,
-        inlateout(reg) y => adjustment,
-        options(pure, nomem, nostack),
-    );
+    unsafe {
+        core::arch::asm!(
+            "add {0}, {1}",
+            // Trick. The carry flag is set iff the addition overflowed.
+            // sbb x, y does x := x - y - CF. In our case, x and y are both {1:e}, so it simply does
+            // {1:e} := 0xffffffff on overflow and {1:e} := 0 otherwise. {1:e} is the low 32 bits of
+            // {1}; the high 32-bits are zeroed on write. In the end, we end up with 0xffffffff in {1}
+            // on overflow; this happens be EPSILON.
+            // Note that the CPU does not realize that the result of sbb x, x does not actually depend
+            // on x. We must write the result to a register that we know to be ready. We have a
+            // dependency on {1} anyway, so let's use it.
+            "sbb {1:e}, {1:e}",
+            inlateout(reg) x => res_wrapped,
+            inlateout(reg) y => adjustment,
+            options(pure, nomem, nostack),
+        );
+    }
 
     // Add EPSILON == subtract ORDER.
     // Cannot overflow unless the assumption if x + y < 2**64 + ORDER is incorrect.
@@ -171,7 +173,7 @@ fn square(value: u64) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
+
     use rand_distr::{Distribution, Uniform};
 
     use crate::reduce::*;
@@ -184,8 +186,8 @@ mod tests {
 
     #[test]
     fn test_baby_bear() {
-        let dis = Uniform::new(0, P);
-        let mut rng = thread_rng();
+        let dis = Uniform::new(0, P).unwrap();
+        let mut rng = rand::rng();
 
         let a = dis.sample(&mut rng);
         let b = loop {

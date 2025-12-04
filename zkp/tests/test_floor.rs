@@ -1,13 +1,12 @@
 use algebra::{
-    BabyBear, BabyBearExetension, DecomposableField, DenseMultilinearExtension, Field,
-    FieldUniformSampler,
+    BabyBear, BabyBearExetension, DenseMultilinearExtension, Field, FieldUniformSampler,
 };
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand_distr::Distribution;
 use sha2::Sha256;
 use std::rc::Rc;
 use std::vec;
-use zkp::piop::{floor::FloorSnarks, DecomposedBitsInfo, FloorIOP, FloorInstance};
+use zkp::piop::{DecomposedBitsInfo, FloorIOP, FloorInstance, floor::FloorSnarks};
 
 type FF = BabyBear; // field type
 type EF = BabyBearExetension;
@@ -108,7 +107,7 @@ fn test_floor_naive_iop() {
 
 #[test]
 fn test_floor_random_iop() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
 
     let k = FF::new(FK);
@@ -168,7 +167,7 @@ fn test_floor_random_iop() {
 
 #[test]
 fn test_floor_random_iop_extension_field() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
 
     let k = FF::new(FK);
@@ -229,7 +228,7 @@ fn test_floor_random_iop_extension_field() {
 
 #[test]
 fn test_snarks() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
 
     let k = FF::new(FK);

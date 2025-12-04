@@ -1,38 +1,34 @@
 //! Lift
-use super::ntt_revision::ntt_bare::NTTBareIOP;
-use super::ntt_revision::NTTRecursiveProof;
-use super::ntt_revision::NTTIOP;
-use super::ntt_revision::{NTTInstance, NTTInstanceInfo};
-use super::sparse_eval::SparseEvalIOP;
-use super::sparse_eval::SparseEvalInstance;
-use crate::piop::LookupIOP;
-use sumcheck::verifier::SubClaim;
-use sumcheck::MLSumcheck;
-use sumcheck::ProofWrapper;
-use sumcheck::SumcheckKit;
-use crate::utils::{
-    add_assign_ef, eval_identity_function, gen_identity_evaluations, print_statistic,
-    verify_oracle_relation,
-};
-use algebra::{
-    AbstractExtensionField, DenseMultilinearExtension, Field,
-    ListOfProductsOfPolynomials,
-};
+
 use core::fmt;
-use itertools::izip;
-use pcs::{
-    multilinear::brakedown::BrakedownPCS,
-    utils::code::{LinearCode, LinearCodeSpec},
-    utils::hash::Hash,
-    PolynomialCommitmentScheme,
-};
-use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
-use std::vec;
+
+use algebra::{
+    AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
+};
+use bincode::config::standard;
 use helper::Transcript;
+use itertools::izip;
+use pcs::{
+    PolynomialCommitmentScheme,
+    multilinear::brakedown::BrakedownPCS,
+    utils::code::{LinearCode, LinearCodeSpec},
+    utils::hash::Hash,
+};
+use serde::{Deserialize, Serialize};
+use sumcheck::verifier::SubClaim;
+use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
+
+use super::ntt_revision::ntt_bare::NTTBareIOP;
+use super::ntt_revision::{NTTIOP, NTTInstance, NTTInstanceInfo, NTTRecursiveProof};
+use super::sparse_eval::{SparseEvalIOP, SparseEvalInstance};
+use crate::piop::LookupIOP;
+use crate::utils::{
+    add_assign_ef, eval_identity_function, gen_identity_evaluations, verify_oracle_relation,
+};
 
 /// IOP for Lift
 pub struct LiftIOP<F: Field>(PhantomData<F>);
@@ -317,10 +313,10 @@ impl<F: Field> LiftInstance<F> {
     ) -> (SparseEvalInstance<F>, F) {
         let coeff_mle =
             DenseMultilinearExtension::from_evaluations_slice(r_y.len(), &evals_at_rx.coeff_cols);
-        let F_two = F::one() + F::one();
+        let f_two = F::one() + F::one();
         let val = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
             self.num_vars,
-            self.k.iter().map(|_k| F::one() - F_two * *_k).collect(),
+            self.k.iter().map(|_k| F::one() - f_two * *_k).collect(),
         ));
         (
             SparseEvalInstance {
@@ -386,14 +382,12 @@ impl<F: Field> LiftEval<F> {
 
 impl<F: Field + Serialize> LiftIOP<F> {
     /// sample coins before proving sumcheck protocol
-    #[warn(unused_variables)]
-    pub fn sample_coins(trans: &mut Transcript<F>, instance: &LiftInstance<F>) -> Vec<F> {
+    pub fn sample_coins(trans: &mut Transcript<F>, _instance: &LiftInstance<F>) -> Vec<F> {
         trans.get_vec_challenge(b"randomness to combine sumcheck protocols", 1)
     }
 
     /// return the number of coins used in sumcheck protocol
-    #[warn(unused_variables)]
-    pub fn num_coins(info: &LiftInfo<F>) -> usize {
+    pub fn num_coins(_info: &LiftInfo<F>) -> usize {
         1
     }
 
@@ -553,7 +547,7 @@ impl<F: Field + Serialize> LiftIOP<F> {
         randomness: &[F],
         subclaim: &mut SubClaim<F>,
         evals: &LiftEval<F>,
-        info: &LiftInfo<F>,
+        _info: &LiftInfo<F>,
         eq_at_u_r: F,
     ) -> bool {
         assert_eq!(randomness.len(), 1);
@@ -670,8 +664,7 @@ where
         let mut lookup = LookupIOP::<EF>::default();
 
         lookup.prover_generate_first_randomness(&mut prover_trans, &mut lookup_instance);
-        
-        
+
         // commit the second EF polynomial
         let second_committed_poly = lookup_instance.generate_second_oracle();
         let mut piop_time = time_mark.elapsed().as_millis();
@@ -927,26 +920,50 @@ where
         println!("[PIOP] verifier time: {:?} ms", verifier_time);
         println!("[PIOP] vtotal: {:?} ms", pcs_verifier_time + verifier_time);
 
-        let pcs_proof_size = bincode::serialize(&comm).unwrap().len()
-            + bincode::serialize(&second_comm).unwrap().len()
-            + bincode::serialize(&eval_proof_at_r).unwrap().len()
-            + bincode::serialize(&eval_proof_at_u).unwrap().len()
-            + bincode::serialize(&second_eval_proof).unwrap().len();
-        let piop_proof_size = bincode::serialize(&sumcheck_proof).unwrap().len()
-            + bincode::serialize(&recursive_proof).unwrap().len()
-            + bincode::serialize(&flatten_evals_at_r).unwrap().len()
-            + bincode::serialize(&flatten_evals_at_u).unwrap().len()
-            + bincode::serialize(&lookup_evals.h_vec).unwrap().len();
+        let pcs_proof_size = bincode::serde::encode_to_vec(&comm, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&second_comm, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&eval_proof_at_r, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&eval_proof_at_u, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&second_eval_proof, standard())
+                .unwrap()
+                .len();
+        let piop_proof_size = bincode::serde::encode_to_vec(&sumcheck_proof, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&recursive_proof, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&flatten_evals_at_r, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&flatten_evals_at_u, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&lookup_evals.h_vec, standard())
+                .unwrap()
+                .len();
         println!("[PCS] Proof Size: {:?} Bytes", pcs_proof_size);
         println!("[PIOP] Proof Size: {:?} Bytes", piop_proof_size);
 
         println!(
             "The 1st committed polynomial is of {} variables, which consists of {} smaller oracles used in IOP, each of which is of {} variables.",
-            committed_poly.num_vars, instance.num_oracles(), instance.num_vars,
+            committed_poly.num_vars,
+            instance.num_oracles(),
+            instance.num_vars,
         );
         println!(
             "The 2nd committed polynomial is of {} variables, which consists of {} smaller oracles used in IOP, each of which is of {} variables.",
-            second_committed_poly.num_vars, lookup_instance.num_second_oracles(), lookup_instance.num_vars,
+            second_committed_poly.num_vars,
+            lookup_instance.num_second_oracles(),
+            lookup_instance.num_vars,
         );
     }
 }

@@ -1,22 +1,22 @@
+use std::rc::Rc;
+use std::time::Instant;
+
 use algebra::{
     AbstractExtensionField, BabyBear, BabyBearExetension, Basis, ListOfProductsOfPolynomials,
 };
 use algebra::{DenseMultilinearExtension, Field, FieldUniformSampler};
+use bincode::config::standard;
+use helper::Transcript;
 use itertools::izip;
 use pcs::{
+    PolynomialCommitmentScheme,
     multilinear::brakedown::BrakedownPCS,
     utils::code::{ExpanderCode, ExpanderCodeSpec},
-    PolynomialCommitmentScheme,
 };
-use helper::Transcript;
-use rand::prelude::*;
 use rand_distr::Distribution;
 use sha2::Sha256;
-use std::rc::Rc;
-use std::time::Instant;
-use std::vec;
-use zkp::piop::{BitDecomposition, BitDecompositionSnarks, DecomposedBits};
 use sumcheck::MLSumcheck;
+use zkp::piop::{BitDecomposition, BitDecompositionSnarks, DecomposedBits};
 use zkp::utils::{
     eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
 };
@@ -137,7 +137,7 @@ fn test_single_bit_decomposition() {
     let bits_len = <Basis<FF>>::new(base_len as u32).decompose_len();
     let num_vars = 10;
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
     let d = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
         num_vars,
@@ -168,7 +168,7 @@ fn test_batch_bit_decomposition() {
     let bits_len = <Basis<FF>>::new(base_len as u32).decompose_len();
     let num_vars = 10;
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
     let d = vec![
         Rc::new(DenseMultilinearExtension::from_evaluations_vec(
@@ -224,7 +224,7 @@ fn test_single_bit_decomposition_extension_field() {
     let bits_len = <Basis<FF>>::new(base_len as u32).decompose_len();
     let num_vars = 10;
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
     let d = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
         num_vars,
@@ -256,7 +256,7 @@ fn test_snarks() {
     let bits_len = <Basis<FF>>::new(base_len as u32).decompose_len();
     let num_vars = 10;
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
     let d = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
         num_vars,
@@ -320,7 +320,9 @@ fn test_snarks() {
     let (sumcheck_proof, sumcheck_state) =
         <MLSumcheck<EF>>::prove(&mut prover_trans, &sumcheck_poly)
             .expect("Proof generated in Addition In Zq");
-    iop_proof_size += bincode::serialize(&sumcheck_proof).unwrap().len();
+    iop_proof_size += bincode::serde::encode_to_vec(&sumcheck_proof, standard())
+        .unwrap()
+        .len();
     let iop_prover_time = prover_start.elapsed().as_millis();
 
     // 2.4 Compute all the evaluations of these small polynomials used in IOP over the random point returned from the sumcheck protocol
@@ -405,8 +407,12 @@ fn test_snarks() {
     );
     assert!(check_pcs);
     let pcs_verifier_time = start.elapsed().as_millis();
-    pcs_proof_size += bincode::serialize(&eval_proof).unwrap().len()
-        + bincode::serialize(&flatten_evals).unwrap().len();
+    pcs_proof_size += bincode::serde::encode_to_vec(&eval_proof, standard())
+        .unwrap()
+        .len()
+        + bincode::serde::encode_to_vec(&flatten_evals, standard())
+            .unwrap()
+            .len();
 
     print_statistic(
         iop_prover_time + pcs_open_time,
@@ -433,7 +439,7 @@ fn test_snarks_interface() {
     let bits_len = <Basis<FF>>::new(base_len as u32).decompose_len();
     let num_vars = 10;
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
     let d = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
         num_vars,

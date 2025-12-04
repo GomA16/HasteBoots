@@ -13,13 +13,12 @@ use std::{
 use num_traits::{Inv, One, Pow, Zero};
 
 use crate::{
-    div_ceil,
-    modulus::{self, from_monty, to_monty, BabyBearModulus, MONTY_NEG_ONE, MONTY_ONE, MONTY_ZERO},
+    DecomposableField, FheField, Field, Packable, PrimeField, TwoAdicField, div_ceil,
+    modulus::{self, BabyBearModulus, MONTY_NEG_ONE, MONTY_ONE, MONTY_ZERO, from_monty, to_monty},
     reduce::{
         AddReduce, AddReduceAssign, DivReduce, DivReduceAssign, InvReduce, MulReduce,
         MulReduceAssign, NegReduce, PowReduce, SubReduce, SubReduceAssign,
     },
-    DecomposableField, FheField, Field, Packable, PrimeField, TwoAdicField,
 };
 
 /// Implementation of BabyBear field.
@@ -50,7 +49,7 @@ impl Field for BabyBear {
 
 impl PartialOrd for BabyBear {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.value().cmp(&other.value()))
+        Some(self.cmp(other))
     }
 
     fn lt(&self, other: &Self) -> bool {
@@ -65,7 +64,6 @@ impl Ord for BabyBear {
 }
 
 impl DecomposableField for BabyBear {
-
     #[inline]
     fn mask(bits: u32) -> Self::Value {
         u32::MAX >> (u32::BITS - bits)

@@ -1,5 +1,7 @@
+use std::hint::black_box;
+
 use algebra::modulus::PowOf2Modulus;
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
+use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use lattice::LWE;
 use rand::prelude::*;
 use rand_distr::Uniform;
@@ -7,9 +9,9 @@ use rand_distr::Uniform;
 const N: usize = 512;
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
-    let rr_dis = Uniform::new(0, 1024);
+    let rr_dis = Uniform::new(0, 1024).unwrap();
     let modulus = <PowOf2Modulus<u32>>::new(1024u32);
 
     let a0: Vec<u32> = rr_dis.sample_iter(&mut rng).take(N).collect();

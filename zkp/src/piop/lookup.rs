@@ -29,23 +29,25 @@
 //!                     = c_sum
 //!      where u is a random challenge given from verifier (a vector of random element) and c_sum is some constant
 
-use sumcheck;
-use sumcheck::{verifier::SubClaim, MLSumcheck, ProofWrapper, SumcheckKit};
-use crate::utils::{
-    batch_inverse, eval_identity_function, gen_identity_evaluations, verify_oracle_relation,
-};
+use core::fmt;
+use std::{collections::HashMap, marker::PhantomData, rc::Rc};
+
 use algebra::PolynomialInfo;
 use algebra::{
-    AbstractExtensionField, AsFrom, DenseMultilinearExtension, Field,
-    ListOfProductsOfPolynomials,
+    AbstractExtensionField, AsFrom, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
 };
-use bincode::Result;
-use core::fmt;
+use bincode::config::standard;
+use bincode::error::{DecodeError, EncodeError};
+use helper::Transcript;
 use pcs::PolynomialCommitmentScheme;
 use rayon::{iter::ParallelIterator, slice::ParallelSlice};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, marker::PhantomData, rc::Rc};
-use helper::Transcript;
+use sumcheck::verifier::SubClaim;
+use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
+
+use crate::utils::{
+    batch_inverse, eval_identity_function, gen_identity_evaluations, verify_oracle_relation,
+};
 
 /// Stores the parameters used for lookup and the public info for verifier.
 #[derive(Clone, Serialize, Deserialize)]
@@ -129,7 +131,7 @@ impl<F: Field> LookupInstance<F> {
         let column_num = batch_f.len() + 1;
         Self {
             num_vars,
-            block_num: (column_num + block_size - 1) / block_size,
+            block_num: column_num.div_ceil(block_size),
             block_size,
             batch_f: batch_f.to_vec(),
             table,
@@ -185,7 +187,7 @@ impl<F: Field> LookupInstance<F> {
             DenseMultilinearExtension::from_evaluations_slice(num_vars, &m_evaluations);
         Self {
             num_vars,
-            block_num: (column_num + block_size - 1) / block_size,
+            block_num: column_num.div_ceil(block_size),
             block_size,
             batch_f: batch_f.to_vec(),
             table,
@@ -303,7 +305,7 @@ impl<F: Field> LookupInstance<F> {
         let num_threads = rayon::current_num_threads();
         // let chunk_size = (shifted_ft_vec.len() + num_threads - 1) / num_threads;
         let chunk_size = shifted_ft_vec.len() / num_threads;
-        let chunk_size = if chunk_size == 0 {1} else {chunk_size};
+        let chunk_size = if chunk_size == 0 { 1 } else { chunk_size };
 
         // Construct inversed shifted columns: 1 / (f(x) - r)
         let mut inversed_shifted_ft_evaluation_vec: Vec<F> = shifted_ft_vec
@@ -705,13 +707,13 @@ where
     Pcs: PolynomialCommitmentScheme<F, EF, S>,
 {
     /// Convert into bytes.
-    pub fn to_bytes(&self) -> Result<Vec<u8>> {
-        bincode::serialize(&self)
+    pub fn to_bytes(&self) -> Result<Vec<u8>, EncodeError> {
+        bincode::serde::encode_to_vec(self, standard())
     }
 
     /// Recover from bytes.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        bincode::deserialize(bytes)
+    pub fn from_bytes(bytes: &[u8]) -> Result<(Self, usize), DecodeError> {
+        bincode::serde::decode_from_slice(bytes, standard())
     }
 }
 
@@ -792,13 +794,13 @@ where
     EF: AbstractExtensionField<F> + Serialize,
     S: Clone,
     Pcs: PolynomialCommitmentScheme<
-        F,
-        EF,
-        S,
-        Polynomial = DenseMultilinearExtension<F>,
-        EFPolynomial = DenseMultilinearExtension<EF>,
-        Point = EF,
-    >,
+            F,
+            EF,
+            S,
+            Polynomial = DenseMultilinearExtension<F>,
+            EFPolynomial = DenseMultilinearExtension<EF>,
+            Point = EF,
+        >,
 {
     /// The prover.
     pub fn prove(

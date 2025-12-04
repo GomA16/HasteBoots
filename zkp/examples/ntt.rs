@@ -1,6 +1,6 @@
-use algebra::{transformation::AbstractNTT, NTTField, Polynomial};
 use algebra::{BabyBear, BabyBearExetension};
-use algebra::{DecomposableField, DenseMultilinearExtension, Field};
+use algebra::{DenseMultilinearExtension, Field};
+use algebra::{NTTField, Polynomial, transformation::AbstractNTT};
 use num_traits::One;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::prelude::*;
@@ -104,7 +104,7 @@ fn main() {
     }
     let ntt_table = Arc::new(ntt_table);
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
 
     let mut ntt_instances = <NTTInstances<FF>>::new(num_vars, &ntt_table);
     for _ in 0..num_ntt {

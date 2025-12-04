@@ -28,8 +28,10 @@ impl<F: Field> Transcript<F> {
 impl<F: Field> Transcript<F> {
     /// Append the message to the transcript.
     pub fn append_message<M: Serialize>(&mut self, label: &'static [u8], msg: &M) {
-        self.transcript
-            .append_message(label, &bincode::serialize(msg).unwrap());
+        self.transcript.append_message(
+            label,
+            &bincode::serde::encode_to_vec(msg, bincode::config::standard()).unwrap(),
+        );
     }
 
     /// Generate the challenge bytes from the current transcript

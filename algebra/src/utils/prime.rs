@@ -1,8 +1,8 @@
-use rand::{distributions::Uniform, prelude::Distribution, rngs::StdRng, thread_rng, SeedableRng};
+use rand::{SeedableRng, distr::Uniform, prelude::Distribution, rngs::StdRng};
 
+use crate::Widening;
 use crate::modulus::BarrettModulus;
 use crate::reduce::{PowReduce, Reduce};
-use crate::Widening;
 
 /// The trait defines some function for prime number
 pub trait Prime {
@@ -76,8 +76,9 @@ macro_rules! impl_prime_check {
                 let r: $SelfT = value_sub_one.trailing_zeros() as $SelfT;
                 let q = value_sub_one >> r;
 
-                let distribution: Uniform<$SelfT> = Uniform::from(3..=value_sub_one);
-                let mut rng = StdRng::from_rng(thread_rng()).unwrap();
+                let distribution: Uniform<$SelfT> =
+                    Uniform::new_inclusive(3, value_sub_one).unwrap();
+                let mut rng = StdRng::from_rng(&mut rand::rng());
 
                 'next_round: for i in 0..rounds {
                     let a: $SelfT = if i != 0 {
@@ -137,10 +138,10 @@ mod tests {
 
     #[test]
     fn test_prime_test() {
-        let mut r = thread_rng();
+        let mut r = rand::rng();
 
         for _ in 0..5 {
-            let m = r.gen_range(2..=(u64::MAX >> 2));
+            let m = r.random_range(2..=(u64::MAX >> 2));
             let modulus = BarrettModulus::<u64>::new(m);
             let is_prime = modulus.probably_prime(20);
             assert_eq!(is_prime, simple_prime_test(m));

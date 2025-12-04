@@ -1,6 +1,6 @@
 use crate::{
-    extension::TwoAdicField, field::Field, modulus::to_monty, BabyBear, BinomialExtensionField,
-    BinomiallyExtendable, HasTwoAdicBionmialExtension,
+    BabyBear, BinomialExtensionField, BinomiallyExtendable, HasTwoAdicBionmialExtension,
+    extension::TwoAdicField, field::Field, modulus::to_monty,
 };
 use num_traits::{One, Zero};
 

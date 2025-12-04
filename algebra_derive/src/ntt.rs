@@ -39,7 +39,6 @@ fn impl_ntt(input: Input) -> TokenStream {
     let root = quote! {::algebra::modulus::ShoupFactor<<Self as ::algebra::Field>::Value>};
 
     let ntt_table = format_ident!("NTT_TABLE{}", name.to_string().to_uppercase());
-    let ntt_mutex = format_ident!("NTT_MUTEX{}", name.to_string().to_uppercase());
 
     let from_root = impl_from_root(modulus_value);
     let to_root = impl_to_root(modulus_value, &modulus);
@@ -48,9 +47,7 @@ fn impl_ntt(input: Input) -> TokenStream {
     let generate_ntt_table = impl_generate_ntt_table(modulus_value, &table);
 
     quote! {
-        static mut #ntt_table: ::once_cell::sync::OnceCell<::std::collections::HashMap<u32, ::std::sync::Arc<<#name as ::algebra::NTTField>::Table>>>
-            = ::once_cell::sync::OnceCell::new();
-        static #ntt_mutex: ::std::sync::Mutex<()> = ::std::sync::Mutex::new(());
+        static #ntt_table: ::std::sync::OnceLock<::arc_swap::ArcSwap<Vec<(u32, ::std::sync::Arc<<#name as ::algebra::NTTField>::Table>)>>> = ::std::sync::OnceLock::new();
 
         impl ::std::convert::From<usize> for #name {
             #[inline]
@@ -109,8 +106,8 @@ fn impl_ntt(input: Input) -> TokenStream {
                     });
                 }
 
-                let mut rng = ::rand::thread_rng();
-                let distr = ::rand::distributions::Uniform::new_inclusive(2, #modulus - 1);
+                let mut rng = ::rand::rng();
+                let distr = ::rand::distr::Uniform::new_inclusive(2, #modulus - 1).unwrap();
 
                 let mut w = Self(0);
 
@@ -147,49 +144,44 @@ fn impl_ntt(input: Input) -> TokenStream {
             #generate_ntt_table
 
             fn get_ntt_table(log_n: u32) -> Result<::std::sync::Arc<Self::Table>, ::algebra::AlgebraError> {
-                if let Some(tables) = unsafe { #ntt_table.get() } {
-                    if let Some(t) = tables.get(&log_n) {
-                        return Ok(::std::sync::Arc::clone(t));
-                    }
-                }
+                let ntt_tables = #ntt_table.get_or_init(|| ::arc_swap::ArcSwap::from_pointee(Vec::with_capacity(2)));
 
-                Self::init_ntt_table(&[log_n])?;
-                Ok(::std::sync::Arc::clone(unsafe {
-                    #ntt_table.get().unwrap().get(&log_n).unwrap()
-                }))
+                if let Some(table) = ntt_tables
+                    .load()
+                    .iter()
+                    .find(|(key, _)| *key == log_n)
+                    .map(|(_, v)| ::std::sync::Arc::clone(v))
+                {
+                    Ok(table)
+                } else {
+                    Self::init_ntt_table(log_n)?;
+
+                    let ntt_tables = #ntt_table.get().unwrap();
+
+                    let table = ntt_tables
+                        .load()
+                        .iter()
+                        .find(|(key, _)| *key == log_n)
+                        .map(|(_, v)| ::std::sync::Arc::clone(v))
+                        .unwrap();
+
+                    Ok(table)
+                }
             }
 
-            fn init_ntt_table(log_ns: &[u32]) -> Result<(), ::algebra::AlgebraError> {
-                let _g = #ntt_mutex.lock().unwrap();
-                match unsafe { #ntt_table.get_mut() } {
-                    Some(tables) => {
-                        let new_log_ns: ::std::collections::HashSet<u32> = log_ns.iter().copied().collect();
-                        let old_log_ns: ::std::collections::HashSet<u32> = tables.keys().copied().collect();
-                        let difference = new_log_ns.difference(&old_log_ns);
+            fn init_ntt_table(log_n: u32) -> Result<(), ::algebra::AlgebraError> {
+                let ntt_tables = #ntt_table.get_or_init(|| ::arc_swap::ArcSwap::from_pointee(Vec::with_capacity(2)));
 
-                        for &log_n in difference {
-                            let temp_table = Self::generate_ntt_table(log_n)?;
-                            tables.insert(log_n, ::std::sync::Arc::new(temp_table));
-                        }
-
-                        Ok(())
-                    }
-                    None => {
-                        let log_ns: ::std::collections::HashSet<u32> = log_ns.iter().copied().collect();
-                        let mut map = ::std::collections::HashMap::with_capacity(log_ns.len());
-
-                        for log_n in log_ns {
-                            let temp_table = Self::generate_ntt_table(log_n)?;
-                            map.insert(log_n, ::std::sync::Arc::new(temp_table));
-                        }
-
-                        if unsafe { #ntt_table.set(map).is_err() } {
-                            Err(::algebra::AlgebraError::NTTTableError)
-                        } else {
-                            Ok(())
-                        }
-                    }
+                if let None = ntt_tables.load().iter().find(|(key, _)| *key == log_n) {
+                    ntt_tables.rcu(|inner| {
+                        let mut tables = inner.as_ref().clone();
+                        let temp_table = Self::generate_ntt_table(log_n).unwrap();
+                        tables.push((log_n, ::std::sync::Arc::new(temp_table)));
+                        tables
+                    });
                 }
+
+                Ok(())
             }
         }
     }

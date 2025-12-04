@@ -13,51 +13,52 @@
 //!    Note that these are polynomials in the FHE context but oracles in the ZKP context.
 //!    This can be proven with our Bit Decomposition IOP.
 //! 2. Perform NTT on these bits:
-//!     There are 2k NTT instance, including a_0 =NTT-equal= a_0', ..., a_k-1 =NTT-equal= a_k-1', ...,b_0 =NTT-equal= b_0', ..., b_k-1 =NTT-equal= b_k-1'
-//!     NTT instance is linear, allowing us to randomize these NTT instances to obtain a single NTT instance.
-//!     This can be proven with our NTT IOP.
+//!    There are 2k NTT instance, including a_0 =NTT-equal= a_0', ..., a_k-1 =NTT-equal= a_k-1', ...,b_0 =NTT-equal= b_0', ..., b_k-1 =NTT-equal= b_k-1'
+//!    NTT instance is linear, allowing us to randomize these NTT instances to obtain a single NTT instance.
+//!    This can be proven with our NTT IOP.
 //! 3. Compute:
-//!     g' = \sum_{i = 0}^{k-1} a_i' \cdot c_i + b_i' \cdot f_i
-//!     h' = \sum_{i = 0}^{k-1} a_i' \cdot c_i' + b_i' \cdot f_i'
-//!     Each can be proven with a sumcheck protocol.
+//!    g' = \sum_{i = 0}^{k-1} a_i' \cdot c_i + b_i' \cdot f_i
+//!    h' = \sum_{i = 0}^{k-1} a_i' \cdot c_i' + b_i' \cdot f_i'
+//!    Each can be proven with a sumcheck protocol.
 //! 4. Perform NTT on g' and h' to obtain its coefficient form g and h.
 //!
 //! Hence, there are 2k + 2 NTT instances in this single multiplication instance. We can randomize all these 2k+2 NTT instances to obtain a single NTT instance,
 //! and use our NTT IOP to prove this randomized NTT instance.
-use super::bit_decomposition::BitDecomposition;
-use super::bit_decomposition::DecomposedBitsEval;
+
+use core::fmt;
+use std::rc::Rc;
+use std::sync::Arc;
+use std::time::Instant;
+
+use algebra::{
+    AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
+};
+use bincode::config::standard;
+use helper::Transcript;
+use itertools::izip;
+use pcs::{
+    PolynomialCommitmentScheme,
+    multilinear::brakedown::BrakedownPCS,
+    utils::code::{LinearCode, LinearCodeSpec},
+    utils::hash::Hash,
+};
+use serde::{Deserialize, Serialize};
+use std::marker::PhantomData;
+use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit, verifier::SubClaim};
+
+use super::bit_decomposition::{BitDecomposition, DecomposedBitsEval};
 use super::ntt::NTTRecursiveProof;
-use super::LookupInstance;
-use super::NTTBareIOP;
-use super::{DecomposedBits, DecomposedBitsInfo, NTTInstance, NTTInstanceInfo, NTTIOP};
+use super::{
+    DecomposedBits, DecomposedBitsInfo, LookupInstance, NTTBareIOP, NTTIOP, NTTInstance,
+    NTTInstanceInfo,
+};
 use crate::piop::LookupIOP;
-use sumcheck::verifier::SubClaim;
-use sumcheck::MLSumcheck;
-use sumcheck::ProofWrapper;
-use sumcheck::SumcheckKit;
+
 use crate::utils::{
     add_assign_ef, eval_identity_function, gen_identity_evaluations, print_statistic,
     verify_oracle_relation,
 };
-use algebra::{
-    AbstractExtensionField, DenseMultilinearExtension, Field,
-    ListOfProductsOfPolynomials,
-};
-use core::fmt;
-use itertools::izip;
-use pcs::{
-    multilinear::brakedown::BrakedownPCS,
-    utils::code::{LinearCode, LinearCodeSpec},
-    utils::hash::Hash,
-    PolynomialCommitmentScheme,
-};
-use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
-use std::rc::Rc;
-use std::sync::Arc;
-use std::time::Instant;
-use std::vec;
-use helper::Transcript;
+
 /// IOP for RLWE * RGSW
 pub struct RlweMultRgswIOP<F: Field>(PhantomData<F>);
 
@@ -1025,7 +1026,9 @@ where
         let (sumcheck_proof, sumcheck_state) =
             <MLSumcheck<EF>>::prove(&mut prover_trans, &sumcheck_poly)
                 .expect("Proof generated in Addition In Zq");
-        iop_proof_size += bincode::serialize(&sumcheck_proof).unwrap().len();
+        iop_proof_size += bincode::serde::encode_to_vec(&sumcheck_proof, standard())
+            .unwrap()
+            .len();
 
         // 2.? [one more step] Prover recursive prove the evaluation of F(u, v)
         let recursive_proof = <NTTIOP<EF>>::prove_recursive(
@@ -1034,7 +1037,9 @@ where
             &ntt_instance_info,
             &prover_u,
         );
-        iop_proof_size += bincode::serialize(&recursive_proof).unwrap().len();
+        iop_proof_size += bincode::serde::encode_to_vec(&recursive_proof, standard())
+            .unwrap()
+            .len();
         let iop_prover_time = prover_start.elapsed().as_millis();
 
         // 2.4 Compute all the evaluations of these small polynomials used in IOP over the random point returned from the sumcheck protocol
@@ -1180,10 +1185,18 @@ where
         );
         assert!(check_pcs_at_r && check_pcs_at_u);
         let pcs_verifier_time = start.elapsed().as_millis();
-        pcs_proof_size += bincode::serialize(&eval_proof_at_r).unwrap().len()
-            + bincode::serialize(&eval_proof_at_u).unwrap().len()
-            + bincode::serialize(&flatten_evals_at_r).unwrap().len()
-            + bincode::serialize(&flatten_evals_at_u).unwrap().len();
+        pcs_proof_size += bincode::serde::encode_to_vec(&eval_proof_at_r, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&eval_proof_at_u, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&flatten_evals_at_r, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&flatten_evals_at_u, standard())
+                .unwrap()
+                .len();
 
         // 4. print statistic
         print_statistic(
@@ -1529,7 +1542,9 @@ where
         let (sumcheck_proof, sumcheck_state) =
             <MLSumcheck<EF>>::prove(&mut prover_trans, &sumcheck_poly)
                 .expect("Proof generated in Addition In Zq");
-        iop_proof_size += bincode::serialize(&sumcheck_proof).unwrap().len();
+        iop_proof_size += bincode::serde::encode_to_vec(&sumcheck_proof, standard())
+            .unwrap()
+            .len();
 
         // 2.? [one more step] Prover recursive prove the evaluation of F(u, v)
         let recursive_proof = <NTTIOP<EF>>::prove_recursive(
@@ -1538,7 +1553,9 @@ where
             &ntt_instance_info,
             &prover_u,
         );
-        iop_proof_size += bincode::serialize(&recursive_proof).unwrap().len();
+        iop_proof_size += bincode::serde::encode_to_vec(&recursive_proof, standard())
+            .unwrap()
+            .len();
         let iop_prover_time = prover_start.elapsed().as_millis();
 
         // 2.4 Compute all the evaluations of these small polynomials used in IOP over the random point returned from the sumcheck protocol
@@ -1713,10 +1730,18 @@ where
         );
         assert!(check_pcs_at_r && check_pcs_at_u);
         let pcs_verifier_time = start.elapsed().as_millis();
-        pcs_proof_size += bincode::serialize(&eval_proof_at_r).unwrap().len()
-            + bincode::serialize(&eval_proof_at_u).unwrap().len()
-            + bincode::serialize(&flatten_evals_at_r).unwrap().len()
-            + bincode::serialize(&flatten_evals_at_u).unwrap().len();
+        pcs_proof_size += bincode::serde::encode_to_vec(&eval_proof_at_r, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&eval_proof_at_u, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&flatten_evals_at_r, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&flatten_evals_at_u, standard())
+                .unwrap()
+                .len();
 
         // 4. print statistic
         print_statistic(

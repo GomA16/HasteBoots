@@ -1,18 +1,17 @@
-use algebra::{transformation::AbstractNTT, NTTField, NTTPolynomial, Polynomial};
 use algebra::{
     BabyBear, BabyBearExetension, Basis, DenseMultilinearExtension, Field, MultilinearExtension,
 };
+use algebra::{NTTField, NTTPolynomial, Polynomial, transformation::AbstractNTT};
 use itertools::izip;
 use num_traits::One;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
-use rand::thread_rng;
 use sha2::Sha256;
 use std::sync::Arc;
 use std::vec;
 use zkp::piop::accumulator::AccumulatorSnarksOpt;
 use zkp::piop::{
-    accumulator::AccumulatorSnarks, AccumulatorIOP, AccumulatorInstance, AccumulatorWitness,
-    DecomposedBitsInfo, NTTInstanceInfo, RlweCiphertext, RlweCiphertexts, RlweMultRgswInstance,
+    AccumulatorIOP, AccumulatorInstance, AccumulatorWitness, DecomposedBitsInfo, NTTInstanceInfo,
+    RlweCiphertext, RlweCiphertexts, RlweMultRgswInstance, accumulator::AccumulatorSnarks,
 };
 
 // field type
@@ -273,7 +272,7 @@ fn generate_instance<F: Field + NTTField>(
     bits_info: &DecomposedBitsInfo<F>,
     ntt_info: &NTTInstanceInfo<F>,
 ) -> AccumulatorInstance<F> {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut updations = Vec::with_capacity(num_updations);
 
     let mut acc_ntt = RlweCiphertext::<F> {
@@ -364,7 +363,7 @@ fn test_random_accumulator() {
     };
 
     let num_updations = 10;
-    let input = random_rlwe_ciphertext(&mut thread_rng(), num_vars);
+    let input = random_rlwe_ciphertext(&mut rand::rng(), num_vars);
     let instance = generate_instance(num_vars, input, num_updations, &bits_info, &ntt_info);
 
     let info = instance.info();
@@ -419,7 +418,7 @@ fn test_random_accumulator_extension_field() {
     };
 
     let num_updations = 10;
-    let input = random_rlwe_ciphertext(&mut thread_rng(), num_vars);
+    let input = random_rlwe_ciphertext(&mut rand::rng(), num_vars);
     let instance = generate_instance(num_vars, input, num_updations, &bits_info, &ntt_info);
     let instance_ef = instance.to_ef::<EF>();
 
@@ -475,7 +474,7 @@ fn test_snarks() {
     };
 
     let num_updations = 10;
-    let input = random_rlwe_ciphertext(&mut thread_rng(), num_vars);
+    let input = random_rlwe_ciphertext(&mut rand::rng(), num_vars);
     let instance = generate_instance(num_vars, input, num_updations, &bits_info, &ntt_info);
 
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
@@ -517,7 +516,7 @@ fn test_snarks_with_lookup() {
     };
 
     let num_updations = 10;
-    let input = random_rlwe_ciphertext(&mut thread_rng(), num_vars);
+    let input = random_rlwe_ciphertext(&mut rand::rng(), num_vars);
     let instance = generate_instance(num_vars, input, num_updations, &bits_info, &ntt_info);
 
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);

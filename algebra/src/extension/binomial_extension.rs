@@ -8,16 +8,16 @@ use std::{
 use itertools::Itertools;
 use num_traits::{Inv, One, Pow, Zero};
 use rand::{CryptoRng, Rng};
-use rand_distr::{Distribution, Standard};
+use rand_distr::{Distribution, StandardUniform};
 use serde::{
+    Deserialize, Deserializer, Serialize, Serializer,
     de::{SeqAccess, Visitor},
     ser::SerializeSeq,
-    Deserialize, Deserializer, Serialize, Serializer,
 };
 
 use crate::{
-    field_to_array, powers, AbstractExtensionField, ExtensionField, Field, FieldUniformSampler,
-    HasFrobenius, HasTwoAdicBionmialExtension, PackedField, TwoAdicField,
+    AbstractExtensionField, ExtensionField, Field, FieldUniformSampler, HasFrobenius,
+    HasTwoAdicBionmialExtension, PackedField, TwoAdicField, field_to_array, powers,
 };
 
 use super::{BinomiallyExtendable, Packable};
@@ -579,14 +579,14 @@ impl<F: Field + BinomiallyExtendable<D> + Packable, const D: usize> BinomialExte
 }
 
 impl<F: BinomiallyExtendable<D> + Packable, const D: usize>
-    Distribution<BinomialExtensionField<F, D>> for Standard
+    Distribution<BinomialExtensionField<F, D>> for StandardUniform
 where
-    Standard: Distribution<F>,
+    StandardUniform: Distribution<F>,
 {
     fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> BinomialExtensionField<F, D> {
         let mut res = [F::zero(); D];
         for r in res.iter_mut() {
-            *r = Standard.sample(rng);
+            *r = StandardUniform.sample(rng);
         }
         BinomialExtensionField::<F, D>::from_base_slice(&res)
     }

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use std::{collections::BTreeSet, fmt::Debug, iter};
 
-use rand::{distributions::Uniform, CryptoRng, Rng};
+use rand::{CryptoRng, Rng, distr::Uniform};
 
 /// Define the dimension that specifies a sparse matrix.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -51,7 +51,7 @@ impl<F: Field> SparseMatrix<F> {
     /// * `dimension` - The dimension of the sparse matrix.
     /// * `rng` - The randomness generator.
     pub fn random(dimension: SparseMatrixDimension, rng: &mut (impl Rng + CryptoRng)) -> Self {
-        let index_distr: Uniform<usize> = Uniform::new(0, dimension.num_col);
+        let index_distr: Uniform<usize> = Uniform::new(0, dimension.num_col).unwrap();
         let field_distr: FieldUniformSampler<F> = FieldUniformSampler::new();
         let mut row = BTreeSet::<usize>::new();
         let cells = iter::repeat_with(|| {
@@ -156,11 +156,7 @@ pub fn ceil(v: f64) -> usize {
 pub fn div_ceil(dividend: usize, divisor: usize) -> usize {
     let d = dividend / divisor;
     let r = dividend % divisor;
-    if r > 0 {
-        d + 1
-    } else {
-        d
-    }
+    if r > 0 { d + 1 } else { d }
 }
 
 /// Compute the lagrange basis of a given point (which is a series of point of one dimension)
