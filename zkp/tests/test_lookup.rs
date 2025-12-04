@@ -1,7 +1,7 @@
 use algebra::{
     BabyBear, BabyBearExetension, DenseMultilinearExtension, Field,
     derive::{DecomposableField, Field, Prime},
-    utils::Transcript,
+    BabyBear, BabyBearExetension, DenseMultilinearExtension, Field,
 };
 use num_traits::Zero;
 use pcs::{
@@ -16,6 +16,7 @@ use zkp::piop::{
     LookupIOP, LookupInstance,
     lookup::{LookupParams, LookupProof, LookupProver, LookupVerifier},
 };
+use helper::Transcript;
 
 type FF = BabyBear;
 type EF = BabyBearExetension;

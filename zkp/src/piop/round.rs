@@ -3,7 +3,7 @@ use super::{BitDecomposition, DecomposedBits, DecomposedBitsEval, DecomposedBits
 use crate::utils::{eval_identity_function, gen_identity_evaluations, verify_oracle_relation};
 use algebra::{
     AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
-    ListOfProductsOfPolynomials, utils::Transcript,
+    ListOfProductsOfPolynomials,
 };
 use bincode::config::standard;
 use core::fmt;
@@ -19,8 +19,7 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 use std::time::Instant;
 use std::vec;
-use sumcheck::verifier::SubClaim;
-use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
+use helper::Transcript;
 
 /// Round IOP
 pub struct RoundIOP<F: Field>(PhantomData<F>);

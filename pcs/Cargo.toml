@@ -7,6 +7,7 @@ edition = "2024"
 
 [dependencies]
 algebra = { path = "../algebra" }
+helper = { path = "../helper" }
 
 thiserror = { workspace = true }
 num-traits = { workspace = true }

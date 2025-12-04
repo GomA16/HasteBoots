@@ -16,7 +16,7 @@ use crate::utils::{
 };
 use algebra::{
     AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
-    ListOfProductsOfPolynomials, utils::Transcript,
+    ListOfProductsOfPolynomials,
 };
 use bincode::config::standard;
 use core::fmt;
@@ -30,8 +30,7 @@ use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::time::Instant;
-use sumcheck::{MLSumcheck, verifier::SubClaim};
-use sumcheck::{ProofWrapper, SumcheckKit};
+use helper::Transcript;
 
 use super::bit_decomposition::DecomposedBitsEval;
 use super::{BitDecomposition, DecomposedBits, DecomposedBitsInfo, LookupInstance};

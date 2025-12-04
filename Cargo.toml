@@ -12,6 +12,8 @@ members = [
     "zkp",
     "sumcheck",
     "trace",
+    "piop",
+    "helper",
 ]
 
 resolver = "3"

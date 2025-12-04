@@ -23,10 +23,8 @@ const BASE_FIELD_BITS: usize = 31;
 
 fn build_instances(log_n: u32, num_ntt: u32) -> NTTInstances<FF> {
     let m = 1 << (log_n + 1);
-    let mut powers: Vec<FF> = vec![FF::zero(); m];
     let plan = FF::get_ntt_table(log_n).unwrap();
-    plan.root_powers(&mut powers);
-    let ntt_table = Arc::new(powers);
+    let ntt_table = Arc::new(plan.root_powers());
 
     let mut rng = rand::rng();
     let mut instances = NTTInstances::new(log_n as usize, &ntt_table);

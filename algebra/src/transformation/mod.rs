@@ -22,7 +22,7 @@ pub trait AbstractNTT<F: NTTField> {
     fn root(&self) -> F;
 
     /// Get the root powers for number theory transform.
-    fn root_powers(&self, powers: &mut [F]);
+    fn root_powers(&self) -> Vec<F>;
 
     /// Perform a fast number theory transform.
     ///

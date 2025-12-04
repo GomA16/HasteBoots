@@ -34,8 +34,8 @@ use crate::utils::{
     eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
 };
 use algebra::{
-    AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
-    PolynomialInfo, utils::Transcript,
+    AbstractExtensionField, DenseMultilinearExtension, Field,
+    ListOfProductsOfPolynomials, PolynomialInfo,
 };
 use bincode::config::standard;
 use core::fmt;
@@ -55,6 +55,7 @@ use sumcheck::{MLSumcheck, Proof, prover::ProverState, verifier::SubClaim};
 use sumcheck::{ProofWrapper, SumcheckKit};
 
 use ntt_bare::NTTBareIOP;
+use helper::Transcript;
 
 pub mod ntt_bare;
 /// IOP for NTT, i.e. $$a(u) = \sum_{x\in \{0, 1\}^{\log N} c(x)\cdot F(u, x) }$$

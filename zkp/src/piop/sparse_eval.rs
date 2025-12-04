@@ -4,8 +4,15 @@ use core::fmt;
 use std::rc::Rc;
 
 use algebra::{
-    AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
-    utils::Transcript,
+    AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
+    ListOfProductsOfPolynomials,
+};
+use core::fmt;
+use pcs::{
+    multilinear::brakedown::BrakedownPCS,
+    utils::code::{LinearCode, LinearCodeSpec},
+    utils::hash::Hash,
+    PolynomialCommitmentScheme,
 };
 use serde::{Deserialize, Serialize};
 use sumcheck::{MLSumcheck, verifier::SubClaim};
@@ -13,8 +20,8 @@ use sumcheck::{ProofWrapper, SumcheckKit};
 
 use super::LookupInstance;
 use super::lookup::LookupInstanceInfo;
-
-use crate::utils::{eval_identity_function, gen_identity_evaluations};
+use super::{BitDecomposition, DecomposedBits, DecomposedBitsInfo, LookupInstance};
+use helper::Transcript;
 
 /// Sparse Matrix Instance used as prover keys
 pub struct SparseEvalInstance<F: Field> {

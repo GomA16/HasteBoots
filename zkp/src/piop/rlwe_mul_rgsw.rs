@@ -36,8 +36,8 @@ use crate::utils::{
     verify_oracle_relation,
 };
 use algebra::{
-    AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
-    utils::Transcript,
+    AbstractExtensionField, DenseMultilinearExtension, Field,
+    ListOfProductsOfPolynomials,
 };
 use bincode::config::standard;
 use core::fmt;
@@ -54,10 +54,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
 use std::vec;
-use sumcheck::MLSumcheck;
-use sumcheck::ProofWrapper;
-use sumcheck::SumcheckKit;
-use sumcheck::verifier::SubClaim;
+use helper::Transcript;
 /// IOP for RLWE * RGSW
 pub struct RlweMultRgswIOP<F: Field>(PhantomData<F>);
 

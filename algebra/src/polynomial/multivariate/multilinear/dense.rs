@@ -43,6 +43,12 @@ impl<F: Field> DenseMultilinearExtension<F> {
         Self::from_evaluations_vec(num_vars, vec![F::zero(); 1 << num_vars])
     }
 
+    /// Returns the number of variables
+    #[inline]
+    pub fn num_vars(&self) -> usize {
+        self.num_vars
+    }
+
     /// Construct from Polynomial structure
     /// Note that the data passed via this interface should be in normal order.
     #[inline]

@@ -34,8 +34,8 @@ use crate::utils::{
 };
 use algebra::PolynomialInfo;
 use algebra::{
-    AbstractExtensionField, AsFrom, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
-    utils::Transcript,
+    AbstractExtensionField, AsFrom, DenseMultilinearExtension, Field,
+    ListOfProductsOfPolynomials,
 };
 use bincode::config::standard;
 use bincode::error::{DecodeError, EncodeError};
@@ -44,8 +44,7 @@ use pcs::PolynomialCommitmentScheme;
 use rayon::{iter::ParallelIterator, slice::ParallelSlice};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, marker::PhantomData, rc::Rc};
-use sumcheck;
-use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit, verifier::SubClaim};
+use helper::Transcript;
 
 /// Stores the parameters used for lookup and the public info for verifier.
 #[derive(Clone, Serialize, Deserialize)]

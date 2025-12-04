@@ -1,13 +1,14 @@
 use std::time::Instant;
 
 use algebra::{
-    BabyBear, BabyBearExetension, DenseMultilinearExtension, FieldUniformSampler, utils::Transcript,
+    BabyBear, BabyBearExetension, DenseMultilinearExtension, FieldUniformSampler,
 };
 use pcs::{
     PolynomialCommitmentScheme,
     multilinear::brakedown::BrakedownPCS,
     utils::code::{ExpanderCode, ExpanderCodeSpec},
 };
+use helper::Transcript;
 use rand::Rng;
 use sha2::Sha256;
 

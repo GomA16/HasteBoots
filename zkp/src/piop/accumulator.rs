@@ -8,6 +8,22 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
 
+use super::ntt::NTTRecursiveProof;
+use super::rlwe_mul_rgsw::RlweEval;
+use super::rlwe_mul_rgsw::RlweMultRgswEval;
+use super::rlwe_mul_rgsw::RlweMultRgswInfo;
+use super::DecomposedBits;
+use super::LookupInstance;
+use super::NTTBareIOP;
+use super::RlweCiphertext;
+use super::RlweMultRgswIOP;
+use super::RlweMultRgswIOPPure;
+use super::RlweMultRgswInstance;
+use super::{DecomposedBitsInfo, NTTInstance, NTTInstanceInfo, NTTIOP};
+use crate::utils::{
+    add_assign_ef, eval_identity_function, gen_identity_evaluations, print_statistic,
+    verify_oracle_relation,
+};
 use algebra::AbstractExtensionField;
 use algebra::utils::Transcript;
 use algebra::{DenseMultilinearExtension, Field, ListOfProductsOfPolynomials};
@@ -23,28 +39,7 @@ use pcs::{
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
 use serde::{Deserialize, Serialize};
-use sumcheck::MLSumcheck;
-use sumcheck::ProofWrapper;
-use sumcheck::SumcheckKit;
-use sumcheck::verifier::SubClaim;
-
-use super::DecomposedBits;
-use super::LookupInstance;
-use super::NTTBareIOP;
-use super::RlweCiphertext;
-use super::RlweMultRgswIOP;
-use super::RlweMultRgswIOPPure;
-use super::RlweMultRgswInstance;
-use super::ntt::NTTRecursiveProof;
-use super::rlwe_mul_rgsw::RlweEval;
-use super::rlwe_mul_rgsw::RlweMultRgswEval;
-use super::rlwe_mul_rgsw::RlweMultRgswInfo;
-use super::{DecomposedBitsInfo, NTTIOP, NTTInstance, NTTInstanceInfo};
-use crate::piop::LookupIOP;
-use crate::utils::{
-    add_assign_ef, eval_identity_function, gen_identity_evaluations, print_statistic,
-    verify_oracle_relation,
-};
+use helper::Transcript;
 
 /// IOP for Accumulator
 pub struct AccumulatorIOP<F: Field>(PhantomData<F>);

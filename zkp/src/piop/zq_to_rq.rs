@@ -33,9 +33,9 @@ use crate::utils::{
 use algebra::SparsePolynomial;
 use algebra::{
     AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
-    ListOfProductsOfPolynomials, utils::Transcript,
+    ListOfProductsOfPolynomials,
 };
-use bincode::config::standard;
+use helper::Transcript;
 use core::fmt;
 use itertools::izip;
 use pcs::{

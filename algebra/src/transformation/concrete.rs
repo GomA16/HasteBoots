@@ -42,12 +42,11 @@ pub mod prime32 {
         }
 
         #[inline]
-        fn root_powers(&self, powers: &mut [F]) {
+        fn root_powers(&self) -> Vec<F>{
             let u32_slice = self.plan.root_powers();
-            powers
-                .iter_mut()
-                .zip(u32_slice.iter())
-                .for_each(|(p, &v)| *p = F::new(v));
+            u32_slice.iter().map(
+                |&v| F::new(v)
+            ).collect()
         }
 
         #[inline]
@@ -132,12 +131,12 @@ pub mod prime64 {
         }
 
         #[inline]
-        fn root_powers(&self, powers: &mut [F]) {
+        fn root_powers(&self) -> Vec<F> {
             let u64_slice = self.plan.root_powers();
-            powers
-                .iter_mut()
-                .zip(u64_slice.iter())
-                .for_each(|(p, &v)| *p = F::new(v));
+            u64_slice
+                .iter()
+                .map(|&v| F::new(v))
+                .collect::<Vec<F>>()
         }
 
         #[inline]

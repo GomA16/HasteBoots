@@ -14,6 +14,8 @@ use pcs::{
     multilinear::brakedown::BrakedownPCS,
     utils::code::{ExpanderCode, ExpanderCodeSpec},
 };
+use helper::Transcript;
+use rand::prelude::*;
 use rand_distr::Distribution;
 use sha2::Sha256;
 use sumcheck::MLSumcheck;
