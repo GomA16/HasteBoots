@@ -8,7 +8,7 @@ use once_cell::sync::Lazy;
 /// Default 128-bits security Parameters
 pub static DEFAULT_TERNARY_128_BITS_PARAMETERS: Lazy<Parameters<u16, DefaultFieldU32>> =
     Lazy::new(|| {
-        Parameters::<u16, DefaultFieldU32>::new(ConstParameters {
+        Parameters::<u16, DefaultFieldU32>::bsks(ConstParameters {
             lwe_dimension: 1024,
             lwe_cipher_modulus: 1024,
             lwe_plain_modulus: 4,
@@ -31,7 +31,7 @@ pub static DEFAULT_TERNARY_128_BITS_PARAMETERS: Lazy<Parameters<u16, DefaultFiel
 /// Default 128-bits security Parameters
 pub static CUSTOM_TERNARY_128_BITS_PARAMETERS: Lazy<Parameters<u16, DefaultFieldU32>> =
     Lazy::new(|| {
-        Parameters::<u16, DefaultFieldU32>::new(ConstParameters {
+        Parameters::<u16, DefaultFieldU32>::bsks(ConstParameters {
             lwe_dimension: 512,
             lwe_cipher_modulus: 1 << 14,
             lwe_plain_modulus: 4,

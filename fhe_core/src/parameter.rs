@@ -1,12 +1,11 @@
 use algebra::{
-    Basis, BinomialExtensionField, BinomiallyExtendable, Field, FieldDiscreteGaussianSampler,
-    HasTwoAdicBionmialExtension, NTTField, Packable, derive::*, modulus::PowOf2Modulus,
+    AsInto, Basis, BinomialExtensionField, BinomiallyExtendable, Field,
+    FieldDiscreteGaussianSampler, HasTwoAdicBionmialExtension, NTTField, Packable, derive::*,
+    modulus::PowOf2Modulus,
 };
 use lattice::DiscreteGaussian;
 
-use crate::{
-    FHECoreError, LWEModulusType, LWESecretKeyType, ModulusSwitchRoundMethod, RingSecretKeyType,
-};
+use crate::{FHECoreError, LWEModulusType, LWESecretKeyType, RingSecretKeyType};
 
 /// The steps of whole bootstrapping.
 ///
@@ -15,21 +14,15 @@ use crate::{
 /// - `Scale`:`q < 2N`, `q|2N`
 #[derive(Debug, Default, Clone, Copy)]
 pub enum Steps {
-    /// Modulus Switch or Scale? -> Blind Rotation -> Modulus Switch -> Key Switch.
+    /// Key Switch -> Modulus Switch or Scale? -> Blind Rotation.
     ///
-    /// (n, q) -> (n, 2N) -> (N, Q) -> (N, q) -> (n, q)
-    BrMsKs,
+    /// (N, Q) -> (n, Q) -> (n, 2N) -> (N, Q)
+    KsBr,
     /// Modulus Switch or Scale? -> Blind Rotation -> Key Switch -> Modulus Switch.
     ///
     /// (n, q) -> (n, 2N) -> (N, Q) -> (n, Q) -> (n, q)
     #[default]
-    BrKsMs,
-    /// Modulus Switch or Scale? -> Blind Rotation -> Modulus Switch.
-    ///
-    /// ### Case: n = N
-    ///
-    /// (n, q) -> (n, 2N) -> (N, Q) -> (n, q)
-    BrMs,
+    BrKs,
 }
 
 /// The process type before blind rotation
@@ -90,15 +83,6 @@ pub struct LWEParameters<C: LWEModulusType> {
     pub noise_standard_deviation: f64,
 }
 
-/// Use `RLWE` or `NTRU` to perform blind rotation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BlindRotationType {
-    /// Use `RLWE` to perform blind rotation.
-    RLWE,
-    /// Use `NTRU` to perform blind rotation.
-    NTRU,
-}
-
 /// Parameters for blind rotation.
 #[derive(Debug, Clone, Copy)]
 pub struct BlindRotationParameters<Q: NTTField> {
@@ -112,8 +96,6 @@ pub struct BlindRotationParameters<Q: NTTField> {
     pub secret_key_type: RingSecretKeyType,
     /// Decompose basis for `Q` used for bootstrapping accumulator.
     pub basis: Basis<Q>,
-    /// Use `RLWE` or `NTRU` to perform blind rotation.
-    pub blind_rotation_type: BlindRotationType,
 }
 
 /// Parameters for key switching.
@@ -125,21 +107,14 @@ pub struct KeySwitchingParameters {
     pub noise_standard_deviation: f64,
 }
 
-/// Parameters for modulus switching.
-#[derive(Debug, Clone, Copy)]
-pub struct ModulusSwitchParameters {
-    /// Modulus Switch round method.
-    pub round_method: ModulusSwitchRoundMethod,
-}
-
 /// Parameters for the fully homomorphic encryption scheme.
 #[derive(Debug, Clone, Copy)]
 #[allow(non_snake_case)]
 pub struct Parameters<C: LWEModulusType, Q: NTTField> {
-    lwe_params: LWEParameters<C>,
+    input_lwe_params: LWEParameters<C>,
+    inter_lwe_params: LWEParameters<C>,
     blind_rotation_params: BlindRotationParameters<Q>,
     key_switching_params: KeySwitchingParameters,
-    modulus_switch_params: ModulusSwitchParameters,
     process_before_blind_rotation: ProcessBeforeBlindRotation<C>,
     steps: Steps,
 }
@@ -160,9 +135,6 @@ pub struct ConstParameters<C: LWEModulusType, Q> {
     /// **LWE** Secret Key distribution Type.
     pub lwe_secret_key_type: LWESecretKeyType,
 
-    /// Use `RLWE` or `NTRU` to perform blind rotation.
-    pub blind_rotation_type: BlindRotationType,
-
     /// **Ring** polynomial dimension, refers to **N** in the paper.
     pub ring_dimension: usize,
     /// **Ring** polynomial modulus, refers to **Q** in the paper.
@@ -182,57 +154,94 @@ pub struct ConstParameters<C: LWEModulusType, Q> {
     pub key_switching_basis_bits: u32,
     /// The noise error's standard deviation for key switching **rlwe** or **lwe**.
     pub key_switching_standard_deviation: f64,
+}
 
-    /// Modulus Switch round method.
-    pub modulus_switching_round_method: ModulusSwitchRoundMethod,
+impl<Q: NTTField> Parameters<<Q as Field>::Value, Q>
+where
+    <Q as Field>::Value: LWEModulusType,
+{
+    ///
+    pub fn ksbs(
+        params: ConstParameters<<Q as Field>::Value, Q::Value>,
+    ) -> Result<Self, FHECoreError> {
+        assert!(matches!(params.steps, Steps::KsBr));
+
+        let input_lwe_dimension = params.ring_dimension;
+        let input_lwe_cipher_modulus = params.ring_modulus;
+
+        let inter_lwe_dimension = params.lwe_dimension;
+        let inter_lwe_cipher_modulus = params.lwe_cipher_modulus;
+
+        let ring_dimension = params.ring_dimension;
+        let ring_modulus = params.ring_modulus;
+
+        let inter_lwe_secret_key_type = params.lwe_secret_key_type;
+        let ring_secret_key_type = params.ring_secret_key_type;
+        let input_lwe_secret_key_type = match ring_secret_key_type {
+            RingSecretKeyType::Binary => LWESecretKeyType::Binary,
+            RingSecretKeyType::Ternary => LWESecretKeyType::Ternary,
+        };
+
+        // N = 2^i
+        if !ring_dimension.is_power_of_two() {
+            return Err(FHECoreError::RingDimensionUnValid(ring_dimension));
+        }
+
+        let q: usize = input_lwe_cipher_modulus.try_into().ok().unwrap();
+        let twice_ring_dimension = ring_dimension << 1;
+        assert!(twice_ring_dimension != 0, "Ring dimension is too large!");
+
+        let twice_ring_dimension_value = <Q as Field>::Value::try_from(twice_ring_dimension as u64)
+            .ok()
+            .unwrap();
+        let twice_ring_dimension_modulus = twice_ring_dimension_value.to_power_of_2_modulus();
+
+        let process_before_blind_rotation = ProcessBeforeBlindRotation {
+            process: ProcessType::ModulusSwitch,
+            lut_step: 1,
+            twice_ring_dimension_value,
+            twice_ring_dimension_modulus,
+        };
+
+        // 2N|(Q-1)
+        let coeff_modulus = Into::<u64>::into(ring_modulus).try_into().unwrap();
+        let factor = (coeff_modulus - 1) / (twice_ring_dimension);
+        if factor * (twice_ring_dimension) != (coeff_modulus - 1) {
+            return Err(FHECoreError::RingModulusAndDimensionNotCompatible {
+                coeff_modulus,
+                ring_dimension,
+            });
+        }
+
+        let t: u64 = params.lwe_plain_modulus.as_into();
+        let q: u64 = input_lwe_cipher_modulus.as_into();
+        assert!(t <= q);
+        assert!(t.is_power_of_two());
+        // let input_lwe_params = LWEParameters {
+        //     dimension: ring_dimension,
+        //     cipher_modulus_value: input_lwe_cipher_modulus,
+        //     cipher_modulus: lwe_cipher_modulus.to_power_of_2_modulus(),
+        //     noise_standard_deviation: params.lwe_noise_standard_deviation,
+        //     plain_modulus: t,
+        //     secret_key_type:input_lwe_secret_key_type,
+        // };
+
+        todo!()
+    }
 }
 
 impl<C: LWEModulusType, Q: NTTField> Parameters<C, Q> {
     /// Create a new Parameter instance.
-    pub fn new(params: ConstParameters<C, Q::Value>) -> Result<Self, FHECoreError> {
+    pub fn bsks(params: ConstParameters<C, Q::Value>) -> Result<Self, FHECoreError> {
+        assert!(matches!(params.steps, Steps::BrKs));
+
         let lwe_dimension = params.lwe_dimension;
         let lwe_cipher_modulus = params.lwe_cipher_modulus;
         let ring_dimension = params.ring_dimension;
         let ring_modulus = params.ring_modulus;
 
-        let steps = params.steps;
         let secret_key_type = params.lwe_secret_key_type;
         let ring_secret_key_type = params.ring_secret_key_type;
-        let blind_rotation_type = params.blind_rotation_type;
-
-        match steps {
-            Steps::BrMsKs => {
-                if blind_rotation_type == BlindRotationType::NTRU {
-                    // This method is not supporting `NTRU` now.
-                    return Err(FHECoreError::StepsParametersNotCompatible);
-                }
-                if !(ring_secret_key_type == RingSecretKeyType::Binary
-                    || ring_secret_key_type == RingSecretKeyType::Ternary)
-                {
-                    // `RingSecretKeyType::Gaussian` is unimplemented.
-                    return Err(FHECoreError::StepsParametersNotCompatible);
-                }
-            }
-            Steps::BrKsMs => {
-                if blind_rotation_type == BlindRotationType::NTRU
-                    && ring_secret_key_type != RingSecretKeyType::Ternary
-                {
-                    return Err(FHECoreError::StepsParametersNotCompatible);
-                }
-            }
-            Steps::BrMs => {
-                // Currently, only support RLWE Blind Rotation for this mode
-                if !(blind_rotation_type == BlindRotationType::RLWE
-                    && lwe_dimension == ring_dimension
-                    && ((secret_key_type == LWESecretKeyType::Binary
-                        && ring_secret_key_type == RingSecretKeyType::Binary)
-                        || (secret_key_type == LWESecretKeyType::Ternary
-                            && ring_secret_key_type == RingSecretKeyType::Ternary)))
-                {
-                    return Err(FHECoreError::StepsParametersNotCompatible);
-                }
-            }
-        }
 
         // N = 2^i
         if !ring_dimension.is_power_of_two() {
@@ -252,8 +261,8 @@ impl<C: LWEModulusType, Q: NTTField> Parameters<C, Q> {
             ProcessBeforeBlindRotation {
                 process: ProcessType::Noop,
                 lut_step: 1,
-                twice_ring_dimension_value: lwe_cipher_modulus,
-                twice_ring_dimension_modulus: lwe_cipher_modulus.to_power_of_2_modulus(),
+                twice_ring_dimension_value,
+                twice_ring_dimension_modulus,
             }
         } else if q < twice_ring_dimension {
             let ratio = twice_ring_dimension / q;
@@ -301,10 +310,19 @@ impl<C: LWEModulusType, Q: NTTField> Parameters<C, Q> {
         let q: u64 = lwe_cipher_modulus.as_into();
         assert!(t <= q);
         assert!(t.is_power_of_two() && q.is_power_of_two());
-        let lwe_params = LWEParameters {
+        let input_lwe_params = LWEParameters {
             dimension: lwe_dimension,
             cipher_modulus_value: lwe_cipher_modulus,
             cipher_modulus: lwe_cipher_modulus.to_power_of_2_modulus(),
+            noise_standard_deviation: params.lwe_noise_standard_deviation,
+            plain_modulus: t,
+            secret_key_type,
+        };
+
+        let inter_lwe_params = LWEParameters {
+            dimension: lwe_dimension,
+            cipher_modulus_value: twice_ring_dimension_value,
+            cipher_modulus: twice_ring_dimension_modulus,
             noise_standard_deviation: params.lwe_noise_standard_deviation,
             plain_modulus: t,
             secret_key_type,
@@ -315,7 +333,6 @@ impl<C: LWEModulusType, Q: NTTField> Parameters<C, Q> {
             modulus: ring_modulus,
             noise_standard_deviation: params.ring_noise_standard_deviation,
             basis: Basis::<Q>::new(params.blind_rotation_basis_bits),
-            blind_rotation_type,
             secret_key_type: ring_secret_key_type,
         };
 
@@ -324,54 +341,56 @@ impl<C: LWEModulusType, Q: NTTField> Parameters<C, Q> {
             noise_standard_deviation: params.key_switching_standard_deviation,
         };
 
-        let modulus_switch_params = ModulusSwitchParameters {
-            round_method: params.modulus_switching_round_method,
-        };
-
         Ok(Self {
-            lwe_params,
+            input_lwe_params,
+            inter_lwe_params,
             blind_rotation_params,
             key_switching_params,
-            modulus_switch_params,
             process_before_blind_rotation,
-            steps,
+            steps: Steps::BrKs,
         })
     }
 
     /// Returns the LWE dimension of this [`Parameters<C, Q>`], refers to **n** in the paper.
     #[inline]
     pub fn lwe_dimension(&self) -> usize {
-        self.lwe_params.dimension
+        // self.lwe_params.dimension
+        todo!()
     }
 
     /// Returns the LWE message modulus of this [`Parameters<C, Q>`], refers to **t** in the paper.
     #[inline]
     pub fn lwe_plain_modulus(&self) -> u64 {
-        self.lwe_params.plain_modulus
+        // self.lwe_params.plain_modulus
+        todo!()
     }
 
     /// Returns the LWE cipher modulus of this [`Parameters<C, Q>`], refers to **q** in the paper.
     #[inline]
     pub fn lwe_cipher_modulus(&self) -> PowOf2Modulus<C> {
-        self.lwe_params.cipher_modulus
+        // self.lwe_params.cipher_modulus
+        todo!()
     }
 
     /// Returns the LWE cipher modulus value of this [`Parameters<C, Q>`], refers to **q** in the paper.
     #[inline]
     pub fn lwe_cipher_modulus_value(&self) -> C {
-        self.lwe_params.cipher_modulus_value
+        // self.lwe_params.cipher_modulus_value
+        todo!()
     }
 
     /// Returns the LWE noise error's standard deviation of this [`Parameters<C, Q>`].
     #[inline]
     pub fn lwe_noise_standard_deviation(&self) -> f64 {
-        self.lwe_params.noise_standard_deviation
+        // self.lwe_params.noise_standard_deviation
+        todo!()
     }
 
     /// Returns the LWE Secret Key distribution Type of this [`Parameters<C, Q>`].
     #[inline]
     pub fn lwe_secret_key_type(&self) -> LWESecretKeyType {
-        self.lwe_params.secret_key_type
+        // self.lwe_params.secret_key_type
+        todo!()
     }
 
     /// Returns the ring dimension of this [`Parameters<C, Q>`], refers to **N** in the paper.
@@ -396,12 +415,6 @@ impl<C: LWEModulusType, Q: NTTField> Parameters<C, Q> {
     #[inline]
     pub fn ring_secret_key_type(&self) -> RingSecretKeyType {
         self.blind_rotation_params.secret_key_type
-    }
-
-    /// Use `RLWE` or `NTRU` to perform blind rotation.
-    #[inline]
-    pub fn blind_rotation_type(&self) -> BlindRotationType {
-        self.blind_rotation_params.blind_rotation_type
     }
 
     /// Returns the gadget basis of this [`Parameters<C, Q>`],
@@ -465,16 +478,10 @@ impl<C: LWEModulusType, Q: NTTField> Parameters<C, Q> {
         self.steps
     }
 
-    /// Returns the modulus switch round method of this [`Parameters<C, Q>`].
-    #[inline]
-    pub fn modulus_switch_round_method(&self) -> ModulusSwitchRoundMethod {
-        self.modulus_switch_params.round_method
-    }
-
     /// Returns the LWE parameters of this [`Parameters<C, Q>`].
     #[inline]
-    pub fn lwe_params(&self) -> LWEParameters<C> {
-        self.lwe_params
+    pub fn input_lwe_params(&self) -> LWEParameters<C> {
+        self.input_lwe_params
     }
 
     /// Returns the process before blind rotation of this [`Parameters<C, Q>`].

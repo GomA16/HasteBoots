@@ -1,8 +1,8 @@
 use algebra::{NTTField, Polynomial};
 use fhe_core::{
-    BlindRotationType, KeySwitchingKeyEnum, KeySwitchingLWEKey, KeySwitchingRLWEKey, LWECiphertext,
-    LWEModulusType, Parameters, ProcessType, RLWEBlindRotationKey, SecretKeyPack, Steps,
-    lwe_modulus_switch, lwe_modulus_switch_assign_between_modulus, lwe_modulus_switch_inplace,
+    KeySwitchingKeyEnum, KeySwitchingLWEKey, KeySwitchingRLWEKey, LWECiphertext, LWEModulusType,
+    Parameters, ProcessType, RLWEBlindRotationKey, SecretKeyPack, Steps, lwe_modulus_switch,
+    lwe_modulus_switch_assign_between_modulus, lwe_modulus_switch_inplace,
 };
 use trace::{AccTrace, HadamardProdsTrace};
 
@@ -27,19 +27,19 @@ impl<C: LWEModulusType, Q: NTTField> EvaluationKey<C, Q> {
     /// Creates a new [`EvaluationKey`] from the given [`SecretKeyPack`].
     pub fn new(secret_key_pack: &SecretKeyPack<C, Q>) -> Self {
         let parameters = secret_key_pack.parameters();
-        assert_eq!(parameters.blind_rotation_type(), BlindRotationType::RLWE);
 
         let blind_rotation_key = RLWEBlindRotationKey::generate(secret_key_pack);
 
-        let key_switching_key = match parameters.steps() {
-            Steps::BrMsKs => {
-                KeySwitchingKeyEnum::LWE(KeySwitchingLWEKey::generate(secret_key_pack))
-            }
-            Steps::BrKsMs => {
-                KeySwitchingKeyEnum::RLWE(KeySwitchingRLWEKey::generate(secret_key_pack))
-            }
-            Steps::BrMs => KeySwitchingKeyEnum::None,
-        };
+        let key_switching_key = todo!();
+        // let key_switching_key = match parameters.steps() {
+        //     Steps::BrMsKs => {
+        //         KeySwitchingKeyEnum::LWE(KeySwitchingLWEKey::generate(secret_key_pack))
+        //     }
+        //     Steps::BrKsMs => {
+        //         KeySwitchingKeyEnum::RLWE(KeySwitchingRLWEKey::generate(secret_key_pack))
+        //     }
+        //     Steps::BrMs => KeySwitchingKeyEnum::None,
+        // };
 
         Self {
             blind_rotation_key,
@@ -52,7 +52,6 @@ impl<C: LWEModulusType, Q: NTTField> EvaluationKey<C, Q> {
     pub fn bootstrap(&self, mut c: LWECiphertext<C>, lut: Polynomial<Q>) -> LWECiphertext<C> {
         let parameters = self.parameters();
         let pre = parameters.process_before_blind_rotation();
-        let round_method = parameters.modulus_switch_round_method();
 
         match pre.process() {
             ProcessType::ModulusSwitch => {
@@ -60,7 +59,6 @@ impl<C: LWEModulusType, Q: NTTField> EvaluationKey<C, Q> {
                     &mut c,
                     parameters.lwe_cipher_modulus_value(),
                     pre.twice_ring_dimension_value(),
-                    round_method,
                 );
             }
             ProcessType::Scale { ratio } => {
@@ -123,19 +121,13 @@ impl<C: LWEModulusType, Q: NTTField> EvaluationKey<C, Q> {
                 lwe_modulus_switch_inplace(
                     key_switched,
                     parameters.lwe_cipher_modulus_value(),
-                    round_method,
                     &mut c,
                 );
             }
             Steps::BrMs => {
                 let lwe = acc.extract_lwe_locally();
 
-                lwe_modulus_switch_inplace(
-                    lwe,
-                    parameters.lwe_cipher_modulus_value(),
-                    round_method,
-                    &mut c,
-                );
+                lwe_modulus_switch_inplace(lwe, parameters.lwe_cipher_modulus_value(), &mut c);
             }
         }
 
