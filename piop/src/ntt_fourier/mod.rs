@@ -78,11 +78,11 @@ impl<F: Field + Serialize> NTTFourierEvalIOP<F> {
                 &w_mles[k],
             );
             sumcheck_proofs.push(this_round_proof);
-            reduced_claim = f_poly.evaluate(&requested_point);
-            sub_claims.push(reduced_claim);
-
+            
             // the requested point returned from this round of sumcheck protocol, which initiates the claimed sum of the next round
             requested_point = this_round_state.randomness;
+            reduced_claim = f_poly.evaluate(&requested_point);
+            sub_claims.push(reduced_claim);
         }
 
         NTTFourierProof {
