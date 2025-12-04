@@ -53,7 +53,7 @@ fn transform(
 }
 
 fn main() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<Fq>>::new();
 
     let base_len = LOG_B;

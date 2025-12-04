@@ -31,7 +31,7 @@ fn generate_instance<Fq: Field + DecomposableField, F: DecomposableField>(
     base: F,
     bits_len: usize,
 ) -> DecomposedBits<F> {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     // sample d in the range of Fq
     let uniform = <FieldUniformSampler<Fq>>::new();
     let d = (0..num_instances)

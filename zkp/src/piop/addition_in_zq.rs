@@ -6,13 +6,11 @@
 //! For x \in \{0, 1\}^l
 //! 1. a(x), b(c), c(x) \in \[q\] => these range check can be batchly proved by the Bit Decomposition IOP
 //! 2. k(x) \cdot (1 - k(x)) = 0  => can be reduced to prove the sum
-//!     $\sum_{x \in \{0, 1\}^\log M} eq(u, x) \cdot [k(x) \cdot (1 - k(x))] = 0$
-//!     where u is the common random challenge from the verifier, used to instantiate the sum,
-//!     and then, it can be proved with the sumcheck protocol where the maximum variable-degree is 3.
+//!    $\sum_{x \in \{0, 1\}^\log M} eq(u, x) \cdot [k(x) \cdot (1 - k(x))] = 0$
+//!    where u is the common random challenge from the verifier, used to instantiate the sum,
+//!    and then, it can be proved with the sumcheck protocol where the maximum variable-degree is 3.
 //! 3. a(x) + b(x) = c(x) + k(x)\cdot q => can be reduced to the evaluation of a random point since the LHS and RHS are both MLE
 use crate::piop::LookupIOP;
-use sumcheck::{verifier::SubClaim, MLSumcheck};
-use sumcheck::{ProofWrapper, SumcheckKit};
 use crate::utils::{
     eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
 };
@@ -20,6 +18,7 @@ use algebra::{
     utils::Transcript, AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
     ListOfProductsOfPolynomials,
 };
+use bincode::config::standard;
 use core::fmt;
 use pcs::{
     multilinear::brakedown::BrakedownPCS,
@@ -31,6 +30,8 @@ use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::time::Instant;
+use sumcheck::{verifier::SubClaim, MLSumcheck};
+use sumcheck::{ProofWrapper, SumcheckKit};
 
 use super::bit_decomposition::DecomposedBitsEval;
 use super::{BitDecomposition, DecomposedBits, DecomposedBitsInfo, LookupInstance};
@@ -442,11 +443,11 @@ where
         let time_mark = Instant::now();
         let pp =
             BrakedownPCS::<F, H, C, S, EF>::setup(committed_poly.num_vars, Some(code_spec.clone()));
-        let mut setup_time = time_mark.elapsed().as_millis();
+        let setup_time = time_mark.elapsed().as_millis();
 
         let time_mark = Instant::now();
         let (comm, comm_state) = BrakedownPCS::<F, H, C, S, EF>::commit(&pp, &committed_poly);
-        let mut commit_time = time_mark.elapsed().as_millis();
+        let commit_time = time_mark.elapsed().as_millis();
 
         // 2. Prover generates the proof
         let time_mark = Instant::now();
@@ -475,8 +476,6 @@ where
             <MLSumcheck<EF>>::prove(&mut prover_trans, &sumcheck_poly)
                 .expect("Proof generated in Addition In Zq");
 
-        
-
         // 2.4 Compute all the evaluations of these small polynomials used in IOP over the random point returned from the sumcheck protocol
         let evals = instance.evaluate_ext(&sumcheck_state.randomness);
 
@@ -487,7 +486,7 @@ where
             instance.log_num_oracles(),
         ));
         let oracle_eval = committed_poly.evaluate_ext(&requested_point);
-        let mut piop_time = time_mark.elapsed().as_millis();
+        let piop_time = time_mark.elapsed().as_millis();
 
         // 2.6 Generate the evaluation proof of the requested point
         let time_mark = Instant::now();
@@ -536,7 +535,6 @@ where
         );
         assert!(check_subcliam && subclaim.expected_evaluations == EF::zero());
 
-
         // 3.5 and also check the relation between these small oracles and the committed oracle
         let flatten_evals = evals.flatten();
         let oracle_randomness = verifier_trans.get_vec_challenge(
@@ -547,7 +545,7 @@ where
         assert!(check_oracle);
 
         let verifier_time = time_mark.elapsed().as_millis();
-        
+
         // 3.5 Check the evaluation of a random point over the committed oracle
         let time_mark = Instant::now();
         let check_pcs = BrakedownPCS::<F, H, C, S, EF>::verify(
@@ -561,7 +559,7 @@ where
         assert!(check_pcs);
 
         let pcs_verifier_time = time_mark.elapsed().as_millis();
-        
+
         println!("[PCS] setup: {:?} ms", setup_time);
         println!("[PCS] commit: {:?} ms", commit_time);
         println!("[PCS] open: {:?} ms", open_time);
@@ -571,10 +569,18 @@ where
         println!("[PIOP] verifier time: {:?} ms", verifier_time);
         println!("[PIOP] vtotal: {:?} ms", pcs_verifier_time + verifier_time);
 
-        let pcs_proof_size = bincode::serialize(&comm).unwrap().len()
-            + bincode::serialize(&eval_proof).unwrap().len();
-        let piop_proof_size = bincode::serialize(&sumcheck_proof).unwrap().len()
-            + bincode::serialize(&flatten_evals).unwrap().len();
+        let pcs_proof_size = bincode::serde::encode_to_vec(&comm, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&eval_proof, standard())
+                .unwrap()
+                .len();
+        let piop_proof_size = bincode::serde::encode_to_vec(&sumcheck_proof, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&flatten_evals, standard())
+                .unwrap()
+                .len();
         println!("[PCS] Proof Size: {:?} Bytes", pcs_proof_size);
         println!("[PIOP] Proof Size: {:?} Bytes", piop_proof_size);
     }
@@ -777,7 +783,9 @@ where
         let (sumcheck_proof, sumcheck_state) =
             <MLSumcheck<EF>>::prove(&mut prover_trans, &sumcheck_poly)
                 .expect("Proof generated in Addition In Zq");
-        iop_proof_size += bincode::serialize(&sumcheck_proof).unwrap().len();
+        iop_proof_size += bincode::serde::encode_to_vec(&sumcheck_proof, standard())
+            .unwrap()
+            .len();
         let iop_prover_time = prover_start.elapsed().as_millis();
 
         // 2.4 Compute all the evaluations of these small polynomials used in IOP over the random point returned from the sumcheck protocol
@@ -880,8 +888,12 @@ where
         );
         assert!(check_pcs);
         let pcs_verifier_time = start.elapsed().as_millis();
-        pcs_proof_size += bincode::serialize(&eval_proof).unwrap().len()
-            + bincode::serialize(&flatten_evals).unwrap().len();
+        pcs_proof_size += bincode::serde::encode_to_vec(&eval_proof, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&flatten_evals, standard())
+                .unwrap()
+                .len();
 
         // 4. print statistic
         print_statistic(

@@ -1044,7 +1044,7 @@ impl<F: NTTField> NTTRLWE<F> {
 
         gadget_rlwe.iter().enumerate().for_each(|(i, g)| {
             polynomial_space.decompose_lsb_bits_inplace(basis, decompose_space.as_mut_slice());
-            
+
             let trace = trace.get_trace_mul(i);
             trace.append_bit_poly(decompose_space.as_slice());
 

@@ -1,7 +1,8 @@
-use algebra::derive::{DecomposableField, FheField, Field, NTT, Prime};
+use algebra::derive::{DecomposableField, FheField, Field, Prime, NTT};
 use algebra::{transformation::AbstractNTT, NTTField, Polynomial};
 use algebra::{
-    BabyBear, BabyBearExetension, BinomialExtensionField, DecomposableField, DenseMultilinearExtension, Field, NTTPolynomial
+    BabyBear, BabyBearExetension, BinomialExtensionField, DecomposableField,
+    DenseMultilinearExtension, Field, NTTPolynomial,
 };
 use num_traits::{One, Zero};
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
@@ -173,7 +174,7 @@ fn test_sort_array() {
 #[test]
 fn test_ntt_transform_normal_order() {
     let log_n = 10;
-    let coeff = PolyFF::random(1 << log_n, &mut thread_rng()).data();
+    let coeff = PolyFF::random(1 << log_n, &mut rand::rng()).data();
     let points_naive = naive_ntt_transform_normal_order(log_n, &coeff);
     let points = ntt_transform_normal_order(log_n, &coeff);
     assert_eq!(points, points_naive);
@@ -182,12 +183,12 @@ fn test_ntt_transform_normal_order() {
 #[test]
 fn test_ntt_inverse_transform_normal_order() {
     let log_n = 10;
-    let coeff = PolyFF::random(1 << log_n, &mut thread_rng()).data();
+    let coeff = PolyFF::random(1 << log_n, &mut rand::rng()).data();
     let points = ntt_transform_normal_order(log_n, &coeff);
     let coeff_rec = ntt_inverse_transform_normal_order(log_n, &points);
     assert_eq!(coeff, coeff_rec);
 
-    let points = PolyFF::random(1 << log_n, &mut thread_rng()).data();
+    let points = PolyFF::random(1 << log_n, &mut rand::rng()).data();
     let coeff = ntt_inverse_transform_normal_order(log_n, &points);
     let points_rec = ntt_transform_normal_order(log_n, &coeff);
     assert_eq!(points, points_rec);
@@ -202,7 +203,7 @@ fn test_ntt_bare_without_delegation() {
     let mut powers = vec![FF::zero(); m as usize];
     plan.root_powers(&mut powers);
     let ntt_table = Arc::new(powers);
-    
+
     // let mut power = FF::one();
     // for _ in 0..m {
     //     ntt_table.push(power);
@@ -210,7 +211,7 @@ fn test_ntt_bare_without_delegation() {
     // }
     // let ntt_table = Arc::new(ntt_table);
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let coeff = PolyFF::random(1 << log_n, &mut rng).data();
     let points = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
         log_n,
@@ -253,7 +254,7 @@ fn test_ntt_bare_without_delegation_extension_field() {
     }
     let ntt_table = Arc::new(ntt_table);
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let coeff = PolyFF::random(1 << log_n, &mut rng).data();
     let points = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
         log_n,
@@ -290,7 +291,7 @@ fn test_ntt_with_delegation() {
     }
     let ntt_table = Arc::new(ntt_table);
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let coeff = PolyFF::random(1 << log_n, &mut rng).data();
     let points = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
         log_n,
@@ -333,7 +334,7 @@ fn test_ntt_with_delegation_extension_field() {
     }
     let ntt_table = Arc::new(ntt_table);
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let coeff = PolyFF::random(1 << log_n, &mut rng).data();
     let points = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
         log_n,
@@ -380,7 +381,7 @@ fn test_snarks() {
     }
     let ntt_table = Arc::new(ntt_table);
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
 
     let mut ntt_instances = <NTTInstances<FF>>::new(num_vars, &ntt_table);
     for _ in 0..num_ntt {

@@ -67,34 +67,34 @@ mod tests {
 
     #[test]
     fn test_modulus_create() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
-        let _m = BarrettModulus::<u8>::new(rng.gen_range(2..=(u8::MAX >> 2)));
-        let _m = BarrettModulus::<u16>::new(rng.gen_range(2..=(u16::MAX >> 2)));
-        let _m = BarrettModulus::<u32>::new(rng.gen_range(2..=(u32::MAX >> 2)));
-        let _m = BarrettModulus::<u64>::new(rng.gen_range(2..=(u64::MAX >> 2)));
+        let _m = BarrettModulus::<u8>::new(rng.random_range(2..=(u8::MAX >> 2)));
+        let _m = BarrettModulus::<u16>::new(rng.random_range(2..=(u16::MAX >> 2)));
+        let _m = BarrettModulus::<u32>::new(rng.random_range(2..=(u32::MAX >> 2)));
+        let _m = BarrettModulus::<u64>::new(rng.random_range(2..=(u64::MAX >> 2)));
     }
 
     #[test]
     fn test_barret_reduce() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
-        let m: u64 = rng.gen_range(2..=(u64::MAX >> 2));
+        let m: u64 = rng.random_range(2..=(u64::MAX >> 2));
         let modulus = BarrettModulus::<u64>::new(m);
 
-        let v: u64 = rng.gen();
+        let v: u64 = rng.random();
         assert_eq!(v.reduce(modulus), v % m);
     }
 
     #[test]
     fn test_barret_reduce_128() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
-        let m: u64 = rng.gen_range(2..=(u64::MAX >> 2));
+        let m: u64 = rng.random_range(2..=(u64::MAX >> 2));
         let modulus = BarrettModulus::<u64>::new(m);
 
-        let lw64: u64 = rng.gen();
-        let hw64: u64 = rng.gen();
+        let lw64: u64 = rng.random();
+        let hw64: u64 = rng.random();
         let v: u128 = ((hw64 as u128) << 64) + (lw64 as u128);
         assert_eq!([lw64, hw64].reduce(modulus), (v % (m as u128)) as u64);
         assert_eq!((lw64, hw64).reduce(modulus), (v % (m as u128)) as u64);

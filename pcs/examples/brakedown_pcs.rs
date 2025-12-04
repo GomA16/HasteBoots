@@ -18,7 +18,7 @@ const BASE_FIELD_BITS: usize = 31;
 
 fn main() {
     let num_vars = 24;
-    let evaluations: Vec<FF> = rand::thread_rng()
+    let evaluations: Vec<FF> = rand::rng()
         .sample_iter(FieldUniformSampler::new())
         .take(1 << num_vars)
         .collect();
@@ -41,7 +41,7 @@ fn main() {
         BrakedownPCS::<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>::commit(&pp, &poly);
     println!("commit time: {:?} ms", start.elapsed().as_millis());
 
-    let point: Vec<EF> = rand::thread_rng()
+    let point: Vec<EF> = rand::rng()
         .sample_iter(FieldUniformSampler::new())
         .take(num_vars)
         .collect();

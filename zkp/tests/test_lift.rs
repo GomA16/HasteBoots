@@ -111,14 +111,13 @@ fn test_lift_naive_iop() {
     let log_N = 10;
     let num_vars = 10;
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<F32>>::new();
     let input = Rc::new(DenseMultilinearExtension::<FF>::from_evaluations_vec(
         num_vars,
         (0..1 << num_vars)
-        .map(|_| FF::new(uniform.sample(&mut rng).value()))
-        .collect()
-        ,
+            .map(|_| FF::new(uniform.sample(&mut rng).value()))
+            .collect(),
     ));
 
     // information used to perform NTT
@@ -148,7 +147,13 @@ fn test_lift_naive_iop() {
     let evals_at_u = instance.evaluate(&kit.u);
 
     let mut wrapper = kit.extract();
-    let check = LiftIOP::<FF>::verify(&mut wrapper, &evals_at_r, &evals_at_u, &info, &recursive_proof);
+    let check = LiftIOP::<FF>::verify(
+        &mut wrapper,
+        &evals_at_r,
+        &evals_at_u,
+        &info,
+        &recursive_proof,
+    );
 
     assert!(check);
 }
@@ -159,14 +164,13 @@ fn test_snarks() {
     let log_N = 10;
     let num_vars = 10;
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<F32>>::new();
     let input = Rc::new(DenseMultilinearExtension::<FF>::from_evaluations_vec(
         num_vars,
         (0..1 << num_vars)
-        .map(|_| FF::new(uniform.sample(&mut rng).value()))
-        .collect()
-        ,
+            .map(|_| FF::new(uniform.sample(&mut rng).value()))
+            .collect(),
     ));
 
     // information used to perform NTT
@@ -189,7 +193,5 @@ fn test_snarks() {
     let instance = generate_lift_instance(num_vars, log_N, N, input, &ntt_info);
 
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
-    <LiftSnarks<FF, EF>>::snarks::<Hash, ExpanderCode<FF>, ExpanderCodeSpec>(
-        &instance, &code_spec,
-    );
+    <LiftSnarks<FF, EF>>::snarks::<Hash, ExpanderCode<FF>, ExpanderCodeSpec>(&instance, &code_spec);
 }

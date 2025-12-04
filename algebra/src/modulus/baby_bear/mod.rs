@@ -139,7 +139,7 @@ fn square(value: u32) -> u32 {
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
+
     use rand_distr::{Distribution, Uniform};
 
     use crate::reduce::*;
@@ -152,8 +152,8 @@ mod tests {
 
     #[test]
     fn test_baby_bear() {
-        let dis = Uniform::new(0, P);
-        let mut rng = thread_rng();
+        let dis = Uniform::new(0, P).unwrap();
+        let mut rng = rand::rng();
 
         let mut a_n = dis.sample(&mut rng);
         let mut b_n = loop {

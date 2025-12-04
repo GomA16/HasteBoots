@@ -30,11 +30,11 @@
 //     let lookup_num: usize = block_num * block_size;
 //     let range = 59;
 
-//     let mut rng = thread_rng();
+//     let mut rng = rand::rng();
 //     let f_vec: Vec<Rc<DenseMultilinearExtension<Fp32>>> = (0..lookup_num)
 //         .map(|_| {
 //             let f_evaluations: Vec<FF> = (0..(1 << num_vars))
-//                 .map(|_| FF::new(rng.gen_range(0..range)))
+//                 .map(|_| FF::new(rng.random_range(0..range)))
 //                 .collect();
 //             Rc::new(DenseMultilinearExtension::from_evaluations_vec(
 //                 num_vars,

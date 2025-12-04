@@ -1,14 +1,11 @@
 //! Round IOP
 use super::{BitDecomposition, DecomposedBits, DecomposedBitsEval, DecomposedBitsInfo};
-use sumcheck::verifier::SubClaim;
-use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
-use crate::utils::{
-    eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
-};
+use crate::utils::{eval_identity_function, gen_identity_evaluations, verify_oracle_relation};
 use algebra::{
     utils::Transcript, AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
     ListOfProductsOfPolynomials,
 };
+use bincode::config::standard;
 use core::fmt;
 use itertools::izip;
 use pcs::{
@@ -22,6 +19,8 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 use std::time::Instant;
 use std::vec;
+use sumcheck::verifier::SubClaim;
+use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
 
 /// Round IOP
 pub struct RoundIOP<F: Field>(PhantomData<F>);
@@ -747,11 +746,11 @@ where
         let time_mark = Instant::now();
         let pp =
             BrakedownPCS::<F, H, C, S, EF>::setup(committed_poly.num_vars, Some(code_spec.clone()));
-        let mut setup_time = time_mark.elapsed().as_millis();
-        
+        let setup_time = time_mark.elapsed().as_millis();
+
         let time_mark = Instant::now();
         let (comm, comm_state) = BrakedownPCS::<F, H, C, S, EF>::commit(&pp, &committed_poly);
-        let mut commit_time = time_mark.elapsed().as_millis();
+        let commit_time = time_mark.elapsed().as_millis();
 
         // 2. Prover generates the proof
         let time_mark = Instant::now();
@@ -781,7 +780,7 @@ where
                 .expect("Proof generated in Addition In Zq");
 
         // 2.4 Compute all the evaluations of these small polynomials used in IOP over the random point returned from the sumcheck protocol
-        let start = Instant::now();
+        let _start = Instant::now();
         let evals = instance.evaluate_ext(&sumcheck_state.randomness);
 
         // 2.5 Reduce the proof of the above evaluations to a single random point over the committed polynomial
@@ -791,7 +790,7 @@ where
             instance.log_num_oracles(),
         ));
         let oracle_eval = committed_poly.evaluate_ext(&requested_point);
-        let mut piop_time = time_mark.elapsed().as_millis();
+        let piop_time = time_mark.elapsed().as_millis();
 
         let time_mark = Instant::now();
         // 2.6 Generate the evaluation proof of the requested point
@@ -841,8 +840,8 @@ where
         assert!(check_subcliam && subclaim.expected_evaluations == EF::zero());
 
         // 3.5 and also check the relation between these small oracles and the committed oracle
-        let start = Instant::now();
-        let mut pcs_proof_size = 0;
+        let _start = Instant::now();
+        let _pcs_proof_size = 0;
         let flatten_evals = evals.flatten();
         let oracle_randomness = verifier_trans.get_vec_challenge(
             b"random linear combination for evaluations of oracles",
@@ -864,7 +863,7 @@ where
             &mut verifier_trans,
         );
         assert!(check_pcs);
-        
+
         let pcs_verifier_time = time_mark.elapsed().as_millis();
 
         println!("[PCS] setup: {:?} ms", setup_time);
@@ -875,14 +874,21 @@ where
         println!("[PCS] verifier time: {:?} ms", pcs_verifier_time);
         println!("[PIOP] verifier time: {:?} ms", verifier_time);
         println!("[PIOP] vtotal: {:?} ms", pcs_verifier_time + verifier_time);
-        
-        let pcs_proof_size = bincode::serialize(&comm).unwrap().len()
-            + bincode::serialize(&eval_proof).unwrap().len();
-        let piop_proof_size = bincode::serialize(&sumcheck_proof).unwrap().len()
-            + bincode::serialize(&flatten_evals).unwrap().len();
+
+        let pcs_proof_size = bincode::serde::encode_to_vec(&comm, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&eval_proof, standard())
+                .unwrap()
+                .len();
+        let piop_proof_size = bincode::serde::encode_to_vec(&sumcheck_proof, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&flatten_evals, standard())
+                .unwrap()
+                .len();
         println!("[PCS] Proof Size: {:?} Bytes", pcs_proof_size);
         println!("[PIOP] Proof Size: {:?} Bytes", piop_proof_size);
-
 
         println!(
             "The 1st committed polynomial is of {} variables, which consists of {} smaller oracles used in IOP, each of which is of {} variables.",

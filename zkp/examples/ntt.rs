@@ -104,7 +104,7 @@ fn main() {
     }
     let ntt_table = Arc::new(ntt_table);
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
 
     let mut ntt_instances = <NTTInstances<FF>>::new(num_vars, &ntt_table);
     for _ in 0..num_ntt {

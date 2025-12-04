@@ -12,7 +12,9 @@ use sha2::Sha256;
 use std::rc::Rc;
 use std::vec;
 use zkp::piop::{
-    sparse_eval::{SparseEvalIOP, SparseEvalInstance}, AdditionInZq, AdditionInZqInstance, AdditionInZqPure, AdditionInZqSnarks, AdditionInZqSnarksOpt, DecomposedBitsInfo, LookupIOP
+    sparse_eval::{SparseEvalIOP, SparseEvalInstance},
+    AdditionInZq, AdditionInZqInstance, AdditionInZqPure, AdditionInZqSnarks,
+    AdditionInZqSnarksOpt, DecomposedBitsInfo, LookupIOP,
 };
 
 type FF = BabyBear; // field type
@@ -52,7 +54,7 @@ fn test_sparse_eval_naive_iop() {
     ));
     let mut instance = SparseEvalInstance::<FF>::from_slice(1, 2, &row, &val);
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let uniform_f = <FieldUniformSampler<FF>>::new();
     let r_x: Vec<_> = (0..2).map(|_| uniform_f.sample(&mut rng)).collect();
     let r_y: Vec<_> = (0..2).map(|_| uniform_f.sample(&mut rng)).collect();
@@ -94,7 +96,7 @@ fn test_sparse_eval_naive_iop_with_lookup() {
     ));
     let mut instance = SparseEvalInstance::<FF>::from_slice(1, 2, &row, &val);
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let uniform_f = <FieldUniformSampler<FF>>::new();
     let r_x: Vec<_> = (0..2).map(|_| uniform_f.sample(&mut rng)).collect();
     let r_y: Vec<_> = (0..2).map(|_| uniform_f.sample(&mut rng)).collect();
@@ -143,22 +145,18 @@ fn test_sparse_eval_naive_iop_with_lookup() {
     );
 
     assert!(check && lookup_check);
-
-
 }
-
 
 #[test]
 fn test_sparse_eval_random_with_lookupiop() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let uniform_f = <FieldUniformSampler<FF>>::new();
     let uniform_row = <FieldUniformSampler<F_num>>::new();
 
     let row_vec_origin: Vec<_> = (0..(1 << dim_y))
         .map(|_| uniform_row.sample(&mut rng))
         .collect();
-    let row_vec: Vec<_> = row_vec_origin.iter()
-        .map(|x| FF::new(x.value())).collect();
+    let row_vec: Vec<_> = row_vec_origin.iter().map(|x| FF::new(x.value())).collect();
     let val_vec: Vec<FF> = (0..(1 << dim_y))
         .map(|_| uniform_f.sample(&mut rng))
         .collect();
@@ -190,7 +188,7 @@ fn test_sparse_eval_random_with_lookupiop() {
         r_y: r_y.clone(),
         eval,
     };
-    
+
     iop.prover_generate_eval_vector(&mut instance);
     let mut lookup_instance = instance.extract_lookup_instance();
     let lookup_info = lookup_instance.info();
@@ -228,15 +226,14 @@ fn test_sparse_eval_random_with_lookupiop() {
 
 #[test]
 fn test_sparse_eval_random_iop() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let uniform_f = <FieldUniformSampler<FF>>::new();
     let uniform_row = <FieldUniformSampler<F_num>>::new();
 
     let row_vec_origin: Vec<_> = (0..(1 << dim_y))
         .map(|_| uniform_row.sample(&mut rng))
         .collect();
-    let row_vec: Vec<_> = row_vec_origin.iter()
-        .map(|x| FF::new(x.value())).collect();
+    let row_vec: Vec<_> = row_vec_origin.iter().map(|x| FF::new(x.value())).collect();
     let val_vec: Vec<FF> = (0..(1 << dim_y))
         .map(|_| uniform_f.sample(&mut rng))
         .collect();

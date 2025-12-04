@@ -108,7 +108,7 @@ fn test_floor_naive_iop() {
 
 #[test]
 fn test_floor_random_iop() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
 
     let k = FF::new(FK);
@@ -168,7 +168,7 @@ fn test_floor_random_iop() {
 
 #[test]
 fn test_floor_random_iop_extension_field() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
 
     let k = FF::new(FK);
@@ -229,7 +229,7 @@ fn test_floor_random_iop_extension_field() {
 
 #[test]
 fn test_snarks() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
 
     let k = FF::new(FK);

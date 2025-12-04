@@ -1,11 +1,10 @@
 use algebra::{transformation::AbstractNTT, NTTField, NTTPolynomial, Polynomial};
 use algebra::{
-    BabyBear, BabyBearExetension, Basis, DenseMultilinearExtension, Field, Goldilocks, GoldilocksExtension, MultilinearExtension
+    BabyBear, BabyBearExetension, Basis, DenseMultilinearExtension, Field, MultilinearExtension,
 };
 use itertools::izip;
 use num_traits::One;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
-use rand::prelude::*;
 use sha2::Sha256;
 use std::sync::Arc;
 use std::vec;
@@ -283,7 +282,7 @@ fn generate_instance<F: Field + NTTField>(
     bits_info: &DecomposedBitsInfo<F>,
     ntt_info: &NTTInstanceInfo<F>,
 ) -> AccumulatorInstance<F> {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut updations = Vec::with_capacity(num_updations);
 
     let mut acc_ntt = RlweCiphertext::<F> {
@@ -373,7 +372,7 @@ fn main() {
     };
 
     let num_updations = DIM_LWE;
-    let input = random_rlwe_ciphertext(&mut thread_rng(), num_vars);
+    let input = random_rlwe_ciphertext(&mut rand::rng(), num_vars);
     let instance = generate_instance(num_vars, input, num_updations, &bits_info, &ntt_info);
 
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);

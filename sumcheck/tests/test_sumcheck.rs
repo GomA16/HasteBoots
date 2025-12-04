@@ -1,6 +1,6 @@
 use algebra::{
-    utils::Transcript, BabyBear, DenseMultilinearExtension, Field, FieldUniformSampler,
-    ListOfProductsOfPolynomials, MultilinearExtension,
+    BabyBear, DenseMultilinearExtension, Field, FieldUniformSampler, ListOfProductsOfPolynomials,
+    MultilinearExtension, utils::Transcript,
 };
 use rand::prelude::*;
 use rand_distr::Distribution;
@@ -54,7 +54,7 @@ fn random_list_of_products<F: Field, R: RngCore>(
     let uniform_sampler = FieldUniformSampler::new();
     for _ in 0..num_products {
         let num_multiplicands: usize =
-            rng.gen_range(num_multiplicands_range.0..num_multiplicands_range.1);
+            rng.random_range(num_multiplicands_range.0..num_multiplicands_range.1);
         let (product, product_sum) = random_product(nv, num_multiplicands, rng);
         let coefficient = uniform_sampler.sample(rng);
         poly.add_product(product.into_iter(), coefficient);
@@ -69,7 +69,7 @@ fn test_protocol<F: Field + Serialize>(
     num_multiplicands_range: (usize, usize),
     num_products: usize,
 ) {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let (poly, asserted_sum) =
         random_list_of_products::<F, _>(nv, num_multiplicands_range, num_products, &mut rng);
     let poly_info = poly.info();
@@ -95,7 +95,7 @@ fn test_protocol<F: Field + Serialize>(
 }
 
 fn test_polynomial(nv: usize, num_multiplicands_range: (usize, usize), num_products: usize) {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let (poly, asserted_sum) =
         random_list_of_products::<FF, _>(nv, num_multiplicands_range, num_products, &mut rng);
     let poly_info = poly.info();
@@ -118,7 +118,7 @@ fn test_polynomial_as_subprotocol<F: Field + Serialize>(
     prover_trans: &mut Transcript<F>,
     verifier_trans: &mut Transcript<F>,
 ) {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let (poly, asserted_sum) =
         random_list_of_products::<F, _>(nv, num_multiplicands_range, num_products, &mut rng);
     let poly_info = poly.info();
@@ -210,7 +210,7 @@ fn zero_polynomial_should_error() {
 
 #[test]
 fn test_extract_sum() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let (poly, asserted_sum) = random_list_of_products::<FF, _>(8, (3, 4), 3, &mut rng);
 
     let mut trans = Transcript::<FF>::new();
@@ -222,7 +222,7 @@ fn test_extract_sum() {
 /// Test that the memory usage of shared-reference is linear to number of unique MLExtensions
 /// instead of total number of multiplicands.
 fn test_shared_reference() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let ml_extensions: Vec<_> = (0..5)
         .map(|_| Rc::new(DenseMultilinearExtension::<FF>::random(8, &mut rng)))
         .collect();

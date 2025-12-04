@@ -14,7 +14,7 @@ num-traits = { workspace = true }
 
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = { workspace = true }
 
 [features]
 default = []

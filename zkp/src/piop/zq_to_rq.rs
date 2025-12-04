@@ -14,20 +14,18 @@
 //! 2. r(x) \in [q] => the range check can be proved by the Bit Decomposition IOP
 //!
 //! 3. k(x) \cdot (1 - k(x)) = 0  => can be reduced to prove the sum
-//!     $\sum_{x \in \{0, 1\}^\log M} eq(u, x) \cdot [k(x) \cdot (1 - k(x))] = 0$
-//!     where u is the common random challenge from the verifier, used to instantiate the sum
+//!    $\sum_{x \in \{0, 1\}^\log M} eq(u, x) \cdot [k(x) \cdot (1 - k(x))] = 0$
+//!    where u is the common random challenge from the verifier, used to instantiate the sum
 //!
 //! 4. (r(x) + 1)(1 - 2k(x)) = s(x) => can be reduced to prove the sum
-//!     $\sum_{x\in \{0,1\}^{\log M}} eq(u,x) \cdot ((r(x) + 1)(1 - 2k(x)) - s(x)) = 0$
-//!     where u is the common random challenge from the verifier, used to instantiate the sum
+//!    $\sum_{x\in \{0,1\}^{\log M}} eq(u,x) \cdot ((r(x) + 1)(1 - 2k(x)) - s(x)) = 0$
+//!    where u is the common random challenge from the verifier, used to instantiate the sum
 //!
 //! 5. \sum_{y \in {0,1}^logN} c(u,y)t(y) = s(u) => can be reduced to prove the sum
 //!    \sum_{y \in {0,1}^logN} c_u(y)t(y) = s(u)
-//!     where u is the common random challenge from the verifier, used to instantiate the sum
-//!     and c'(y) is computed from c_u(y) = c(u,y)
+//!    where u is the common random challenge from the verifier, used to instantiate the sum
+//!    and c'(y) is computed from c_u(y) = c(u,y)
 use super::{BitDecomposition, DecomposedBits, DecomposedBitsEval, DecomposedBitsInfo};
-use sumcheck::verifier::SubClaim;
-use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
 use crate::utils::{
     eval_identity_function, gen_identity_evaluations, gen_sparse_at_u, gen_sparse_at_u_to_ef,
     print_statistic, verify_oracle_relation,
@@ -37,6 +35,7 @@ use algebra::{
     utils::Transcript, AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
     ListOfProductsOfPolynomials,
 };
+use bincode::config::standard;
 use core::fmt;
 use itertools::izip;
 use pcs::{
@@ -50,6 +49,8 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 use std::time::Instant;
 use std::vec;
+use sumcheck::verifier::SubClaim;
+use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
 /// IOP for transformation from Zq to RQ i.e. R/QR
 pub struct ZqToRQIOP<F: Field>(PhantomData<F>);
 
@@ -643,7 +644,9 @@ where
         let (sumcheck_proof, sumcheck_state) =
             <MLSumcheck<EF>>::prove(&mut prover_trans, &sumcheck_poly)
                 .expect("Proof generated in Addition In Zq");
-        iop_proof_size += bincode::serialize(&sumcheck_proof).unwrap().len();
+        iop_proof_size += bincode::serde::encode_to_vec(&sumcheck_proof, standard())
+            .unwrap()
+            .len();
         let iop_prover_time = prover_start.elapsed().as_millis();
 
         // 2.4 Compute all the evaluations of these small polynomials used in IOP over the random point returned from the sumcheck protocol
@@ -754,10 +757,18 @@ where
         );
         assert!(check_pcs_at_r && check_pcs_at_u);
         let pcs_verifier_time = start.elapsed().as_millis();
-        pcs_proof_size += bincode::serialize(&eval_proof_at_r).unwrap().len()
-            + bincode::serialize(&eval_proof_at_u).unwrap().len()
-            + bincode::serialize(&flatten_evals_at_r).unwrap().len()
-            + bincode::serialize(&flatten_evals_at_u).unwrap().len();
+        pcs_proof_size += bincode::serde::encode_to_vec(&eval_proof_at_r, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&eval_proof_at_u, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&flatten_evals_at_r, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&flatten_evals_at_u, standard())
+                .unwrap()
+                .len();
 
         // 4. print statistic
         print_statistic(

@@ -1,29 +1,20 @@
 //! Sparse Eval IOP
-use crate::piop::LookupIOP;
-use sumcheck::{verifier::SubClaim, MLSumcheck};
-use sumcheck::{ProofWrapper, SumcheckKit};
-use crate::utils::{
-    eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
-};
+
+use core::fmt;
+use std::rc::Rc;
+
 use algebra::{
-    utils::Transcript, AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
+    utils::Transcript, AbstractExtensionField, DenseMultilinearExtension, Field,
     ListOfProductsOfPolynomials,
 };
-use core::fmt;
-use pcs::{
-    multilinear::brakedown::BrakedownPCS,
-    utils::code::{LinearCode, LinearCodeSpec},
-    utils::hash::Hash,
-    PolynomialCommitmentScheme,
-};
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
-use std::rc::Rc;
-use std::time::Instant;
+use sumcheck::{verifier::SubClaim, MLSumcheck};
+use sumcheck::{ProofWrapper, SumcheckKit};
 
-use super::bit_decomposition::DecomposedBitsEval;
 use super::lookup::LookupInstanceInfo;
-use super::{BitDecomposition, DecomposedBits, DecomposedBitsInfo, LookupInstance};
+use super::LookupInstance;
+
+use crate::utils::{eval_identity_function, gen_identity_evaluations};
 
 /// Sparse Matrix Instance used as prover keys
 pub struct SparseEvalInstance<F: Field> {
@@ -123,7 +114,7 @@ impl<F: Field> SparseEvalInstance<F> {
     pub fn extract_lookup_instance(&self) -> LookupInstance<F> {
         //FIXME support lookup with different size
         assert_eq!(self.eval_rx.num_vars, self.table.num_vars);
-        LookupInstance::from_slice(&vec![self.eval_rx.clone()], self.table.clone(), 1)
+        LookupInstance::from_slice(std::slice::from_ref(&self.eval_rx), self.table.clone(), 1)
     }
 }
 
@@ -187,10 +178,7 @@ impl<F: Field + Serialize> SparseEvalIOP<F> {
     }
 
     /// SparseEvalIOP prover
-    pub fn prove(
-        &self,
-        instance: &SparseEvalInstance<F>,
-    ) -> SumcheckKit<F> {
+    pub fn prove(&self, instance: &SparseEvalInstance<F>) -> SumcheckKit<F> {
         let mut trans = Transcript::<F>::new();
         let eq_at_u = Rc::new(gen_identity_evaluations(&self.r_y));
 
@@ -211,23 +199,22 @@ impl<F: Field + Serialize> SparseEvalIOP<F> {
         }
     }
 
-
     /// Verify the Sparse Matrix Evaluation
-    pub fn verify(
-        &self,
-        wrapper: &ProofWrapper<F>,
-        evals: &SparseEvalInstanceEval<F>,
-    ) -> bool {
+    pub fn verify(&self, wrapper: &ProofWrapper<F>, evals: &SparseEvalInstanceEval<F>) -> bool {
         let mut trans = Transcript::new();
-        let mut subclaim =
-            MLSumcheck::verify(&mut trans, &wrapper.info, wrapper.claimed_sum, &wrapper.proof)
-                .expect("fail to verify the sumcheck protocol");
+        let mut subclaim = MLSumcheck::verify(
+            &mut trans,
+            &wrapper.info,
+            wrapper.claimed_sum,
+            &wrapper.proof,
+        )
+        .expect("fail to verify the sumcheck protocol");
 
         let eq_at_u_r = eval_identity_function(&self.r_y, &subclaim.point);
 
         // check the sumcheck evaluation
         if !Self::verify_as_subprotocol(&mut subclaim, evals, eq_at_u_r) {
-            return false
+            return false;
         }
 
         subclaim.expected_evaluations == F::zero()

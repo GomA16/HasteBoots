@@ -11,7 +11,7 @@ pub struct FF32(u64);
 /// the test compares Enc(k1 * m1 + k2 * m2) and k1 * Enc(m1) + k2 * Enc(m2)
 #[test]
 fn linearity_check() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let field_distr = FieldUniformSampler::new();
 
     let spec = ExpanderCodeSpec::new(0.1195, 0.0284, 1.420, 31, 30);
@@ -66,7 +66,7 @@ fn linearity_check() {
 /// the test iteratively adds 1 to the first element of the message and compare its codeword to the original codeword
 #[test]
 fn code_distance_test() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let field_distr = FieldUniformSampler::new();
 
     let spec = ExpanderCodeSpec::new(0.1195, 0.0284, 1.420, 31, 10);

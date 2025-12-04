@@ -16,7 +16,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     Fp::init_ntt_table(&[log_n]).unwrap();
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
 
     let fp_dis = FieldUniformSampler::new();
 
@@ -26,7 +26,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let uniform = FieldUniformSampler::new();
     let coeff = uniform.sample(&mut rng);
-    let degree = rng.gen_range(1..n);
+    let degree = rng.random_range(1..n);
 
     c.bench_function(&format!("ntt {}", n), |b| {
         b.iter(|| {

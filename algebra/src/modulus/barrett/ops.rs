@@ -221,12 +221,12 @@ mod tests {
         const P: T = 1000000513;
         let modulus = BarrettModulus::<T>::new(P);
 
-        let distr = rand::distributions::Uniform::new_inclusive(0, P - 1);
-        let mut rng = thread_rng();
+        let distr = rand::distr::Uniform::new_inclusive(0, P - 1).unwrap();
+        let mut rng = rand::rng();
 
         for _ in 0..5 {
             let base = rng.sample(distr);
-            let exp = random();
+            let exp = rand::random();
 
             assert_eq!(simple_pow(base, exp, P), base.pow_reduce(exp, modulus));
         }
@@ -261,9 +261,9 @@ mod tests {
     #[test]
     fn test_inverse() {
         type Num = u64;
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
-        let mut m = rng.gen_range(2..=(Num::MAX >> 2));
+        let mut m = rng.random_range(2..=(Num::MAX >> 2));
 
         if m & 1 == 0 {
             m |= 1;
@@ -272,7 +272,7 @@ mod tests {
         let modulus = BarrettModulus::<Num>::new(m);
 
         if modulus.probably_prime(20) {
-            let value: Num = rng.gen_range(2..modulus.value());
+            let value: Num = rng.random_range(2..modulus.value());
             let inv: Num = value.inv_reduce(modulus);
             assert_eq!(
                 value.mul_reduce(inv, modulus),

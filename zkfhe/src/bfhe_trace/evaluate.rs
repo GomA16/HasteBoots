@@ -72,14 +72,30 @@ impl<C: LWEModulusType, Q: NTTField> EvaluationKey<C, Q> {
         }
 
         let log_coeff_count = parameters.ring_dimension().trailing_zeros() as usize;
-        let log_num_round = parameters.lwe_dimension().next_power_of_two().trailing_zeros() as usize;
+        let log_num_round = parameters
+            .lwe_dimension()
+            .next_power_of_two()
+            .trailing_zeros() as usize;
         let mut acc_trace = AccTrace::<Q>::new(log_coeff_count, log_num_round);
-        let mut hadmard_trace_a = HadamardProdsTrace::<Q>::new(parameters.blind_rotation_basis().decompose_len(),log_coeff_count, log_num_round);
-        let mut hadmard_trace_b = HadamardProdsTrace::<Q>::new(parameters.blind_rotation_basis().decompose_len(),log_coeff_count, log_num_round);
+        let mut hadmard_trace_a = HadamardProdsTrace::<Q>::new(
+            parameters.blind_rotation_basis().decompose_len(),
+            log_coeff_count,
+            log_num_round,
+        );
+        let mut hadmard_trace_b = HadamardProdsTrace::<Q>::new(
+            parameters.blind_rotation_basis().decompose_len(),
+            log_coeff_count,
+            log_num_round,
+        );
 
-        let mut acc =
-            self.blind_rotation_key
-                .blind_rotate_w_trace(lut, &c, parameters.blind_rotation_basis(), &mut acc_trace, &mut hadmard_trace_a, &mut hadmard_trace_b);
+        let mut acc = self.blind_rotation_key.blind_rotate_w_trace(
+            lut,
+            &c,
+            parameters.blind_rotation_basis(),
+            &mut acc_trace,
+            &mut hadmard_trace_a,
+            &mut hadmard_trace_b,
+        );
 
         acc.b_mut()[0] += Q::new(Q::MODULUS_VALUE >> 3);
 
@@ -291,7 +307,7 @@ impl<C: LWEModulusType, Q: NTTField> Evaluator<C, Q> {
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Input: ciphertext `c2`, with message `c`.
     /// * Output: ciphertext with message `(a & b) | (b & c) | (a & c)`.
-    ///     If there are two or three `true`(resp. `false`) in `a`, `b` and `c`, it will return `true`(resp. `false`).
+    ///   If there are two or three `true`(resp. `false`) in `a`, `b` and `c`, it will return `true`(resp. `false`).
     pub fn majority(
         &self,
         c0: &LWECiphertext<C>,
@@ -317,7 +333,7 @@ impl<C: LWEModulusType, Q: NTTField> Evaluator<C, Q> {
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Input: ciphertext `c2`, with message `c`.
     /// * Output: ciphertext with message `if a {b} else {c}`.
-    ///     If `a` is `true`, it will return `b`. If `a` is `false`, it will return `c`.
+    ///   If `a` is `true`, it will return `b`. If `a` is `false`, it will return `c`.
     pub fn mux(
         &self,
         c0: &LWECiphertext<C>,

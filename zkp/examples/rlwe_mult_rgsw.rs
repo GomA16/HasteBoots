@@ -164,7 +164,7 @@ fn generate_instance<F: Field + NTTField>(
 }
 
 fn main() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
 
     // information used to decompose bits

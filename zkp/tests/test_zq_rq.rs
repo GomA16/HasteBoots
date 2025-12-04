@@ -191,7 +191,7 @@ fn transform(
 
 #[test]
 fn test_random_zq_to_rq() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<Fq>>::new();
 
     let base_len = 1;
@@ -246,7 +246,7 @@ fn test_random_zq_to_rq() {
 
 #[test]
 fn test_random_zq_to_rq_extension_field() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<Fq>>::new();
 
     let base_len = 1;
@@ -303,7 +303,7 @@ fn test_random_zq_to_rq_extension_field() {
 
 #[test]
 fn test_snarks() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<Fq>>::new();
 
     let base_len = 1;

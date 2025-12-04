@@ -1,7 +1,7 @@
+use bincode::error::{DecodeError, EncodeError};
 use serde::{Deserialize, Serialize};
 
 use crate::utils::hash::Hash;
-use bincode::Result;
 use rayon::prelude::*;
 
 /// Root of the Merkle Tree
@@ -20,13 +20,13 @@ impl<H: Hash> MerkleRoot<H> {
     }
 
     /// Convert into bytes.
-    pub fn to_bytes(&self) -> Result<Vec<u8>> {
-        bincode::serialize(&self)
+    pub fn to_bytes(&self) -> Result<Vec<u8>, EncodeError> {
+        bincode::serde::encode_to_vec(self, bincode::config::standard())
     }
 
     /// Recover from bytes.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        bincode::deserialize(bytes)
+    pub fn from_bytes(bytes: &[u8]) -> Result<(Self, usize), DecodeError> {
+        bincode::serde::decode_from_slice(bytes, bincode::config::standard())
     }
 }
 

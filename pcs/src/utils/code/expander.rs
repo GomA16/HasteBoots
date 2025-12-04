@@ -278,7 +278,6 @@ impl<F: Field> LinearCode<F> for ExpanderCode<F> {
     /// \forall 0 <= i < k-1, x_{i+1} = x_i * A_i
     /// \forall 0 <= i < l-k-1, x_{k+i+1} = ( x_{k-i} |...| x_{k+i} ) * B_{l-k-i}
     /// x_k = ReedSolomanCode
-
     fn encode(&self, target: &mut [F]) {
         assert_eq!(target.len(), self.codeword_len);
         target[self.message_len..].fill(F::zero());

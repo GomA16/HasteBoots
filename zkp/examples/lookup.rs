@@ -24,11 +24,11 @@ fn main() {
     let lookup_num = 2;
     let range = 1024;
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let f_vec: Vec<DenseMultilinearExtension<FF>> = (0..lookup_num)
         .map(|_| {
             let f_evaluations: Vec<FF> = (0..(1 << num_vars))
-                .map(|_| FF::new(rng.gen_range(0..range)))
+                .map(|_| FF::new(rng.random_range(0..range)))
                 .collect();
             DenseMultilinearExtension::from_evaluations_vec(num_vars, f_evaluations)
         })
@@ -77,7 +77,7 @@ fn main() {
 
     let proof = LookupProof::from_bytes(&proof_bytes).unwrap();
     let start = Instant::now();
-    let res = lookup_verifier.verify(&mut verifier_trans, &params, &proof);
+    let res = lookup_verifier.verify(&mut verifier_trans, &params, &proof.0);
     println!(
         "lookup verifying time: {:?} ms",
         start.elapsed().as_millis()

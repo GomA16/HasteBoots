@@ -61,7 +61,6 @@ impl Field for Goldilocks {
 }
 
 impl DecomposableField for Goldilocks {
-
     #[inline]
     fn mask(bits: u32) -> Self::Value {
         u64::MAX >> (u64::BITS - bits)

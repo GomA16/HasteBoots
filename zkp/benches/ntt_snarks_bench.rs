@@ -1,4 +1,4 @@
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand::prelude::*;
 use rayon::vec;
 use sha2::Sha256;
@@ -28,7 +28,7 @@ fn build_instances(log_n: u32, num_ntt: u32) -> NTTInstances<FF> {
     plan.root_powers(&mut powers);
     let ntt_table = Arc::new(powers);
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let mut instances = NTTInstances::new(log_n as usize, &ntt_table);
 
     for _ in 0..num_ntt {
@@ -67,12 +67,11 @@ fn bench_ntt_snarks(c: &mut Criterion) {
     let instances = build_instances(log_n as u32, num_ntt as u32);
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
     c.bench_function("ntt_snarks", |b| {
-         b.iter(|| {
+        b.iter(|| {
             <NTTSnarks<FF, EF>>::snarks::<Hash, ExpanderCode<FF>, ExpanderCodeSpec>(
-                    &instances,
-                    &code_spec,
-                );
-         });
+                &instances, &code_spec,
+            );
+        });
     });
 }
 

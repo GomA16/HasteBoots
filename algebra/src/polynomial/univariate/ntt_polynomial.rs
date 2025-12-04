@@ -121,7 +121,7 @@ impl<F: Field> NTTPolynomial<F> {
 
     /// Returns an iterator that allows reading each value or coefficient of the polynomial.
     #[inline]
-    pub fn iter(&self) -> Iter<F> {
+    pub fn iter<'a>(&'a self) -> Iter<'a, F> {
         self.data.iter()
     }
 
@@ -133,7 +133,7 @@ impl<F: Field> NTTPolynomial<F> {
 
     /// Returns an iterator that allows modifying each value or coefficient of the polynomial.
     #[inline]
-    pub fn iter_mut(&mut self) -> IterMut<F> {
+    pub fn iter_mut<'a>(&'a mut self) -> IterMut<'a, F> {
         self.data.iter_mut()
     }
 

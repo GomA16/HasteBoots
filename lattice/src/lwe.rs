@@ -343,7 +343,7 @@ impl<T: Copy> LWE<T> {
         R: Rng + CryptoRng,
     {
         let len = secret_key.len();
-        let uniform = Uniform::new(T::ZERO, modulus_value);
+        let uniform = Uniform::new(T::ZERO, modulus_value).unwrap();
 
         let a: Vec<T> = uniform.sample_iter(&mut *rng).take(len).collect();
         let b = T::dot_product_reduce(&a, secret_key, modulus)

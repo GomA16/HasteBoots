@@ -55,7 +55,6 @@ pub fn gen_sparse_at_u<F: Field>(
 
 /// Evaluate M(u, y) for y \in \{0, 1\}^dim where M is a sparse matrix.
 /// To be more specific, each row of the matrix consists of only constant entries.
-
 pub fn gen_sparse_at_u_to_ef<F: Field, EF: AbstractExtensionField<F>>(
     sparse_matrix: &[Rc<SparsePolynomial<F>>],
     u: &[EF],
@@ -302,7 +301,6 @@ mod test {
         derive::{Field, Prime},
         FieldUniformSampler,
     };
-    use rand::thread_rng;
     use rand_distr::Distribution;
 
     #[derive(Field, Prime)]
@@ -314,7 +312,7 @@ mod test {
     #[test]
     fn test_gen_identity_evaluations() {
         let sampler = <FieldUniformSampler<FF>>::new();
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let dim = 10;
         let u: Vec<_> = (0..dim).map(|_| sampler.sample(&mut rng)).collect();
 

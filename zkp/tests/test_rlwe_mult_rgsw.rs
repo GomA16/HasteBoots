@@ -179,7 +179,7 @@ fn generate_rlwe_mult_rgsw_instance<F: Field + NTTField>(
 
 #[test]
 fn test_random_rlwe_mult_rgsw() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
 
     // information used to decompose bits
@@ -270,7 +270,7 @@ fn test_random_rlwe_mult_rgsw() {
 
 #[test]
 fn test_random_rlwe_mult_rgsw_extension_field() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
 
     // information used to decompose bits
@@ -362,7 +362,7 @@ fn test_random_rlwe_mult_rgsw_extension_field() {
 
 #[test]
 fn test_snarks() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
 
     // information used to decompose bits
@@ -441,7 +441,7 @@ fn test_snarks() {
 
 #[test]
 fn test_snarks_with_lookup() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
 
     // information used to decompose bits

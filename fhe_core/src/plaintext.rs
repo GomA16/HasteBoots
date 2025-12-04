@@ -12,7 +12,7 @@ use algebra::{
     AsFrom, AsInto, Bits,
 };
 use num_traits::{ConstOne, ConstZero, PrimInt};
-use rand::distributions::uniform::SampleUniform;
+use rand::distr::uniform::SampleUniform;
 
 pub trait Shrink {
     /// shrink to small container.

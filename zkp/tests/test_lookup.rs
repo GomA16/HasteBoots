@@ -116,11 +116,11 @@ fn test_random_range_check() {
     let lookup_num = block_num * block_size + residual_size;
     let range = 59;
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let f_vec: Vec<Rc<DenseMultilinearExtension<FF>>> = (0..lookup_num)
         .map(|_| {
             let f_evaluations: Vec<FF> = (0..(1 << num_vars))
-                .map(|_| FF::new(rng.gen_range(0..range)))
+                .map(|_| FF::new(rng.random_range(0..range)))
                 .collect();
             Rc::new(DenseMultilinearExtension::from_evaluations_vec(
                 num_vars,
@@ -171,11 +171,11 @@ fn test_lookup_snark() {
     let lookup_num = block_num * block_size + residual_size;
     let range = 59;
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let f_vec: Vec<DenseMultilinearExtension<FF>> = (0..lookup_num)
         .map(|_| {
             let f_evaluations: Vec<FF> = (0..(1 << num_vars))
-                .map(|_| FF::new(rng.gen_range(0..range)))
+                .map(|_| FF::new(rng.random_range(0..range)))
                 .collect();
             DenseMultilinearExtension::from_evaluations_vec(num_vars, f_evaluations)
         })
@@ -220,7 +220,7 @@ fn test_lookup_snark() {
     let mut verifier_trans = Transcript::<EF>::default();
 
     let proof = LookupProof::from_bytes(&proof_bytes).unwrap();
-    let res = lookup_verifier.verify(&mut verifier_trans, &params, &proof);
+    let res = lookup_verifier.verify(&mut verifier_trans, &params, &proof.0);
 
     assert!(res);
 }

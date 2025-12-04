@@ -13,7 +13,7 @@ pub struct Fp(u32);
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     let mut prg = Prg::new();
-    let mut rng = ChaCha12Rng::from_entropy();
+    let mut rng = ChaCha12Rng::from_os_rng();
 
     let n = 1024;
 

@@ -11,7 +11,7 @@ type C = u16;
 
 fn main() {
     // set random generator
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     // set parameter
     let params = *DEFAULT_TERNARY_128_BITS_PARAMETERS;
@@ -35,9 +35,9 @@ fn main() {
     let dec = Decryptor::new(sk);
     println!("Evaluation Key Generation done!\n");
 
-    let mut a = rng.gen();
-    let mut b = rng.gen();
-    let mut c = rng.gen();
+    let mut a = rng.random();
+    let mut b = rng.random();
+    let mut c = rng.random();
 
     let mut x = enc.encrypt(a);
     let mut y = enc.encrypt(b);

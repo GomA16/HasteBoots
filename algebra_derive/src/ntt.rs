@@ -109,8 +109,8 @@ fn impl_ntt(input: Input) -> TokenStream {
                     });
                 }
 
-                let mut rng = ::rand::thread_rng();
-                let distr = ::rand::distributions::Uniform::new_inclusive(2, #modulus - 1);
+                let mut rng = ::rand::rng();
+                let distr = ::rand::distr::Uniform::new_inclusive(2, #modulus - 1).unwrap();
 
                 let mut w = Self(0);
 

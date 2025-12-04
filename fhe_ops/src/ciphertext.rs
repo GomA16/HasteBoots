@@ -1,8 +1,5 @@
-use std::{backtrace, ops::{Add, Sub}};
-
 use algebra::{Field, FieldUniformSampler, NTTField, NTTPolynomial, Polynomial};
-use num_traits::{ConstZero};
-use rand::{distributions::{uniform::SampleUniform, Uniform}, prelude::Distribution, CryptoRng, Rng};
+use rand::{CryptoRng, Rng};
 
 /// LWE ciphertext structure.
 /// This structure represents a ciphertext in the LWE (Learning With Errors) scheme,
@@ -12,7 +9,7 @@ use rand::{distributions::{uniform::SampleUniform, Uniform}, prelude::Distributi
 pub struct LWECiphertext<F: Field> {
     /// Represents the first component (vector of field elements).
     a: Vec<F>,
-    /// Represents the second component (a single field element), computed as 
+    /// Represents the second component (a single field element), computed as
     /// the dot product of `a` with a secret vector, plus message and some noise.
     b: F,
 }
@@ -37,8 +34,6 @@ pub struct NTTRLWECiphertext<F: NTTField> {
     b: NTTPolynomial<F>,
 }
 
-
-
 impl<F: Field> LWECiphertext<F> {
     /// Creates a new LWE ciphertext with the given vector `a` and element `b`.
     pub fn new(a: Vec<F>, b: F) -> Self {
@@ -57,7 +52,10 @@ impl<F: Field> LWECiphertext<F> {
 
     /// Performs addition of two LWE ciphertexts modulo a given modulus.
     pub fn add_modulo(&self, other: &Self, modulus: F) -> Self {
-        let a = self.a.iter().zip(other.a.iter())
+        let a = self
+            .a
+            .iter()
+            .zip(other.a.iter())
             .map(|(x, y)| {
                 let sum = *x + *y;
                 if sum >= modulus {
@@ -65,7 +63,8 @@ impl<F: Field> LWECiphertext<F> {
                 } else {
                     sum
                 }
-            }).collect();
+            })
+            .collect();
         let b = if self.b + other.b >= modulus {
             self.b + other.b - modulus
         } else {
@@ -75,17 +74,12 @@ impl<F: Field> LWECiphertext<F> {
     }
 
     /// Generates a random LWE ciphertext with the given modulus `q` and length `len`.
-    pub fn random<R: Rng + CryptoRng>(
-        rng: &mut R,
-        q: F,
-        len: usize,
-    )-> Self
-    {
+    pub fn random<R: Rng + CryptoRng>(rng: &mut R, q: F, len: usize) -> Self {
         let uniform = FieldUniformSampler::<F>::new();
         let a = (0..len)
-            .map(|_| uniform.sample_range(rng, q.value())).collect();
+            .map(|_| uniform.sample_range(rng, q.value()))
+            .collect();
         let b = uniform.sample_range(rng, q.value());
         LWECiphertext::new(a, b)
     }
 }
-

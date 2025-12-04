@@ -4,7 +4,6 @@ use std::{
 };
 
 use num_traits::{pow, Zero};
-use rand::{distributions, thread_rng};
 
 use crate::{transformation::prime32::ConcreteTable, Field, NTTField};
 
@@ -75,8 +74,8 @@ impl NTTField for BabyBear {
             });
         }
 
-        let mut rng = thread_rng();
-        let distr = distributions::Uniform::new_inclusive(2, modulus_sub_one);
+        let mut rng = rand::rng();
+        let distr = rand::distr::Uniform::new_inclusive(2, modulus_sub_one).unwrap();
 
         let mut w = Self::zero();
 
@@ -168,7 +167,7 @@ impl NTTField for BabyBear {
 fn ntt_test() {
     use crate::{NTTPolynomial, Polynomial};
     let n = 1 << 10;
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let poly = Polynomial::<BabyBear>::random(n, &mut rng);
 
     let ntt_poly: NTTPolynomial<BabyBear> = poly.clone().into();

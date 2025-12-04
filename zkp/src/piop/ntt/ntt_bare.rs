@@ -16,12 +16,12 @@
 //! The LHS and RHS of the above equation are both MLE for y, so it can be reduced to check at a random point due to Schwartz-Zippel Lemma.
 //! The remaining thing is to prove $$a(u) = \sum_{x\in \{0, 1\}^{\log N} c(x)\cdot F(u, x) }$$ with the sumcheck protocol
 //! where u is the random challenge from the verifier.
-use sumcheck::verifier::SubClaim;
-use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
 use algebra::{utils::Transcript, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials};
 use serde::Serialize;
 use std::marker::PhantomData;
 use std::rc::Rc;
+use sumcheck::verifier::SubClaim;
+use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
 
 use super::{NTTInstance, NTTInstanceInfo};
 
@@ -226,7 +226,6 @@ mod test {
         DenseMultilinearExtension, Field, FieldUniformSampler, NTTField,
     };
     use num_traits::{One, Zero};
-    use rand::thread_rng;
     use rand_distr::Distribution;
 
     use super::{init_fourier_table, naive_init_fourier_table};
@@ -288,7 +287,7 @@ mod test {
     #[test]
     fn test_init_fourier_matrix() {
         let sampler = <FieldUniformSampler<FF>>::new();
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
         let dim = 10;
         let m = 1 << (dim + 1); // M = 2N = 2 * (1 << dim)

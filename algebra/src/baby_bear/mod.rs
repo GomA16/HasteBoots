@@ -65,7 +65,6 @@ impl Ord for BabyBear {
 }
 
 impl DecomposableField for BabyBear {
-
     #[inline]
     fn mask(bits: u32) -> Self::Value {
         u32::MAX >> (u32::BITS - bits)

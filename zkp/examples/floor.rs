@@ -42,7 +42,7 @@ fn generate_instance(num_vars: usize) -> FloorInstance<FF> {
     let base_len = BASE_LEN as usize;
     let base: FF = FF::new(1 << base_len);
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let uniform = <FieldUniformSampler<FF>>::new();
     let input = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
         num_vars,

@@ -3,14 +3,14 @@ pub mod accumulator;
 pub mod addition_in_zq;
 pub mod bit_decomposition;
 pub mod floor;
+pub mod lift;
 pub mod lookup;
 pub mod ntt;
 pub mod ntt_revision;
 pub mod rlwe_mul_rgsw;
 pub mod round;
-pub mod zq_to_rq;
 pub mod sparse_eval;
-pub mod lift;
+pub mod zq_to_rq;
 // pub mod ntt_eval;
 
 pub use accumulator::{

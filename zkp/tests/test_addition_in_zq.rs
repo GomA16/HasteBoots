@@ -81,7 +81,7 @@ fn test_trivial_addition_in_zq() {
 
 #[test]
 fn test_random_addition_in_zq() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let uniform_fq = <FieldUniformSampler<Fq>>::new();
     let num_vars = 10;
     let q = FF::new(Fq::MODULUS_VALUE);
@@ -153,7 +153,7 @@ fn test_random_addition_in_zq() {
 
 #[test]
 fn test_random_addition_in_zq_extension_field() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let uniform_fq = <FieldUniformSampler<Fq>>::new();
     let num_vars = 10;
     let q = FF::new(Fq::MODULUS_VALUE);
@@ -226,7 +226,7 @@ fn test_random_addition_in_zq_extension_field() {
 
 #[test]
 fn test_snarks() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let uniform_fq = <FieldUniformSampler<Fq>>::new();
     let num_vars = 10;
     let q = FF::new(Fq::MODULUS_VALUE);

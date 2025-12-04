@@ -10,17 +10,15 @@
 //! For x \in \{0, 1\}^l
 //! 1. d(x) = \sum_{i=0}^{log M - 1} B^i d_i(x) => can be reduced to the evaluation of a random point
 //! 2. For every i \in \[l\]: \prod_{k = 0}^B (d_i(x) - k) = 0 =>
-//!     a) each of which can be reduced to prove the following sum
-//!        $\sum_{x \in \{0, 1\}^\log M} eq(u, x) \cdot [\prod_{k=0}^B (d_i(x) - k)] = 0$
-//!        where u is the common random challenge from the verifier, used to instantiate every sum,
-//!     b) and then, it can be proved with the sumcheck protocol where the maximum variable-degree is B + 1.
+//!    a) each of which can be reduced to prove the following sum
+//!       $\sum_{x \in \{0, 1\}^\log M} eq(u, x) \cdot [\prod_{k=0}^B (d_i(x) - k)] = 0$
+//!       where u is the common random challenge from the verifier, used to instantiate every sum,
+//!    b) and then, it can be proved with the sumcheck protocol where the maximum variable-degree is B + 1.
 //!
 //! The second part consists of l sumcheck protocols which can be combined into one giant sumcheck via random linear combination,
 //! then the resulting purported sum is:
 //! $\sum_{x \in \{0, 1\}^\log M} \sum_{i = 0}^{l-1} r_i \cdot eq(u, x) \cdot [\prod_{k=0}^B (d_i(x) - k)] = 0$
 //! where r_i (for i = 0..l) are sampled from the verifier.
-use sumcheck::{verifier::SubClaim, MLSumcheck};
-use sumcheck::{ProofWrapper, SumcheckKit};
 use crate::utils::{
     cmp_frequency, eval_identity_function, gen_identity_evaluations, print_statistic,
     verify_oracle_relation,
@@ -29,6 +27,7 @@ use algebra::{
     utils::Transcript, AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
     ListOfProductsOfPolynomials,
 };
+use bincode::config::standard;
 use core::fmt;
 use itertools::izip;
 use pcs::{
@@ -41,6 +40,8 @@ use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::time::Instant;
+use sumcheck::{verifier::SubClaim, MLSumcheck};
+use sumcheck::{ProofWrapper, SumcheckKit};
 
 use super::LookupInstance;
 
@@ -570,7 +571,9 @@ where
         let (sumcheck_proof, sumcheck_state) =
             <MLSumcheck<EF>>::prove(&mut prover_trans, &sumcheck_poly)
                 .expect("Proof generated in Addition In Zq");
-        iop_proof_size += bincode::serialize(&sumcheck_proof).unwrap().len();
+        iop_proof_size += bincode::serde::encode_to_vec(&sumcheck_proof, standard())
+            .unwrap()
+            .len();
         let iop_prover_time = prover_start.elapsed().as_millis();
 
         // 2.4 Compute all the evaluations of these small polynomials used in IOP over the random point returned from the sumcheck protocol
@@ -656,8 +659,12 @@ where
         );
         assert!(check_pcs);
         let pcs_verifier_time = start.elapsed().as_millis();
-        pcs_proof_size += bincode::serialize(&eval_proof).unwrap().len()
-            + bincode::serialize(&flatten_evals).unwrap().len();
+        pcs_proof_size += bincode::serde::encode_to_vec(&eval_proof, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&flatten_evals, standard())
+                .unwrap()
+                .len();
 
         // 4. print statistic
         print_statistic(

@@ -295,7 +295,7 @@ where
     }
 
     #[inline]
-    fn root_powers(&self, powers: &mut [F]) {
+    fn root_powers(&self, _powers: &mut [F]) {
         panic!("Not implemented");
     }
 

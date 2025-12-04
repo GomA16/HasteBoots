@@ -11,8 +11,8 @@ use rayon::iter::{
 };
 use serde::{Deserialize, Serialize};
 
-use super::verifier::VerifierMsg;
 use super::IPForMLSumcheck;
+use super::verifier::VerifierMsg;
 
 /// Prover Message
 #[derive(Clone, Serialize, Deserialize)]

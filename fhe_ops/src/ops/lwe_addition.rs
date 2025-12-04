@@ -1,15 +1,12 @@
-use core::fmt;
-
 use algebra::Field;
 use rand::{CryptoRng, Rng};
 
 use crate::ciphertext::LWECiphertext;
 
-
 /// Represents a batch of LWE ciphertext additions under a smaller modulus `q`.
-/// 
-/// Operation: 
-/// For each pair of ciphertexts `input1[i]` and `input2[i]`, 
+///
+/// Operation:
+/// For each pair of ciphertexts `input1[i]` and `input2[i]`,
 /// computes the result as:
 /// `output[i].a = (input1[i].a + input2[i].a) mod q`
 /// and `output[i].b = (input1[i].b + input2[i].b) mod q`.
@@ -44,7 +41,14 @@ impl<F: Field> LWEAdditionOpInstance<F> {
     }
 
     /// Creates `num` instances of LWE Addition operation with the given modulus `q`.
-    pub fn from(q: F, num: usize, len: usize, lhs: Vec<LWECiphertext<F>>, rhs: Vec<LWECiphertext<F>>, result: Vec<LWECiphertext<F>>) -> Self {
+    pub fn from(
+        q: F,
+        num: usize,
+        len: usize,
+        lhs: Vec<LWECiphertext<F>>,
+        rhs: Vec<LWECiphertext<F>>,
+        result: Vec<LWECiphertext<F>>,
+    ) -> Self {
         assert!(num > 0);
         assert!(len > 0);
         assert_eq!(num, lhs.len());
@@ -52,7 +56,9 @@ impl<F: Field> LWEAdditionOpInstance<F> {
         assert_eq!(num, result.len());
         lhs.iter().for_each(|item| assert_eq!(item.a().len(), len));
         rhs.iter().for_each(|item| assert_eq!(item.a().len(), len));
-        result.iter().for_each(|item| assert_eq!(item.a().len(), len));
+        result
+            .iter()
+            .for_each(|item| assert_eq!(item.a().len(), len));
         LWEAdditionOpInstance {
             q,
             num,
@@ -64,7 +70,12 @@ impl<F: Field> LWEAdditionOpInstance<F> {
     }
 
     /// Adds a pair of ciphertexts to the operation instance.
-    pub fn add_pair(&mut self, lhs: LWECiphertext<F>, rhs: LWECiphertext<F>, result: LWECiphertext<F>) {
+    pub fn add_pair(
+        &mut self,
+        lhs: LWECiphertext<F>,
+        rhs: LWECiphertext<F>,
+        result: LWECiphertext<F>,
+    ) {
         assert_eq!(self.input1.len(), self.input2.len());
         self.num += 1;
         self.input1.push(lhs);
@@ -73,25 +84,26 @@ impl<F: Field> LWEAdditionOpInstance<F> {
     }
 
     /// Generates `num` random instances of LWE Addition operation with the given modulus `q`.
-    /// 
+    ///
     /// # Arguments
     /// * `rng` - Random number generator.
     /// * `q` - Modulus under which the addition is emulated in the field.
     /// * `num` - Number of instances to generate.
     /// * `len` - Length of the vector of LWE ciphertexts.
-    pub fn random<R: Rng + CryptoRng>(
-        rng: &mut R,
-        q: F,
-        num: usize,
-        len: usize,
-    ) -> Self 
-    {
+    pub fn random<R: Rng + CryptoRng>(rng: &mut R, q: F, num: usize, len: usize) -> Self {
         assert!(num > 0);
         assert!(len > 0);
-        let lhs: Vec<LWECiphertext<F>> = (0..num).map(|_| LWECiphertext::random(rng, q, len)).collect();
-        let rhs: Vec<LWECiphertext<F>> = (0..num).map(|_| LWECiphertext::random(rng, q, len)).collect();
-        let result: Vec<LWECiphertext<F>> = lhs.iter().zip(rhs.iter())
-            .map(|(l, r)| l.add_modulo(r, q)).collect();
+        let lhs: Vec<LWECiphertext<F>> = (0..num)
+            .map(|_| LWECiphertext::random(rng, q, len))
+            .collect();
+        let rhs: Vec<LWECiphertext<F>> = (0..num)
+            .map(|_| LWECiphertext::random(rng, q, len))
+            .collect();
+        let result: Vec<LWECiphertext<F>> = lhs
+            .iter()
+            .zip(rhs.iter())
+            .map(|(l, r)| l.add_modulo(r, q))
+            .collect();
         LWEAdditionOpInstance::from(q, num, len, lhs, rhs, result)
     }
 }
@@ -104,7 +116,7 @@ fn test_lwe_addition_op_instance() {
     #[modulus = 23]
     pub struct FF(u32);
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let q = FF::new(7);
 
     let len: usize = 5;

@@ -2,7 +2,7 @@ use std::ops::Sub;
 
 use algebra::AsFrom;
 use num_traits::{ConstOne, ConstZero};
-use rand::{distributions::Distribution, CryptoRng, Rng};
+use rand::{distr::Distribution, CryptoRng, Rng};
 use rand_distr::Normal;
 
 /// Sample a binary vector whose values are `T`.

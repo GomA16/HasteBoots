@@ -17,7 +17,7 @@ const BASE_FIELD_BITS: usize = 31;
 #[test]
 fn pcs_test() {
     let num_vars = 10;
-    let evaluations: Vec<FF> = rand::thread_rng()
+    let evaluations: Vec<FF> = rand::rng()
         .sample_iter(FieldUniformSampler::new())
         .take(1 << num_vars)
         .collect();
@@ -37,7 +37,7 @@ fn pcs_test() {
     let (comm, state) =
         BrakedownPCS::<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>::commit(&pp, &poly);
 
-    let point: Vec<EF> = rand::thread_rng()
+    let point: Vec<EF> = rand::rng()
         .sample_iter(FieldUniformSampler::new())
         .take(num_vars)
         .collect();
@@ -55,13 +55,13 @@ fn pcs_test() {
     let proof = BrakedownOpenProof::<FF, Hash, EF>::from_bytes(&buffer).unwrap();
 
     let check = BrakedownPCS::<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>::verify(
-        &pp, &comm, &point, eval, &proof, &mut trans,
+        &pp, &comm, &point, eval, &proof.0, &mut trans,
     );
 
     assert!(check);
 
     // Commit extension field polynomial.
-    let evaluations: Vec<EF> = rand::thread_rng()
+    let evaluations: Vec<EF> = rand::rng()
         .sample_iter(FieldUniformSampler::new())
         .take(1 << num_vars)
         .collect();
@@ -73,7 +73,7 @@ fn pcs_test() {
     let (comm, state) =
         BrakedownPCS::<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>::commit_ef(&pp, &ext_poly);
 
-    let point: Vec<EF> = rand::thread_rng()
+    let point: Vec<EF> = rand::rng()
         .sample_iter(FieldUniformSampler::new())
         .take(num_vars)
         .collect();
@@ -91,7 +91,7 @@ fn pcs_test() {
     let proof = BrakedownOpenProofGeneral::<EF, Hash>::from_bytes(&buffer).unwrap();
 
     let check = BrakedownPCS::<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>::verify_ef(
-        &pp, &comm, &point, eval, &proof, &mut trans,
+        &pp, &comm, &point, eval, &proof.0, &mut trans,
     );
 
     assert!(check);
