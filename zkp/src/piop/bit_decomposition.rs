@@ -19,16 +19,18 @@
 //! then the resulting purported sum is:
 //! $\sum_{x \in \{0, 1\}^\log M} \sum_{i = 0}^{l-1} r_i \cdot eq(u, x) \cdot [\prod_{k=0}^B (d_i(x) - k)] = 0$
 //! where r_i (for i = 0..l) are sampled from the verifier.
-use crate::utils::{
-    cmp_frequency, eval_identity_function, gen_identity_evaluations, print_statistic,
-    verify_oracle_relation,
-};
+
+use core::fmt;
+use std::marker::PhantomData;
+use std::rc::Rc;
+use std::time::Instant;
+
 use algebra::{
     AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
     ListOfProductsOfPolynomials,
 };
 use bincode::config::standard;
-use core::fmt;
+use helper::Transcript;
 use itertools::izip;
 use pcs::{
     PolynomialCommitmentScheme,
@@ -37,12 +39,14 @@ use pcs::{
     utils::hash::Hash,
 };
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
-use std::rc::Rc;
-use std::time::Instant;
-use helper::Transcript;
+use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit, verifier::SubClaim};
 
 use super::LookupInstance;
+
+use crate::utils::{
+    cmp_frequency, eval_identity_function, gen_identity_evaluations, print_statistic,
+    verify_oracle_relation,
+};
 
 /// IOP for bit decomposition
 pub struct BitDecomposition<F: Field>(PhantomData<F>);

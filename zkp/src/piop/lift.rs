@@ -1,20 +1,16 @@
 //! Lift
-use super::ntt_revision::NTTIOP;
-use super::ntt_revision::NTTRecursiveProof;
-use super::ntt_revision::ntt_bare::NTTBareIOP;
-use super::ntt_revision::{NTTInstance, NTTInstanceInfo};
-use super::sparse_eval::SparseEvalIOP;
-use super::sparse_eval::SparseEvalInstance;
-use crate::piop::LookupIOP;
-use crate::utils::{
-    add_assign_ef, eval_identity_function, gen_identity_evaluations, verify_oracle_relation,
-};
+
+use core::fmt;
+use std::marker::PhantomData;
+use std::rc::Rc;
+use std::sync::Arc;
+use std::time::Instant;
+
 use algebra::{
-    AbstractExtensionField, DenseMultilinearExtension, Field,
-    ListOfProductsOfPolynomials,
+    AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
 };
 use bincode::config::standard;
-use core::fmt;
+use helper::Transcript;
 use itertools::izip;
 use pcs::{
     PolynomialCommitmentScheme,
@@ -23,12 +19,16 @@ use pcs::{
     utils::hash::Hash,
 };
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
-use std::rc::Rc;
-use std::sync::Arc;
-use std::time::Instant;
-use std::vec;
-use helper::Transcript;
+use sumcheck::verifier::SubClaim;
+use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
+
+use super::ntt_revision::ntt_bare::NTTBareIOP;
+use super::ntt_revision::{NTTIOP, NTTInstance, NTTInstanceInfo, NTTRecursiveProof};
+use super::sparse_eval::{SparseEvalIOP, SparseEvalInstance};
+use crate::piop::LookupIOP;
+use crate::utils::{
+    add_assign_ef, eval_identity_function, gen_identity_evaluations, verify_oracle_relation,
+};
 
 /// IOP for Lift
 pub struct LiftIOP<F: Field>(PhantomData<F>);

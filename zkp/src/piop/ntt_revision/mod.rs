@@ -30,15 +30,18 @@
 //!         \tilde{\beta}((x, b),(z,0)) * \tilde{A}_{F}^{(k-1)}(z) ( (1-u_{i})+u_{i} * \tilde{ω}^{(k)}_{i+1}(z, 0)
 //!       + \tilde{\beta}((x, b),(z,1)) * \tilde{A}_{F}^{(k-1)}(z) ( (1-u_{i})+u_{i} * \tilde{ω}^{(k)}_{i+1}(z, 1) * ω^{2^k}
 
-use crate::utils::{
-    eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
-};
+use std::marker::PhantomData;
+use std::rc::Rc;
+use std::sync::Arc;
+use std::time::Instant;
+
 use algebra::{
-    AbstractExtensionField, DenseMultilinearExtension, Field,
-    ListOfProductsOfPolynomials, PolynomialInfo,
+    AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
+    PolynomialInfo,
 };
 use bincode::config::standard;
 use core::fmt;
+use helper::Transcript;
 use itertools::izip;
 use pcs::{
     PolynomialCommitmentScheme,
@@ -47,11 +50,13 @@ use pcs::{
     utils::hash::Hash,
 };
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
-use std::rc::Rc;
-use std::sync::Arc;
-use std::time::Instant;
-use helper::Transcript;
+use sumcheck::{
+    MLSumcheck, Proof, ProofWrapper, SumcheckKit, prover::ProverState, verifier::SubClaim,
+};
+
+use crate::utils::{
+    eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
+};
 
 use ntt_bare::NTTBareIOP;
 

@@ -8,38 +8,36 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
 
-use super::ntt::NTTRecursiveProof;
-use super::rlwe_mul_rgsw::RlweEval;
-use super::rlwe_mul_rgsw::RlweMultRgswEval;
-use super::rlwe_mul_rgsw::RlweMultRgswInfo;
-use super::DecomposedBits;
-use super::LookupInstance;
-use super::NTTBareIOP;
-use super::RlweCiphertext;
-use super::RlweMultRgswIOP;
-use super::RlweMultRgswIOPPure;
-use super::RlweMultRgswInstance;
-use super::{DecomposedBitsInfo, NTTInstance, NTTInstanceInfo, NTTIOP};
-use crate::utils::{
-    add_assign_ef, eval_identity_function, gen_identity_evaluations, print_statistic,
-    verify_oracle_relation,
+use algebra::{
+    AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
 };
-use algebra::AbstractExtensionField;
-use algebra::utils::Transcript;
-use algebra::{DenseMultilinearExtension, Field, ListOfProductsOfPolynomials};
 use bincode::config::standard;
-use itertools::Itertools;
-use itertools::izip;
+use helper::Transcript;
+use itertools::{Itertools, izip};
 use pcs::{
     PolynomialCommitmentScheme,
     multilinear::brakedown::BrakedownPCS,
     utils::code::{LinearCode, LinearCodeSpec},
     utils::hash::Hash,
 };
-use rayon::iter::IntoParallelRefIterator;
-use rayon::iter::ParallelIterator;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
-use helper::Transcript;
+use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit, verifier::SubClaim};
+
+use super::ntt::NTTRecursiveProof;
+use super::rlwe_mul_rgsw::{RlweEval, RlweMultRgswEval, RlweMultRgswInfo};
+use super::{
+    DecomposedBits, DecomposedBitsInfo, LookupInstance, NTTBareIOP, NTTIOP, NTTInstance,
+    NTTInstanceInfo, RlweCiphertext, RlweMultRgswIOP, RlweMultRgswIOPPure, RlweMultRgswInstance,
+};
+
+use crate::{
+    piop::LookupIOP,
+    utils::{
+        add_assign_ef, eval_identity_function, gen_identity_evaluations, print_statistic,
+        verify_oracle_relation,
+    },
+};
 
 /// IOP for Accumulator
 pub struct AccumulatorIOP<F: Field>(PhantomData<F>);

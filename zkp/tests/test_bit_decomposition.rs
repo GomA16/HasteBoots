@@ -1,21 +1,18 @@
 use std::rc::Rc;
 use std::time::Instant;
-use std::vec;
 
-use algebra::utils::Transcript;
 use algebra::{
     AbstractExtensionField, BabyBear, BabyBearExetension, Basis, ListOfProductsOfPolynomials,
 };
 use algebra::{DenseMultilinearExtension, Field, FieldUniformSampler};
 use bincode::config::standard;
+use helper::Transcript;
 use itertools::izip;
 use pcs::{
     PolynomialCommitmentScheme,
     multilinear::brakedown::BrakedownPCS,
     utils::code::{ExpanderCode, ExpanderCodeSpec},
 };
-use helper::Transcript;
-use rand::prelude::*;
 use rand_distr::Distribution;
 use sha2::Sha256;
 use sumcheck::MLSumcheck;

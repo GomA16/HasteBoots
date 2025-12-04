@@ -28,6 +28,7 @@ use algebra::{
     ListOfProductsOfPolynomials,
 };
 use bincode::config::standard;
+use helper::Transcript;
 use itertools::izip;
 use pcs::{
     PolynomialCommitmentScheme,
@@ -36,11 +37,12 @@ use pcs::{
     utils::hash::Hash,
 };
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
-use std::rc::Rc;
-use std::time::Instant;
-use std::vec;
-use helper::Transcript;
+use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit, verifier::SubClaim};
+
+use crate::piop::{BitDecomposition, DecomposedBits, DecomposedBitsEval, DecomposedBitsInfo};
+use crate::utils::{
+    eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
+};
 
 /// Round IOP
 pub struct FloorIOP<F: Field>(PhantomData<F>);

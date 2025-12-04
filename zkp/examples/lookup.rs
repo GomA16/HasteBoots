@@ -1,6 +1,7 @@
 use std::time::Instant;
 
 use algebra::{BabyBear, BabyBearExetension, DenseMultilinearExtension, Field};
+use helper::Transcript;
 use num_traits::Zero;
 use pcs::{
     multilinear::BrakedownPCS,
@@ -12,7 +13,6 @@ use zkp::piop::{
     LookupInstance,
     lookup::{LookupParams, LookupProof, LookupProver, LookupVerifier},
 };
-use helper::Transcript;
 
 type FF = BabyBear;
 type EF = BabyBearExetension;

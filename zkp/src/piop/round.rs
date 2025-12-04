@@ -1,12 +1,16 @@
 //! Round IOP
-use super::{BitDecomposition, DecomposedBits, DecomposedBitsEval, DecomposedBitsInfo};
-use crate::utils::{eval_identity_function, gen_identity_evaluations, verify_oracle_relation};
+
+use core::fmt;
+use std::marker::PhantomData;
+use std::rc::Rc;
+use std::time::Instant;
+
 use algebra::{
     AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
     ListOfProductsOfPolynomials,
 };
 use bincode::config::standard;
-use core::fmt;
+use helper::Transcript;
 use itertools::izip;
 use pcs::{
     PolynomialCommitmentScheme,
@@ -15,11 +19,11 @@ use pcs::{
     utils::hash::Hash,
 };
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
-use std::rc::Rc;
-use std::time::Instant;
-use std::vec;
-use helper::Transcript;
+use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit, verifier::SubClaim};
+
+use super::{BitDecomposition, DecomposedBits, DecomposedBitsEval, DecomposedBitsInfo};
+
+use crate::utils::{eval_identity_function, gen_identity_evaluations, verify_oracle_relation};
 
 /// Round IOP
 pub struct RoundIOP<F: Field>(PhantomData<F>);

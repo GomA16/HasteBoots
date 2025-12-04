@@ -1,8 +1,10 @@
-use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field, NTTField, NTTPolynomial, transformation::AbstractNTT};
+use algebra::{
+    AbstractExtensionField, DenseMultilinearExtension, Field, NTTField, transformation::AbstractNTT,
+};
 
 mod ntt_trace;
 
-pub use ntt_trace::{NTTTraceMLE, NTTInstanceInfo, NTTTrace};
+pub use ntt_trace::{NTTInstanceInfo, NTTTrace, NTTTraceMLE};
 
 pub trait ConvertToEF<F: Field, EF: AbstractExtensionField<F>> {
     type Output;

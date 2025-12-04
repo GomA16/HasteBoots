@@ -10,16 +10,18 @@
 //!    where u is the common random challenge from the verifier, used to instantiate the sum,
 //!    and then, it can be proved with the sumcheck protocol where the maximum variable-degree is 3.
 //! 3. a(x) + b(x) = c(x) + k(x)\cdot q => can be reduced to the evaluation of a random point since the LHS and RHS are both MLE
-use crate::piop::LookupIOP;
-use crate::utils::{
-    eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
-};
+
+use core::fmt;
+use std::marker::PhantomData;
+use std::rc::Rc;
+use std::time::Instant;
+
 use algebra::{
     AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
     ListOfProductsOfPolynomials,
 };
 use bincode::config::standard;
-use core::fmt;
+use helper::Transcript;
 use pcs::{
     PolynomialCommitmentScheme,
     multilinear::brakedown::BrakedownPCS,
@@ -27,10 +29,14 @@ use pcs::{
     utils::hash::Hash,
 };
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
-use std::rc::Rc;
-use std::time::Instant;
-use helper::Transcript;
+use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit, verifier::SubClaim};
+
+use crate::{
+    piop::LookupIOP,
+    utils::{
+        eval_identity_function, gen_identity_evaluations, print_statistic, verify_oracle_relation,
+    },
+};
 
 use super::bit_decomposition::DecomposedBitsEval;
 use super::{BitDecomposition, DecomposedBits, DecomposedBitsInfo, LookupInstance};

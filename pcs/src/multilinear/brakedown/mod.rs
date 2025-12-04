@@ -8,12 +8,11 @@ pub use data_structure::{
 };
 
 use algebra::{
-    utils::{Block, Prg},
     AbstractExtensionField, DenseMultilinearExtension, Field,
-    utils::{Block, Prg, Transcript},
+    utils::{Block, Prg},
 };
 use helper::Transcript;
-use itertools::{izip, Itertools};
+use itertools::{Itertools, izip};
 use rand::SeedableRng;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};

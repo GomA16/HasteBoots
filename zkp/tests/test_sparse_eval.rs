@@ -2,14 +2,11 @@ use std::rc::Rc;
 use std::vec;
 
 use algebra::{
-    derive::{DecomposableField, Field, Prime},
-    BabyBear, BabyBearExetension, Basis, DecomposableField, DenseMultilinearExtension, Field,
-    FieldUniformSampler,
+    BabyBear, BabyBearExetension, DenseMultilinearExtension, Field, FieldUniformSampler,
+    derive::Field,
 };
 use helper::Transcript;
-use num_traits::{One, Zero};
-use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
-use rand::prelude::*;
+use num_traits::Zero;
 use rand_distr::Distribution;
 use sha2::Sha256;
 use zkp::piop::{

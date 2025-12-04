@@ -29,22 +29,25 @@
 //!                     = c_sum
 //!      where u is a random challenge given from verifier (a vector of random element) and c_sum is some constant
 
-use crate::utils::{
-    batch_inverse, eval_identity_function, gen_identity_evaluations, verify_oracle_relation,
-};
+use core::fmt;
+use std::{collections::HashMap, marker::PhantomData, rc::Rc};
+
 use algebra::PolynomialInfo;
 use algebra::{
-    AbstractExtensionField, AsFrom, DenseMultilinearExtension, Field,
-    ListOfProductsOfPolynomials,
+    AbstractExtensionField, AsFrom, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
 };
 use bincode::config::standard;
 use bincode::error::{DecodeError, EncodeError};
-use core::fmt;
+use helper::Transcript;
 use pcs::PolynomialCommitmentScheme;
 use rayon::{iter::ParallelIterator, slice::ParallelSlice};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, marker::PhantomData, rc::Rc};
-use helper::Transcript;
+use sumcheck::verifier::SubClaim;
+use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
+
+use crate::utils::{
+    batch_inverse, eval_identity_function, gen_identity_evaluations, verify_oracle_relation,
+};
 
 /// Stores the parameters used for lookup and the public info for verifier.
 #[derive(Clone, Serialize, Deserialize)]
@@ -705,7 +708,7 @@ where
 {
     /// Convert into bytes.
     pub fn to_bytes(&self) -> Result<Vec<u8>, EncodeError> {
-        bincode::serde::encode_to_vec(&self, standard())
+        bincode::serde::encode_to_vec(self, standard())
     }
 
     /// Recover from bytes.

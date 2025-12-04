@@ -25,18 +25,19 @@
 //!    \sum_{y \in {0,1}^logN} c_u(y)t(y) = s(u)
 //!    where u is the common random challenge from the verifier, used to instantiate the sum
 //!    and c'(y) is computed from c_u(y) = c(u,y)
-use super::{BitDecomposition, DecomposedBits, DecomposedBitsEval, DecomposedBitsInfo};
-use crate::utils::{
-    eval_identity_function, gen_identity_evaluations, gen_sparse_at_u, gen_sparse_at_u_to_ef,
-    print_statistic, verify_oracle_relation,
-};
+
+use core::fmt;
+use std::marker::PhantomData;
+use std::rc::Rc;
+use std::time::Instant;
+
 use algebra::SparsePolynomial;
 use algebra::{
     AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field,
     ListOfProductsOfPolynomials,
 };
+use bincode::config::standard;
 use helper::Transcript;
-use core::fmt;
 use itertools::izip;
 use pcs::{
     PolynomialCommitmentScheme,
@@ -45,12 +46,16 @@ use pcs::{
     utils::hash::Hash,
 };
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
-use std::rc::Rc;
-use std::time::Instant;
-use std::vec;
 use sumcheck::verifier::SubClaim;
 use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
+
+use super::{BitDecomposition, DecomposedBits, DecomposedBitsEval, DecomposedBitsInfo};
+
+use crate::utils::{
+    eval_identity_function, gen_identity_evaluations, gen_sparse_at_u, gen_sparse_at_u_to_ef,
+    print_statistic, verify_oracle_relation,
+};
+
 /// IOP for transformation from Zq to RQ i.e. R/QR
 pub struct ZqToRQIOP<F: Field>(PhantomData<F>);
 

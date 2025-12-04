@@ -1,20 +1,14 @@
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use rand::prelude::*;
-use rayon::vec;
-use sha2::Sha256;
 use std::rc::Rc;
 use std::sync::Arc;
-use std::time::Instant;
 
-use algebra::{BabyBear, BabyBearExetension, NTTPolynomial};
-use algebra::{DecomposableField, DenseMultilinearExtension, Field};
-use algebra::{NTTField, Polynomial, transformation::AbstractNTT};
-use num_traits::Zero;
-use pcs::utils::code::{self, ExpanderCode, ExpanderCodeSpec};
-use zkp::piop::NTTBareIOP;
-use zkp::piop::ntt::ntt_bare::init_fourier_table;
-use zkp::piop::ntt_revision::NTTSnarks;
-use zkp::piop::ntt_revision::{NTTInstance, NTTInstances};
+use algebra::{
+    BabyBear, BabyBearExetension, DenseMultilinearExtension, NTTField, NTTPolynomial, Polynomial,
+    transformation::AbstractNTT,
+};
+use criterion::{Criterion, criterion_group, criterion_main};
+use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
+use sha2::Sha256;
+use zkp::piop::ntt_revision::{NTTInstances, NTTSnarks};
 
 type FF = BabyBear;
 type EF = BabyBearExetension;
@@ -22,7 +16,7 @@ type Hash = Sha256;
 const BASE_FIELD_BITS: usize = 31;
 
 fn build_instances(log_n: u32, num_ntt: u32) -> NTTInstances<FF> {
-    let m = 1 << (log_n + 1);
+    let _m = 1 << (log_n + 1);
     let plan = FF::get_ntt_table(log_n).unwrap();
     let ntt_table = Arc::new(plan.root_powers());
 

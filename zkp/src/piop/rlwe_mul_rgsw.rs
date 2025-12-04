@@ -24,23 +24,17 @@
 //!
 //! Hence, there are 2k + 2 NTT instances in this single multiplication instance. We can randomize all these 2k+2 NTT instances to obtain a single NTT instance,
 //! and use our NTT IOP to prove this randomized NTT instance.
-use super::LookupInstance;
-use super::NTTBareIOP;
-use super::bit_decomposition::BitDecomposition;
-use super::bit_decomposition::DecomposedBitsEval;
-use super::ntt::NTTRecursiveProof;
-use super::{DecomposedBits, DecomposedBitsInfo, NTTIOP, NTTInstance, NTTInstanceInfo};
-use crate::piop::LookupIOP;
-use crate::utils::{
-    add_assign_ef, eval_identity_function, gen_identity_evaluations, print_statistic,
-    verify_oracle_relation,
-};
+
+use core::fmt;
+use std::rc::Rc;
+use std::sync::Arc;
+use std::time::Instant;
+
 use algebra::{
-    AbstractExtensionField, DenseMultilinearExtension, Field,
-    ListOfProductsOfPolynomials,
+    AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
 };
 use bincode::config::standard;
-use core::fmt;
+use helper::Transcript;
 use itertools::izip;
 use pcs::{
     PolynomialCommitmentScheme,
@@ -50,11 +44,21 @@ use pcs::{
 };
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
-use std::rc::Rc;
-use std::sync::Arc;
-use std::time::Instant;
-use std::vec;
-use helper::Transcript;
+use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit, verifier::SubClaim};
+
+use super::bit_decomposition::{BitDecomposition, DecomposedBitsEval};
+use super::ntt::NTTRecursiveProof;
+use super::{
+    DecomposedBits, DecomposedBitsInfo, LookupInstance, NTTBareIOP, NTTIOP, NTTInstance,
+    NTTInstanceInfo,
+};
+use crate::piop::LookupIOP;
+
+use crate::utils::{
+    add_assign_ef, eval_identity_function, gen_identity_evaluations, print_statistic,
+    verify_oracle_relation,
+};
+
 /// IOP for RLWE * RGSW
 pub struct RlweMultRgswIOP<F: Field>(PhantomData<F>);
 

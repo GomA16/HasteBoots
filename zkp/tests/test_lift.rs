@@ -1,12 +1,11 @@
 use std::rc::Rc;
 use std::sync::Arc;
-use std::vec;
 
 use algebra::derive::Field;
 use algebra::{
-    BabyBear, BabyBearExetension, DenseMultilinearExtension, Field, FieldUniformSampler,
+    BabyBear, BabyBearExetension, DenseMultilinearExtension, Field, FieldUniformSampler, NTTField,
+    Polynomial, transformation::AbstractNTT,
 };
-use algebra::{NTTField, Polynomial, transformation::AbstractNTT};
 use itertools::izip;
 use num_traits::One;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};

@@ -1,6 +1,6 @@
 use algebra::{
-    BabyBear, DenseMultilinearExtension, Field, FieldUniformSampler,
-    ListOfProductsOfPolynomials, MultilinearExtension,
+    BabyBear, DenseMultilinearExtension, Field, FieldUniformSampler, ListOfProductsOfPolynomials,
+    MultilinearExtension,
 };
 use helper::Transcript;
 use rand::prelude::*;

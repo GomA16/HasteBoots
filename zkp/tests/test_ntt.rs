@@ -197,7 +197,7 @@ fn test_ntt_bare_without_delegation() {
     // let mut ntt_table = Vec::with_capacity(m as usize);
     let plan = FF::get_ntt_table(log_n as u32).unwrap();
     let ntt_table = Arc::new(plan.root_powers());
-    
+
     // let mut power = FF::one();
     // for _ in 0..m {
     //     ntt_table.push(power);

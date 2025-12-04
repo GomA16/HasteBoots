@@ -1,8 +1,10 @@
+use std::rc::Rc;
+
 use algebra::{
     BabyBear, BabyBearExetension, DenseMultilinearExtension, Field,
     derive::{DecomposableField, Field, Prime},
-    BabyBear, BabyBearExetension, DenseMultilinearExtension, Field,
 };
+use helper::Transcript;
 use num_traits::Zero;
 use pcs::{
     multilinear::BrakedownPCS,
@@ -10,13 +12,10 @@ use pcs::{
 };
 use rand::prelude::*;
 use sha2::Sha256;
-use std::rc::Rc;
-use std::vec;
 use zkp::piop::{
     LookupIOP, LookupInstance,
     lookup::{LookupParams, LookupProof, LookupProver, LookupVerifier},
 };
-use helper::Transcript;
 
 type FF = BabyBear;
 type EF = BabyBearExetension;

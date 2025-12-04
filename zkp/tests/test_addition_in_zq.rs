@@ -4,8 +4,6 @@ use std::vec;
 use algebra::{
     BabyBear, BabyBearExetension, Basis, DenseMultilinearExtension, Field, FieldUniformSampler,
     derive::{DecomposableField, Field, Prime},
-    BabyBear, BabyBearExetension, Basis, DecomposableField, DenseMultilinearExtension, Field,
-    FieldUniformSampler,
 };
 use helper::Transcript;
 use num_traits::{One, Zero};

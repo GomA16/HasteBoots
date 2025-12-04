@@ -20,6 +20,7 @@ impl From<usize> for Goldilocks {
 }
 
 type Table = <Goldilocks as NTTField>::Table;
+#[allow(clippy::type_complexity)]
 static NTT_TABLE: OnceLock<ArcSwap<Vec<(u32, Arc<Table>)>>> = OnceLock::new();
 
 impl NTTField for Goldilocks {
@@ -118,11 +119,13 @@ impl NTTField for Goldilocks {
     fn init_ntt_table(log_n: u32) -> Result<(), crate::AlgebraError> {
         let ntt_tables = NTT_TABLE.get_or_init(|| ArcSwap::from_pointee(Vec::with_capacity(2)));
 
-        if let None = ntt_tables.load().iter().find(|(key, _)| *key == log_n) {
+        if !ntt_tables.load().iter().any(|(key, _)| *key == log_n) {
             ntt_tables.rcu(|inner| {
                 let mut tables = inner.as_ref().clone();
-                let temp_table = Self::generate_ntt_table(log_n).unwrap();
-                tables.push((log_n, Arc::new(temp_table)));
+                if !tables.iter().any(|(key, _)| *key == log_n) {
+                    let temp_table = Self::generate_ntt_table(log_n).unwrap();
+                    tables.push((log_n, Arc::new(temp_table)));
+                }
                 tables
             });
         }

@@ -5,7 +5,7 @@ use fhe_core::{
 };
 use once_cell::sync::Lazy;
 
-pub static Goldilocks_TERNARY_128_BITS_PARAMETERS: Lazy<Parameters<u16, Goldilocks>> =
+pub static GOLDILOCKS_TERNARY_128_BITS_PARAMETERS: Lazy<Parameters<u16, Goldilocks>> =
     Lazy::new(|| {
         Parameters::<u16, Goldilocks>::new(ConstParameters {
             lwe_dimension: 1024,

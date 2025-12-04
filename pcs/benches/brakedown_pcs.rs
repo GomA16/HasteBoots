@@ -1,10 +1,8 @@
 use std::time::Duration;
 
-use algebra::{
-    BabyBear, BabyBearExetension, DenseMultilinearExtension, FieldUniformSampler,
-};
+use algebra::{BabyBear, BabyBearExetension, DenseMultilinearExtension, FieldUniformSampler};
+use criterion::{Criterion, criterion_group, criterion_main};
 use helper::Transcript;
-use criterion::{criterion_group, criterion_main, Criterion};
 use pcs::{
     PolynomialCommitmentScheme,
     multilinear::{

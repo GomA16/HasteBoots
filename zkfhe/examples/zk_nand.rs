@@ -1,9 +1,8 @@
 use algebra::NTTField;
 use fhe_core::{LWECiphertext, LWEModulusType, utils::*};
 use rand::Rng;
-use zkfhe::{
-    Decryptor, Encryptor, KeyGen, bfhe_trace::{BabyBear_TERNARY_128_BITS_PARAMETERS, DEFAULT_TERNARY_128_BITS_PARAMETERS, Evaluator, Goldilocks_TERNARY_128_BITS_PARAMETERS}
-};
+use zkfhe::bfhe_trace::{DEFAULT_TERNARY_128_BITS_PARAMETERS, Evaluator};
+use zkfhe::{Decryptor, Encryptor, KeyGen};
 
 type M = bool;
 type C = u16;

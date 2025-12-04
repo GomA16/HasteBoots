@@ -1,28 +1,28 @@
+use algebra::DenseMultilinearExtension;
 use algebra::{Field, ListOfProductsOfPolynomials, PolynomialInfo};
 use helper::Transcript;
+use helper::utils::{eval_identity_function, gen_identity_evaluations};
 use serde::Serialize;
-use sumcheck::{Proof, prover::ProverState, verifier::SubClaim};
-use std::{fmt::DebugList, marker::PhantomData, rc::Rc};
-use algebra::DenseMultilinearExtension;
-use helper::utils::{gen_identity_evaluations, eval_identity_function};
+use std::{marker::PhantomData, rc::Rc};
 use sumcheck::MLSumcheck;
+use sumcheck::{Proof, prover::ProverState, verifier::SubClaim};
 
 /// Fourier Matrix evaluation instance
-/// 
+///
 /// Definition of Fourier Matrix in NTT:
 /// [Matrix Definition]
 /// F is a matrix where F(Y, X) denotes the X-th row and Y-th column
 /// in little endian format.
 /// F(Y, X) = w^{(2Y^R + 1) * X} where Y^R is the bit-reversal of Y
-/// 
+///
 /// [MLE Definition]
 /// F(y, x) = F(y_0, y_1, ..., y_{k-1}, x_0, x_1, ..., x_{k-1}) = F(Y, X)
 /// where Y = y_0 * 2^0 + y_1 * 2^1 + ... + y_{k-1} * 2^{k-1}
 /// and X = x_0 * 2^0 + x_1 * 2^1 + ... + x_{k-1} * 2^{k-1}
 /// for y, x \in {0, 1}^k where k = log_2(N) and N is the size of the NTT.
 /// Note that Y^R = y_{k-1} * 2^0 + y_{k-2} * 2^1 + ... + y_0 * 2^{k-1}.
-/// 
-/// F(u, v) = eval 
+///
+/// F(u, v) = eval
 pub struct NTTFourierEvalInfo<F: Field> {
     pub log_coeff_count: usize,
     pub ntt_table: Rc<Vec<F>>,
@@ -48,14 +48,11 @@ pub struct IntermediateMLEs<F: Field> {
 }
 
 impl<F: Field + Serialize> NTTFourierEvalIOP<F> {
-
-    pub fn prove(
-        info: &NTTFourierEvalInfo<F>,
-        trans: &mut Transcript<F>,
-    ) -> NTTFourierProof<F> {
+    pub fn prove(info: &NTTFourierEvalInfo<F>, trans: &mut Transcript<F>) -> NTTFourierProof<F> {
         let log_n = info.log_coeff_count;
 
-        let (f_mles, w_mles) = init_fourier_table_with_mle(&info.point_u, &info.ntt_table).into_mles();
+        let (f_mles, w_mles) =
+            init_fourier_table_with_mle(&info.point_u, &info.ntt_table).into_mles();
 
         let mut requested_point = info.point_v.clone();
         let mut reduced_claim;
@@ -312,7 +309,12 @@ impl<F: Field> IntermediateMLEs<F> {
     }
 
     /// Convert into the stored mles
-    pub fn into_mles(self) -> (Vec<Rc<DenseMultilinearExtension<F>>>, Vec<Rc<DenseMultilinearExtension<F>>>) {
+    pub fn into_mles(
+        self,
+    ) -> (
+        Vec<Rc<DenseMultilinearExtension<F>>>,
+        Vec<Rc<DenseMultilinearExtension<F>>>,
+    ) {
         (self.f_mles, self.w_mles)
     }
 
@@ -323,11 +325,11 @@ impl<F: Field> IntermediateMLEs<F> {
 }
 
 /// This function is the same as the `init_fourier_table` in `ntt_bare.rs` but it also stores the intermediate mles for delegation.
-/// 
+///
 /// # Arguments
 /// * u: the random point
 /// * ntt_table: It stores the NTT table
-/// 
+///
 /// # Returns
 /// * IntermediateMLEs: it stores all the intermediate mles generated in each iteration
 pub fn init_fourier_table_with_mle<F: Field>(u: &[F], ntt_table: &[F]) -> IntermediateMLEs<F> {
@@ -436,11 +438,12 @@ mod test {
 
     use super::{eval_w_power_times_x, naive_w_power_times_x_table};
     use algebra::{
-        DenseMultilinearExtension, FieldUniformSampler, NTTField, derive::{DecomposableField, FheField, Field, NTT, Prime}, transformation::AbstractNTT
+        DenseMultilinearExtension, FieldUniformSampler, NTTField,
+        derive::{DecomposableField, FheField, Field, NTT, Prime},
+        transformation::AbstractNTT,
     };
     use helper::Transcript;
     use num_traits::{One, Zero};
-    use rand::thread_rng;
     use rand_distr::Distribution;
     use std::rc::Rc;
 
@@ -468,8 +471,8 @@ mod test {
     #[test]
     fn test_init_fourier_table_overall() {
         let uniform = <FieldUniformSampler<FF>>::new();
-        let mut rng = thread_rng();
-    
+        let mut rng = rand::rng();
+
         let dim = 10;
         let m = 1 << (dim + 1); // M = 2N = 2 * (1 << dim)
 
@@ -487,7 +490,7 @@ mod test {
         // With little endian representation, we have:
         // F[x_0, x_1, ..., x_{\logN-1} || y_0, y_1, ..., y_{\logN-1}] = F_matrix[i, j] = w^{(2 * rev_i + 1) * j}
         // where i = \sum_k 2^k * x_k and j = \sum_k 2^k * y_k
-        // and rev_i = \sum_k 2^{\logN-1-k} x_k 
+        // and rev_i = \sum_k 2^{\logN-1-k} x_k
         for i in 0..1 << dim {
             for j in 0..1 << dim {
                 // ! Modified Formula
@@ -516,7 +519,8 @@ mod test {
         let proof = NTTFourierEvalIOP::<FF>::prove(&fourier_info, &mut prover_trans);
 
         let mut verifier_trans = Transcript::<FF>::default();
-        let res = NTTFourierEvalIOP::<FF>::verify_recursive(&mut verifier_trans, &proof, &fourier_info);
+        let res =
+            NTTFourierEvalIOP::<FF>::verify_recursive(&mut verifier_trans, &proof, &fourier_info);
         assert!(res);
     }
 
@@ -538,7 +542,7 @@ mod test {
         }
 
         let sampler = <FieldUniformSampler<FF>>::new();
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
         for x_dim in 0..=dim {
             let r: Vec<_> = (0..x_dim).map(|_| sampler.sample(&mut rng)).collect();
@@ -547,6 +551,4 @@ mod test {
             assert_eq!(w_eval, w_mle.evaluate(&r));
         }
     }
-
 }
-
