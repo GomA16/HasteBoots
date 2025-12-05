@@ -3,7 +3,10 @@ use algebra::{Field, ListOfProductsOfPolynomials, PolynomialInfo};
 use helper::Transcript;
 use helper::utils::{eval_identity_function, gen_identity_evaluations};
 use serde::Serialize;
+use sumcheck::{Proof, prover::ProverState, verifier::SubClaim};
 use std::{marker::PhantomData, rc::Rc};
+use algebra::DenseMultilinearExtension;
+use helper::utils::{gen_identity_evaluations, eval_identity_function};
 use sumcheck::MLSumcheck;
 use sumcheck::{Proof, prover::ProverState, verifier::SubClaim};
 
@@ -32,7 +35,6 @@ pub struct NTTFourierEvalInfo<F: Field> {
 }
 
 pub struct NTTFourierProof<F: Field> {
-    // pub num_rounds: usize,
     /// each delegation is a sumcheck proof
     pub sumcheck_proofs: Vec<Proof<F>>,
     /// the reduced claims in each round of delegation
@@ -48,27 +50,31 @@ pub struct IntermediateMLEs<F: Field> {
 }
 
 impl<F: Field + Serialize> NTTFourierEvalIOP<F> {
-    pub fn prove(info: &NTTFourierEvalInfo<F>, trans: &mut Transcript<F>) -> NTTFourierProof<F> {
+    /// Generate proof for the evaluation of Fourier matrix at point (u, v) in O(log N) rounds with O(N) time.
+    pub fn prover(
+        info: &NTTFourierEvalInfo<F>,
+        trans: &mut Transcript<F>,
+    ) -> NTTFourierProof<F> {
         let log_n = info.log_coeff_count;
 
-        let (f_mles, w_mles) =
-            init_fourier_table_with_mle(&info.point_u, &info.ntt_table).into_mles();
+        // initialize the Fourier table F(u, x) with storing the intermediate mles
+        let (f_mles, w_mles) = init_fourier_table_with_mle(&info.point_u, &info.ntt_table).into_mles();
 
         let mut requested_point = info.point_v.clone();
         let mut reduced_claim;
 
-        // store the sumcheck proof in each round
+        // store the sumcheck proof in each delegation round
         let mut sumcheck_proofs = Vec::with_capacity(log_n - 1);
-        // store the sub_claims of the sumcheck protocol in each round
+        // store the sub_claims of the sumcheck protocol in each delegation round
         let mut sub_claims = Vec::with_capacity(log_n - 1);
-
-        // k iterates from log_n - 1 down to 1, corresponding to the `i` from 1 to log_n - 1 in the algorithm description.
+        
+        // k iterates from log_n - 1 down to 1, corresponding to the `i` in the algorithm description.
         // k also denotes the number of variables in this round of sumcheck protocol
         for k in (1..log_n).rev() {
             // w_to_powers = ω^{2^k}
             let w_to_powers = info.ntt_table[1 << k];
             let f_poly = &f_mles[k - 1];
-            let (this_round_proof, this_round_state) = Self::delegation_proof_iteration(
+            let (this_round_proof, this_round_state) = Self::generate_delegation_proof_step(
                 trans,
                 k,
                 &requested_point,
@@ -78,7 +84,7 @@ impl<F: Field + Serialize> NTTFourierEvalIOP<F> {
                 &w_mles[k],
             );
             sumcheck_proofs.push(this_round_proof);
-            
+        
             // the requested point returned from this round of sumcheck protocol, which initiates the claimed sum of the next round
             requested_point = this_round_state.randomness;
             reduced_claim = f_poly.evaluate(&requested_point);
@@ -86,21 +92,23 @@ impl<F: Field + Serialize> NTTFourierEvalIOP<F> {
         }
 
         NTTFourierProof {
-            // num_rounds: log_n - 1,
             sumcheck_proofs,
             sub_claims,
         }
     }
 
-    /// The delegation of F(u, v) consists of logN - 1 rounds, each of which is a sumcheck protocol.
+    /// The delegation of evaluating F(u, v) consists of log_n - 1 rounds, each of which is a sumcheck protocol.
     ///
-    /// We define $A_{F}^{(k)}:\{0,1\}^{k+1} -> \mathbb{F}$ and $ω^{(k)}_{i+1}:\{0,1\}^{k+1} -> \mathbb{F}$.
-    /// The prover asserts the following sum = \tilde{A}_{F}^{(k)}(x, b) at a random point $(x, b)\in \mathbb{F}^{k+1}$:
-    /// sum = \sum_{z\in \{0,1\}}^k
-    ///         \tilde{\beta}((x, b),(z,0)) * \tilde{A}_{F}^{(k-1)}(z) ( (1-u_{i})+u_{i} * \tilde{ω}^{(k)}_{i+1}(z, 0)
-    ///       + \tilde{\beta}((x, b),(z,1)) * \tilde{A}_{F}^{(k-1)}(z) ( (1-u_{i})+u_{i} * \tilde{ω}^{(k)}_{i+1}(z, 1) * ω^{2^k}
+    /// We define A^{(k)}:{0,1}^{k+1} -> \mathbb{F} and ω^{(k)}_{i+1}:{0,1}^{k+1} -> \mathbb{F}.
+    /// The prover asserts the following sum = A^{(k)}(x, b) at a random point 
+    /// where x \in {0,1}^{k} and b \in {0, 1}:
+    /// Note that the summation is over a hypercube of dimension k, i.e., z \in {0, 1}^k.
+    /// sum = \sum_{z\in {0,1}}^k
+    ///         \beta((x, b),(z,0)) * A^{(k-1)} (z) ( (1-u_{i}) + u_{i} * ω^{(k)}_{i+1}(z, 0)
+    ///       + \beta((x, b),(z,1)) * A^{(k-1)}(z) ( (1-u_{i}) + u_{i} * ω^{(k)}_{i+1}(z, 1) * ω^{2^k}
     /// where $\ω^{(k)}_{i+1}(x,b ) = \ω^{2^{i+1}\cdot j}$ for $j = X+2^{i+1}\cdot b$.
     ///
+    /// We define A
     /// In the term of the data structure, the polynomial to be sumed can be viewed as the sum of two products,
     /// one has coefficient one, and the other has coefficient ω^{2^k}.
     ///
@@ -111,16 +119,16 @@ impl<F: Field + Serialize> NTTFourierEvalIOP<F> {
     /// * w_to_powers: the coefficient ω^{2^k} of the second product
     /// * f: MLE \tilde{A}_{F}^{(k-1)}(z) for z\in \{0,1\}^k
     /// * w: MLE \tilde{ω}^{(k)}_{i+1}(z, b) for z\in \{0,1\}^k  and b\in \{0, 1\}, which will be divided into two smaller MLEs \tilde{ω}^{(k)}_{i+1}(z, 0) and \tilde{ω}^{(k)}_{i+1}(z, 1)
-    pub fn delegation_proof_iteration(
+    pub fn generate_delegation_proof_step(
         trans: &mut Transcript<F>,
         num_vars: usize,
         requested_point: &[F],
         u_i: F,
         w_to_powers: F,
-        f: &Rc<DenseMultilinearExtension<F>>,
+        f_poly: &Rc<DenseMultilinearExtension<F>>,
         w: &Rc<DenseMultilinearExtension<F>>,
     ) -> (Proof<F>, ProverState<F>) {
-        assert_eq!(f.num_vars, num_vars);
+        assert_eq!(f_poly.num_vars, num_vars);
         assert_eq!(w.num_vars, num_vars + 1);
 
         let mut poly = <ListOfProductsOfPolynomials<F>>::new(num_vars);
@@ -137,7 +145,7 @@ impl<F: Field + Serialize> NTTFourierEvalIOP<F> {
         // left product is \tilde{\beta}((x, b),(z,0)) * \tilde{A}_{F}^{(k-1)}(z) ( (1-u_{i})+u_{i} * \tilde{ω}^{(k)}_{i+1}(z, 0)
         // right product is \tilde{\beta}((x, b),(z,1)) * \tilde{A}_{F}^{(k-1)}(z) ( (1-u_{i})+u_{i} * \tilde{ω}^{(k)}_{i+1}(z, 1) * ω^{2^k}
         poly.add_product_with_linear_op(
-            [Rc::new(eq_func_left), Rc::clone(f), Rc::new(w_left)],
+            [Rc::new(eq_func_left), Rc::clone(f_poly), Rc::new(w_left)],
             &[
                 (F::one(), F::zero()),
                 (F::one(), F::zero()),
@@ -147,7 +155,7 @@ impl<F: Field + Serialize> NTTFourierEvalIOP<F> {
         );
 
         poly.add_product_with_linear_op(
-            [Rc::new(eq_func_right), Rc::clone(f), Rc::new(w_right)],
+            [Rc::new(eq_func_right), Rc::clone(f_poly), Rc::new(w_right)],
             &[
                 (F::one(), F::zero()),
                 (F::one(), F::zero()),
@@ -161,7 +169,7 @@ impl<F: Field + Serialize> NTTFourierEvalIOP<F> {
 
     /// Compared to the `prove` functionality, we remove the phase to prove NTT bare.
     /// Also, after detaching the verification of NTT bare, verifier can directly check the recursive proofs.
-    pub fn verify_recursive(
+    pub fn verifier(
         trans: &mut Transcript<F>,
         proof: &NTTFourierProof<F>,
         info: &NTTFourierEvalInfo<F>,
@@ -174,58 +182,46 @@ impl<F: Field + Serialize> NTTFourierEvalIOP<F> {
         let mut reduced_claim = info.eval;
 
         for (cnt, k) in (1..log_n).rev().enumerate() {
-            // verify the proof of the sumcheck protocol
             let poly_info = PolynomialInfo {
                 max_multiplicands: 3,
                 num_variables: k,
             };
-            let subclaim = MLSumcheck::verify(
+            let sumcheck_subclaim = MLSumcheck::verify(
                 trans,
                 &poly_info,
                 reduced_claim,
-                // proof.sub_claims[cnt],
                 &proof.sumcheck_proofs[cnt],
             )
             .expect("ntt verification failed in round {cnt}");
 
-            // In the last round of the sumcheck protocol, the verify needs to check the equality of the evaluation of the polynomial to be summed at a random point z = r \in \{0,1\}}^k.
-            // The verifier is given the evaluation of \tilde{A}_{F}^{(k-1)}(z = r) instead of computing on his own, so he can use it to check.
-            // If the equality holds, it is reduced to check the evaluation of \tilde{A}_{F}^{(k-1)}(z = r).
-            // let reduced_claim = if cnt < log_n - 2 {
-            //     proof.sub_claims[cnt + 1]
-            // } else {
-            //     proof.final_claim
-            // };
+            // In the last round of the sumcheck protocol, the verify needs to check the equality of the
+            // evaluation of the polynomial to be summed at a random point z = r \in \{0,1\}}^k using the
+            // given evaluation of \tilde{A}_{F}^{(k-1)}(z = r) stored in the reduced_claim.
+            // This reduced claim is also the claimed sum of next round.
             reduced_claim = proof.sub_claims[cnt];
-            // check the equality
-            if !Self::delegation_verify_round(
+            if !Self::verify_delegation_proof_step(
                 k,
                 &requested_point,
-                // ! Modified Formula
                 info.point_u[k],
-                &subclaim,
+                &sumcheck_subclaim,
                 reduced_claim,
                 info,
             ) {
                 panic!("ntt verification failed in round {cnt}");
             }
-            requested_point = subclaim.point;
+            requested_point = sumcheck_subclaim.point;
         }
 
-        // let delegation_final_claim = proof.final_claim;
-        let delegation_final_claim = proof.sub_claims[log_n - 2];
-        let final_point = requested_point;
-        // TODO: handle the case that log = 1
-        assert_eq!(final_point.len(), 1);
+        assert_eq!(requested_point.len(), 1);
 
-        // check the final claim returned from the last round of delegation where subclaim = 1
+        // check the final reduced claim with the initial value = 1
         let idx = 1 << (info.log_coeff_count);
-        let eval = eval_identity_function(&final_point, &[F::zero()])
-            + eval_identity_function(&final_point, &[F::one()])
+        let eval = eval_identity_function(&requested_point, &[F::zero()])
+            + eval_identity_function(&requested_point, &[F::one()])
                 * (F::one() - info.point_u[0] + info.point_u[0] * info.ntt_table[idx])
                 * info.ntt_table[1];
 
-        delegation_final_claim == eval
+        reduced_claim == eval
     }
 
     /// The delegation of F(u, v) consists of logN - 1 rounds, each of which is a sumcheck protocol.
@@ -247,7 +243,7 @@ impl<F: Field + Serialize> NTTFourierEvalIOP<F> {
     /// * u_i: parameter in this round as described in the formula
     /// * subclaim: the subclaim returned from this round of the sumcheck, containing the random point r used for equality check
     /// * reduced_claim: the given evaluation of \tilde{A}_{F}^{(k-1)}(z = r) so verify does not need to compute on his own
-    pub fn delegation_verify_round(
+    pub fn verify_delegation_proof_step(
         round: usize,
         x_b_point: &[F],
         u_i: F,
@@ -269,11 +265,10 @@ impl<F: Field + Serialize> NTTFourierEvalIOP<F> {
         // compute $\ω^{(k)}_{i+1}(x,b ) = \ω^{2^{i+1}\cdot j}$ for $j = X+2^{i+1}\cdot b$ at point (r, 0) and (r, 1)
         // exp: i + 1 = n - k
         // let exp = log_n - round;
-        // ! Modified Formula
-        let sub = round + 1;
+        let subscript = round + 1;
         // w_left = \tilde{ω}^{(k)}_{i+1}(r, 0) and w_right = \tilde{ω}^{(k)}_{i+1}(r, 0)
-        let w_left = eval_w_power_times_x(ntt_table, log_n + 1, round + 1, sub, &r_left);
-        let w_right = eval_w_power_times_x(ntt_table, log_n + 1, round + 1, sub, &r_right);
+        let w_left = eval_w_power_times_x(ntt_table, log_n + 1, round + 1, subscript, &r_left);
+        let w_right = eval_w_power_times_x(ntt_table, log_n + 1, round + 1, subscript, &r_right);
 
         let eval = eval_identity_function(x_b_point, &r_left)
             * reduced_claim
@@ -493,7 +488,6 @@ mod test {
         // and rev_i = \sum_k 2^{\logN-1-k} x_k
         for i in 0..1 << dim {
             for j in 0..1 << dim {
-                // ! Modified Formula
                 let rev_i = reverse_bits(i, dim);
                 let idx_power = ((2 * rev_i + 1) * j) as u32 % m;
                 let idx_fourier = i + (j << dim);
@@ -516,11 +510,10 @@ mod test {
         };
 
         let mut prover_trans = Transcript::<FF>::default();
-        let proof = NTTFourierEvalIOP::<FF>::prove(&fourier_info, &mut prover_trans);
+        let proof = NTTFourierEvalIOP::<FF>::prover(&fourier_info, &mut prover_trans);
 
         let mut verifier_trans = Transcript::<FF>::default();
-        let res =
-            NTTFourierEvalIOP::<FF>::verify_recursive(&mut verifier_trans, &proof, &fourier_info);
+        let res = NTTFourierEvalIOP::<FF>::verifier(&mut verifier_trans, &proof, &fourier_info);
         assert!(res);
     }
 
