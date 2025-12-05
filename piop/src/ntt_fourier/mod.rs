@@ -32,7 +32,7 @@ pub struct NTTFourierEvalInfo<F: Field> {
 }
 
 pub struct NTTFourierProof<F: Field> {
-    pub num_rounds: usize,
+    // pub num_rounds: usize,
     /// each delegation is a sumcheck proof
     pub sumcheck_proofs: Vec<Proof<F>>,
     /// the reduced claims in each round of delegation
@@ -86,7 +86,7 @@ impl<F: Field + Serialize> NTTFourierEvalIOP<F> {
         }
 
         NTTFourierProof {
-            num_rounds: log_n - 1,
+            // num_rounds: log_n - 1,
             sumcheck_proofs,
             sub_claims,
         }
