@@ -1,14 +1,13 @@
-use algebra::{DenseMultilinearExtension, Field, ListOfProductsOfPolynomials, PolynomialInfo};
+use algebra::{DenseMultilinearExtension, Field, PolynomialInfo};
 use helper::Transcript;
 use serde::Serialize;
 use std::rc::Rc;
 use sumcheck::{MLSumcheck, Proof, verifier::SubClaim};
 use trace::NTTTraceMLE;
 
-use crate::{
-    NTTFourierEvalIOP, SumcheckClaim,
-    ntt_fourier::{NTTFourierEvalInfo, NTTFourierProof},
-};
+use crate::ntt::{NTTFourierEvalIOP, NTTFourierEvalInfo};
+use crate::ntt::fourier_eval::NTTFourierProof;
+use crate::SumcheckClaim;
 
 pub struct NTTEvalIOP<F: Field> {
     _marker: std::marker::PhantomData<F>,
@@ -248,19 +247,15 @@ pub fn init_fourier_table<F: Field>(u: &[F], ntt_table: &[F]) -> DenseMultilinea
 
 #[cfg(test)]
 mod test{
-    use crate::ntt_eval::{self, NTTEvalInstance};
+    use crate::ntt::{NTTEvalInstance, ntt_eval::init_fourier_table};
 
     use super::NTTEvalIOP;
     use algebra::{
-        DenseMultilinearExtension, FieldUniformSampler, NTTField,
-        derive::{DecomposableField, FheField, Field, NTT, Prime},
-        transformation::AbstractNTT,
+        FieldUniformSampler, NTTField, derive::{DecomposableField, FheField, Field, NTT, Prime}, transformation::AbstractNTT
     };
     use helper::Transcript;
-    use num_traits::{One, Zero};
     use rand_distr::Distribution;
     use trace::NTTTrace;
-    use std::rc::Rc;
 
     #[derive(Field, DecomposableField, FheField, Prime, NTT)]
     #[modulus = 132120577]
@@ -271,9 +266,10 @@ mod test{
     #[test]
     fn test_ntt_eval_iop() {
         let log_coeff_count = 10;
+        let log_num_ntt = 0;
         let uniform = <FieldUniformSampler<FF>>::new();
         let mut rng = rand::rng();
-        let ntt_trace = NTTTrace::<FF>::random(log_coeff_count, &mut rng);
+        let ntt_trace = NTTTrace::<FF>::random(log_coeff_count, log_num_ntt, &mut rng);
 
         let point_u = uniform.sample_iter(&mut rng).take(log_coeff_count).collect::<Vec<_>>();
         let ntt_eval_instance = NTTEvalInstance::from(&ntt_trace.into(), &point_u);
@@ -287,4 +283,19 @@ mod test{
         assert!(res);
     }
 
+    #[test]
+    fn test_init_fourier_table() {
+        let uniform = <FieldUniformSampler<FF>>::new();
+        let mut rng = rand::rng();
+
+        let dim = 10;
+        let u = uniform.sample_iter(&mut rng).take(dim).collect::<Vec<_>>();
+        let v = uniform.sample_iter(&mut rng).take(dim).collect::<Vec<_>>();
+
+        let ntt_table = FF::get_ntt_table(dim as u32).unwrap().root_powers();
+        let naive_fourier = super::naive_init_fourier_table(&u, &ntt_table);
+        let fourier_mle = init_fourier_table(&u, &ntt_table);
+
+        assert_eq!(fourier_mle.evaluate(&v), naive_fourier.evaluate(&v));
+    }
 }

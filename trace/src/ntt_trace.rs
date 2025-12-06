@@ -11,6 +11,7 @@ use crate::ConvertToEF;
 
 pub struct NTTTrace<F: Field> {
     pub log_coeff_count: usize,
+    pub log_num_ntt: usize,
     pub ntt_table: Vec<F>,
     pub coefficients: Vec<F>,
     pub evaluations: Vec<F>,
@@ -18,6 +19,7 @@ pub struct NTTTrace<F: Field> {
 
 pub struct NTTBatchedTrace<F: Field> {
     pub log_coeff_count: usize,
+    pub log_num_ntt: usize,
     pub ntt_table: Vec<F>,
     pub coefficients: Vec<Vec<F>>,
     pub evaluations: Vec<Vec<F>>,
@@ -25,6 +27,8 @@ pub struct NTTBatchedTrace<F: Field> {
 
 /// NTT instance to be proved
 pub struct NTTTraceMLE<F: Field> {
+    pub log_coeff_count: usize,
+    pub log_num_ntt: usize,
     pub ntt_table: Rc<Vec<F>>,
     pub coefficients: Rc<DenseMultilinearExtension<F>>,
     pub evaluations: Rc<DenseMultilinearExtension<F>>,
@@ -40,9 +44,10 @@ pub struct NTTInstanceInfo<F: Field> {
 impl<F: Field> NTTTrace<F> {
     /// Create a new empty NTT trace
     #[inline]
-    pub fn new(log_coeff_count: usize, ntt_table: Vec<F>) -> Self {
+    pub fn new(log_coeff_count: usize, log_num_ntt: usize, ntt_table: Vec<F>) -> Self {
         Self {
             log_coeff_count,
+            log_num_ntt,
             ntt_table,
             coefficients: Vec::with_capacity(1 << log_coeff_count),
             evaluations: Vec::with_capacity(1 << log_coeff_count),
@@ -55,6 +60,7 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for NTTTrace<F>
     fn into_ef(self) -> Self::Output {
         NTTTrace {
             log_coeff_count: self.log_coeff_count,
+            log_num_ntt: self.log_num_ntt,
             ntt_table: self.ntt_table.into_ef(),
             coefficients: self.coefficients.into_ef(),
             evaluations: self.evaluations.into_ef(),
@@ -64,6 +70,7 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for NTTTrace<F>
     fn to_ef(&self) -> Self::Output {
         NTTTrace {
             log_coeff_count: self.log_coeff_count,
+            log_num_ntt: self.log_num_ntt,
             ntt_table: self.ntt_table.to_ef(),
             coefficients: self.coefficients.to_ef(),
             evaluations: self.evaluations.to_ef(),
@@ -74,19 +81,26 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for NTTTrace<F>
 impl<F: NTTField> NTTTrace<F> {
     /// Generate a random NTT trace
     #[inline]
-    pub fn random<R: rand::Rng + rand::CryptoRng>(log_coeff_count: usize, rng: &mut R) -> Self {
-        let size = 1 << log_coeff_count;
+    pub fn random<R: rand::Rng + rand::CryptoRng>(log_coeff_count: usize, log_num_ntt: usize, rng: &mut R) -> Self {
+        let size = 1 << (log_coeff_count + log_num_ntt);
         let coefficients = FieldUniformSampler::new()
             .sample_iter(rng)
             .take(size)
             .collect::<Vec<F>>();
 
         let mut evaluations = coefficients.clone();
-        F::get_ntt_table(log_coeff_count as u32)
-            .unwrap()
-            .transform_slice(&mut evaluations);
+        let ntt_table = F::get_ntt_table(log_coeff_count as u32).unwrap();
+
+        evaluations
+            .chunks_exact_mut(1 << log_coeff_count)
+            .for_each(|chunk|ntt_table.transform_slice(chunk));
+
+        // F::get_ntt_table(log_coeff_count as u32)
+        //     .unwrap()
+        //     .transform_slice(&mut evaluations);
         Self {
             log_coeff_count,
+            log_num_ntt,
             ntt_table: F::get_ntt_table(log_coeff_count as u32)
                 .unwrap()
                 .root_powers(),
@@ -104,6 +118,7 @@ impl<F: NTTField> NTTBatchedTrace<F> {
         num_instances: usize,
         rng: &mut R,
     ) -> Self {
+        todo!("need to fix batched ntt trace generation");
         let size = 1 << log_coeff_count;
         let mut coefficients = Vec::with_capacity(num_instances);
         let mut evaluations = Vec::with_capacity(num_instances);
@@ -128,6 +143,7 @@ impl<F: NTTField> NTTBatchedTrace<F> {
         }
         Self {
             log_coeff_count,
+            log_num_ntt: num_instances.trailing_zeros() as usize,
             ntt_table: F::get_ntt_table(log_coeff_count as u32)
                 .unwrap()
                 .root_powers(),
@@ -161,6 +177,7 @@ impl<F: Field> NTTBatchedTrace<F> {
 
         NTTTrace {
             log_coeff_count: self.log_coeff_count,
+            log_num_ntt: self.log_num_ntt,
             ntt_table: self.ntt_table.clone(),
             coefficients: rand_coeffs,
             evaluations: rand_evals,
@@ -194,6 +211,7 @@ impl<F: Field> NTTBatchedTrace<F> {
 
         NTTTrace::<EF> {
             log_coeff_count: self.log_coeff_count,
+            log_num_ntt: self.log_num_ntt,
             ntt_table: self.ntt_table.to_ef(),
             coefficients: rand_coeffs,
             evaluations: rand_evals,
@@ -235,6 +253,8 @@ impl<F: Field> From<NTTTrace<F>> for NTTTraceMLE<F> {
         ));
         let ntt_table = Rc::new(trace.ntt_table);
         Self {
+            log_coeff_count: trace.log_coeff_count,
+            log_num_ntt: trace.log_num_ntt,
             ntt_table,
             coefficients,
             evaluations,

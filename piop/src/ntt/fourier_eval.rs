@@ -432,16 +432,17 @@ pub fn eval_w_power_times_x<F: Field>(
 
 #[cfg(test)]
 mod test {
-    use crate::ntt_fourier::{NTTFourierEvalIOP, NTTFourierEvalInfo};
+    use super::{NTTFourierEvalIOP, NTTFourierEvalInfo};
 
     use super::{eval_w_power_times_x, naive_w_power_times_x_table};
+    use algebra::Field;
     use algebra::{
         DenseMultilinearExtension, FieldUniformSampler, NTTField,
         derive::{DecomposableField, FheField, Field, NTT, Prime},
         transformation::AbstractNTT,
     };
     use helper::Transcript;
-    use num_traits::{One, Zero};
+    use num_traits::One;
     use rand_distr::Distribution;
     use std::rc::Rc;
 
@@ -466,22 +467,9 @@ mod test {
         reverse_index
     }
 
-    #[test]
-    fn test_init_fourier_table_overall() {
-        let uniform = <FieldUniformSampler<FF>>::new();
-        let mut rng = rand::rng();
-
-        let dim = 10;
-        let m = 1 << (dim + 1); // M = 2N = 2 * (1 << dim)
-
-        let u = uniform.sample_iter(&mut rng).take(dim).collect::<Vec<_>>();
-        let v = uniform.sample_iter(&mut rng).take(dim).collect::<Vec<_>>();
-        let mut u_v: Vec<_> = Vec::with_capacity(dim << 1);
-        u_v.extend(&u);
-        u_v.extend(&v);
-
-        let mut fourier_matrix = vec![FF::zero(); (1 << dim) * (1 << dim)];
-        let ntt_table = FF::get_ntt_table(dim as u32).unwrap().root_powers();
+    fn generate_fourier_matrix<F: Field>(dim: usize, ntt_table: &[F]) -> DenseMultilinearExtension<F> {
+        let mut fourier_matrix = vec![F::zero(); (1 << dim) * (1 << dim)];
+        let m = ntt_table.len();
 
         // The special structure of the fourier matrix is defined as:
         // F[i, j] = w^{(2 * rev_i + 1) * j} where w is the M-th root of unity.
@@ -492,16 +480,30 @@ mod test {
         for i in 0..1 << dim {
             for j in 0..1 << dim {
                 let rev_i = reverse_bits(i, dim);
-                let idx_power = ((2 * rev_i + 1) * j) as u32 % m;
+                let idx_power = ((2 * rev_i + 1) * j) as u32 % (m as u32);
                 let idx_fourier = i + (j << dim);
                 fourier_matrix[idx_fourier] = ntt_table[idx_power as usize];
             }
         }
 
-        let fourier_mle = DenseMultilinearExtension::from_evaluations_vec(dim << 1, fourier_matrix);
-        let partial_fourier_mle = &init_fourier_table_with_mle(&u, &ntt_table).get_f_mles(dim - 1);
+        DenseMultilinearExtension::from_evaluations_vec(dim << 1, fourier_matrix)
+    }
 
-        assert_eq!(fourier_mle.evaluate(&u_v), partial_fourier_mle.evaluate(&v));
+    #[test]
+    fn test_fourier_eval_iop() {
+        let uniform = <FieldUniformSampler<FF>>::new();
+        let mut rng = rand::rng();
+
+        let dim = 10;
+        let u = uniform.sample_iter(&mut rng).take(dim).collect::<Vec<_>>();
+        let v = uniform.sample_iter(&mut rng).take(dim).collect::<Vec<_>>();
+        let mut u_v: Vec<_> = Vec::with_capacity(dim << 1);
+        u_v.extend(&u);
+        u_v.extend(&v);
+
+        let ntt_table = FF::get_ntt_table(dim as u32).unwrap().root_powers();
+
+        let fourier_mle = generate_fourier_matrix(dim, &ntt_table);
 
         let eval = fourier_mle.evaluate(&u_v);
         let fourier_info = NTTFourierEvalInfo {
@@ -518,6 +520,26 @@ mod test {
         let mut verifier_trans = Transcript::<FF>::default();
         let res = NTTFourierEvalIOP::<FF>::verifier(&mut verifier_trans, &fourier_info, &proof);
         assert!(res);
+    }
+
+    #[test]
+    fn test_init_fourier_table_with_mle() {
+        let uniform = <FieldUniformSampler<FF>>::new();
+        let mut rng = rand::rng();
+
+        let dim = 10;
+        let u = uniform.sample_iter(&mut rng).take(dim).collect::<Vec<_>>();
+        let v = uniform.sample_iter(&mut rng).take(dim).collect::<Vec<_>>();
+        let mut u_v: Vec<_> = Vec::with_capacity(dim << 1);
+        u_v.extend(&u);
+        u_v.extend(&v);
+
+        let ntt_table = FF::get_ntt_table(dim as u32).unwrap().root_powers();
+
+        let fourier_mle = generate_fourier_matrix(dim, &ntt_table);
+        let partial_fourier_mle = &init_fourier_table_with_mle(&u, &ntt_table).get_f_mles(dim - 1);
+
+        assert_eq!(fourier_mle.evaluate(&u_v), partial_fourier_mle.evaluate(&v));
     }
 
     #[test]
