@@ -1,5 +1,5 @@
 env:
-  RUST_MIN_VER: "1.85"
+  RUST_MIN_VER: "1.90"
   # List of packages that will be checked with the minimum supported Rust version.
   # This should be limited to packages that are intended for publishing.
   RUST_MIN_VER_PKGS: "-p algebra -p lattice -p fhe_core -p zkfhe"
