@@ -3,10 +3,8 @@
 members = [
     "algebra",
     "algebra_derive",
-    # "fhe_core",
+    "fhe_core",
     "lattice",
-    # "fhe",
-    "fhe_ops",
     "pcs",
     "zkfhe",
     "zkp",

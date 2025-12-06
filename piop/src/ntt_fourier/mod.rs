@@ -5,10 +5,7 @@ use helper::utils::{eval_identity_function, gen_identity_evaluations};
 use serde::Serialize;
 use sumcheck::{Proof, prover::ProverState, verifier::SubClaim};
 use std::{marker::PhantomData, rc::Rc};
-use algebra::DenseMultilinearExtension;
-use helper::utils::{gen_identity_evaluations, eval_identity_function};
 use sumcheck::MLSumcheck;
-use sumcheck::{Proof, prover::ProverState, verifier::SubClaim};
 
 /// Fourier Matrix evaluation instance
 ///
@@ -26,8 +23,10 @@ use sumcheck::{Proof, prover::ProverState, verifier::SubClaim};
 /// Note that Y^R = y_{k-1} * 2^0 + y_{k-2} * 2^1 + ... + y_0 * 2^{k-1}.
 ///
 /// F(u, v) = eval
+#[derive(Serialize)]
 pub struct NTTFourierEvalInfo<F: Field> {
     pub log_coeff_count: usize,
+    #[serde(skip)]
     pub ntt_table: Rc<Vec<F>>,
     pub point_u: Vec<F>,
     pub point_v: Vec<F>,
@@ -52,9 +51,11 @@ pub struct IntermediateMLEs<F: Field> {
 impl<F: Field + Serialize> NTTFourierEvalIOP<F> {
     /// Generate proof for the evaluation of Fourier matrix at point (u, v) in O(log N) rounds with O(N) time.
     pub fn prover(
-        info: &NTTFourierEvalInfo<F>,
         trans: &mut Transcript<F>,
+        info: &NTTFourierEvalInfo<F>,
     ) -> NTTFourierProof<F> {
+        trans.append_message(b"[NTT Fourier Evaluation Statement]", &info);
+
         let log_n = info.log_coeff_count;
 
         // initialize the Fourier table F(u, x) with storing the intermediate mles
@@ -171,9 +172,11 @@ impl<F: Field + Serialize> NTTFourierEvalIOP<F> {
     /// Also, after detaching the verification of NTT bare, verifier can directly check the recursive proofs.
     pub fn verifier(
         trans: &mut Transcript<F>,
-        proof: &NTTFourierProof<F>,
         info: &NTTFourierEvalInfo<F>,
+        proof: &NTTFourierProof<F>,
     ) -> bool {
+        trans.append_message(b"[NTT Fourier Evaluation Statement]", &info);
+
         let log_n = info.log_coeff_count;
         assert_eq!(proof.sumcheck_proofs.len(), log_n - 1);
         assert_eq!(proof.sub_claims.len(), log_n - 1);
@@ -510,10 +513,10 @@ mod test {
         };
 
         let mut prover_trans = Transcript::<FF>::default();
-        let proof = NTTFourierEvalIOP::<FF>::prover(&fourier_info, &mut prover_trans);
+        let proof = NTTFourierEvalIOP::<FF>::prover(&mut prover_trans, &fourier_info);
 
         let mut verifier_trans = Transcript::<FF>::default();
-        let res = NTTFourierEvalIOP::<FF>::verifier(&mut verifier_trans, &proof, &fourier_info);
+        let res = NTTFourierEvalIOP::<FF>::verifier(&mut verifier_trans, &fourier_info, &proof);
         assert!(res);
     }
 

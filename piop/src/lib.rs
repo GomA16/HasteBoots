@@ -1,6 +1,6 @@
-pub mod ntt;
+// pub mod ntt;
 pub mod ntt_fourier;
-// pub mod ntt_eval;
+pub mod ntt_eval;
 
 use algebra::{Field, ListOfProductsOfPolynomials};
 pub use ntt_fourier::NTTFourierEvalIOP;

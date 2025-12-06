@@ -1,17 +1,20 @@
 use algebra::{DenseMultilinearExtension, Field, ListOfProductsOfPolynomials, PolynomialInfo};
 use helper::Transcript;
 use serde::Serialize;
-use sumcheck::{MLSumcheck, Proof};
 use std::rc::Rc;
-use trace::{NTTTraceMLE};
+use sumcheck::{MLSumcheck, Proof, verifier::SubClaim};
+use trace::NTTTraceMLE;
 
-use crate::{NTTFourierEvalIOP, SumcheckClaim, ntt::ntt_fourier_eval::NTTFourierProof};
+use crate::{
+    NTTFourierEvalIOP, SumcheckClaim,
+    ntt_fourier::{NTTFourierEvalInfo, NTTFourierProof},
+};
 
-pub struct NTTPolyEvalIOP<F: Field> {
+pub struct NTTEvalIOP<F: Field> {
     _marker: std::marker::PhantomData<F>,
 }
 
-pub struct NTTPolyEvalInstance<F: Field> {
+pub struct NTTEvalInstance<F: Field> {
     pub num_vars: usize,
     pub coefficients: Rc<DenseMultilinearExtension<F>>,
     pub ntt_table: Rc<Vec<F>>,
@@ -19,7 +22,15 @@ pub struct NTTPolyEvalInstance<F: Field> {
     pub evaluations_at_u: F,
 }
 
-pub struct NTTPolyEvalProof<F: Field> {
+#[derive(Serialize)]
+pub struct NTTEvalInfo<F: Field> {
+    #[serde(skip)]
+    pub ntt_table: Rc<Vec<F>>,
+    pub point_u: Vec<F>,
+    pub evaluations_at_u: F,
+}
+
+pub struct NTTEvalProof<F: Field> {
     // claimed sum in the sumcheck protocol
     pub claimed_sum: F,
     // polynomial info in the sumcheck protocol
@@ -34,52 +45,136 @@ pub struct NTTPolyEvalProof<F: Field> {
     pub fourier_eval_proof: NTTFourierProof<F>,
 }
 
-impl<F: Field> NTTPolyEvalInstance<F> {
-    pub fn from(trace: &NTTTraceMLE<F>, point_u: Vec<F>) -> Self {
-        NTTPolyEvalInstance {
+pub struct NTTEvalProverState<F: Field> {
+    pub fourier_at_u: Rc<DenseMultilinearExtension<F>>,
+}
+
+impl<F: Field> NTTEvalInstance<F> {
+    pub fn from(trace: &NTTTraceMLE<F>, point_u: &[F]) -> Self {
+        NTTEvalInstance {
             num_vars: trace.num_vars(),
             coefficients: Rc::clone(&trace.coefficients),
             ntt_table: Rc::clone(&trace.ntt_table),
-            point_u: point_u.clone(),
+            point_u: point_u.to_vec(),
             evaluations_at_u: trace.evaluations.evaluate(&point_u),
+        }
+    }
+
+    pub fn info(&self) -> NTTEvalInfo<F> {
+        NTTEvalInfo {
+            ntt_table: Rc::clone(&self.ntt_table),
+            point_u: self.point_u.clone(),
+            evaluations_at_u: self.evaluations_at_u,
         }
     }
 }
 
-impl<F: Field + Serialize> NTTPolyEvalIOP<F> {
-    pub fn prove(
-        instance: &NTTPolyEvalInstance<F>,
-        trans: &mut Transcript<F>,
-    ) -> NTTPolyEvalProof<F> {
-        let sumcheck_claim = SumcheckClaim::new(instance.num_vars);
+impl<F: Field + Serialize> NTTEvalIOP<F> {
+    /// Prover for NTT polynomial evaluation IOP.
+    /// # Arguments
+    /// * `instance` - The NTT polynomial evaluation instance.
+    /// * `trans` - The transcript for Fiat-Shamir transformation.
+    ///
+    /// # Returns
+    /// * `NTTPolyEvalProof` - The proof for NTT polynomial evaluation.
+    pub fn prover(trans: &mut Transcript<F>, instance: &NTTEvalInstance<F>) -> NTTEvalProof<F> {
+        let statement = instance.info();
+        trans.append_message(b"[NTT Evaluation Statement]", &statement);
 
-        Self::update_sumcheck_claim(instance, &mut sumcheck_claim, &[F::one()]);
-        let (sumcheck_proof, sumcheck_state) = 
-            MLSumcheck::<F>::prove(trans, sumcheck_claim.poly_ref()).expect("[NTTPolyEvalIOP] Fail to generate sumcheck proof");
-        
-        let coeff_eval_at_v = instance
-            .coefficients
+        let mut sumcheck_claim = SumcheckClaim::new(instance.num_vars);
+        let prover_state = Self::batch_sumcheck(instance, &mut sumcheck_claim, &[F::one()]);
+        let (sumcheck_proof, sumcheck_state) =
+            MLSumcheck::<F>::prove(trans, sumcheck_claim.poly_ref())
+                .expect("[NTTPolyIOP - Prover] Fail to generate sumcheck proof");
+
+        let coeff_eval_at_v = instance.coefficients.evaluate(&sumcheck_state.randomness);
+        let fourier_eval_at_v = prover_state
+            .fourier_at_u
             .evaluate(&sumcheck_state.randomness);
-        
+
+        let fourier_eval_subclaim = NTTFourierEvalInfo {
+            log_coeff_count: instance.num_vars,
+            ntt_table: Rc::clone(&instance.ntt_table),
+            point_u: instance.point_u.clone(),
+            point_v: sumcheck_state.randomness.clone(),
+            eval: fourier_eval_at_v,
+        };
+        let fourier_eval_proof = NTTFourierEvalIOP::<F>::prover(trans, &fourier_eval_subclaim);
+
+        NTTEvalProof {
+            claimed_sum: *sumcheck_claim.sum_ref(),
+            poly_info: sumcheck_claim.poly_ref().info(),
+            sumcheck_proof,
+            coeff_eval_at_v,
+            fourier_eval_at_v,
+            fourier_eval_proof,
+        }
     }
 
-    pub fn update_sumcheck_claim(
-        instance: &NTTPolyEvalInstance<F>,
+    pub fn verifier(
+        trans: &mut Transcript<F>,
+        statement: &NTTEvalInfo<F>,
+        proof: &NTTEvalProof<F>,
+    ) -> bool {
+        trans.append_message(b"[NTT Evaluation Statement]", &statement);
+
+        let mut res = true;
+
+        let mut sumcheck_subclaim = MLSumcheck::verify(
+            trans,
+            &proof.poly_info,
+            proof.claimed_sum,
+            &proof.sumcheck_proof,
+        )
+        .expect("[NTTEvalIOP - Verifier] Fail to verify the sumcheck");
+
+        Self::compute_subclaim(proof, &mut sumcheck_subclaim, &[F::one()]);
+        res &= sumcheck_subclaim.expected_evaluations.is_zero();
+
+        let ntt_eval_info = NTTFourierEvalInfo {
+            log_coeff_count: statement.point_u.len(),
+            ntt_table: Rc::clone(&statement.ntt_table),
+            point_u: statement.point_u.clone(),
+            point_v: sumcheck_subclaim.point.clone(),
+            eval: proof.fourier_eval_at_v,
+        };
+
+        res &= NTTFourierEvalIOP::verifier(trans, &ntt_eval_info, &proof.fourier_eval_proof);
+        res
+    }
+
+    /// Batch sumcheck protocol with given randomness.
+    ///
+    /// # Arguments
+    /// * `instance` - The NTT polynomial evaluation instance.
+    /// * `claim` - The sumcheck claim to be updated.
+    /// * `randomness` - The randomness used for batching.
+    /// # Returns
+    /// * `NTTEvalProverState` - The prover state after updating the claim.
+    pub fn batch_sumcheck(
+        instance: &NTTEvalInstance<F>,
         claim: &mut SumcheckClaim<F>,
-        randomness: &[F]
-    ) {
+        randomness: &[F],
+    ) -> NTTEvalProverState<F> {
         assert_eq!(randomness.len(), 1);
         let fourier_at_u = Rc::new(init_fourier_table(&instance.point_u, &instance.ntt_table));
         claim.poly_mut().add_product(
             [Rc::clone(&fourier_at_u), Rc::clone(&instance.coefficients)],
             randomness[0],
         );
-        *claim.sum_mut() += instance.evaluations_at_u * randomness[0]
+        *claim.sum_mut() += instance.evaluations_at_u * randomness[0];
+        NTTEvalProverState { fourier_at_u }
+    }
+
+    pub fn compute_subclaim(proof: &NTTEvalProof<F>, subclaim: &mut SubClaim<F>, randomness: &[F]) {
+        assert_eq!(randomness.len(), 1);
+        subclaim.expected_evaluations -=
+            proof.coeff_eval_at_v * proof.fourier_eval_at_v * randomness[0];
     }
 }
 
 // Naive implementation for initializing F(u, x) in NTT (for testing purpose).
-// In negacyclic NTT where the ring is defined as R = F[x] / (x^N + 1), the Fourier matrix is different since we choose these points: 
+// In negacyclic NTT where the ring is defined as R = F[x] / (x^N + 1), the Fourier matrix is different since we choose these points:
 // X = ω^1, ω^3, ..., ω^{2N-1} such that X^N = -1.
 //
 // # Arguments
@@ -142,12 +237,54 @@ pub fn init_fourier_table<F: Field>(u: &[F], ntt_table: &[F]) -> DenseMultilinea
                 evaluations[j] = evaluations[j % last_table_size]
                     * (F::one() - *u_i + *u_i * ntt_table[idx])
                     * ntt_table[last_table_size];
-            }
-            else {
+            } else {
                 evaluations[j] =
                     evaluations[j % last_table_size] * (F::one() - u_i + *u_i * ntt_table[idx]);
             }
         }
     }
     DenseMultilinearExtension::from_evaluations_vec(log_n, evaluations)
+}
+
+#[cfg(test)]
+mod test{
+    use crate::ntt_eval::{self, NTTEvalInstance};
+
+    use super::NTTEvalIOP;
+    use algebra::{
+        DenseMultilinearExtension, FieldUniformSampler, NTTField,
+        derive::{DecomposableField, FheField, Field, NTT, Prime},
+        transformation::AbstractNTT,
+    };
+    use helper::Transcript;
+    use num_traits::{One, Zero};
+    use rand_distr::Distribution;
+    use trace::NTTTrace;
+    use std::rc::Rc;
+
+    #[derive(Field, DecomposableField, FheField, Prime, NTT)]
+    #[modulus = 132120577]
+    pub struct Fp32(u32);
+    // field type
+    type FF = Fp32;
+
+    #[test]
+    fn test_ntt_eval_iop() {
+        let log_coeff_count = 10;
+        let uniform = <FieldUniformSampler<FF>>::new();
+        let mut rng = rand::rng();
+        let ntt_trace = NTTTrace::<FF>::random(log_coeff_count, &mut rng);
+
+        let point_u = uniform.sample_iter(&mut rng).take(log_coeff_count).collect::<Vec<_>>();
+        let ntt_eval_instance = NTTEvalInstance::from(&ntt_trace.into(), &point_u);
+        let ntt_eval_info = ntt_eval_instance.info();
+
+        let mut prover_trans = Transcript::<FF>::default();
+        let proof = NTTEvalIOP::<FF>::prover(&mut prover_trans, &ntt_eval_instance);
+
+        let mut verifier_trans = Transcript::<FF>::default();
+        let res = NTTEvalIOP::<FF>::verifier(&mut verifier_trans, &ntt_eval_info, &proof);
+        assert!(res);
+    }
+
 }
