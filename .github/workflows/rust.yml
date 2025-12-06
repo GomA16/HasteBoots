@@ -1,14 +1,5 @@
 env:
-  # We aim to always test with the latest stable Rust toolchain, however we pin to a specific
-  # version like 1.70. Note that we only specify MAJOR.MINOR and not PATCH so that bugfixes still
-  # come automatically. If the version specified here is no longer the latest stable version,
-  # then please feel free to submit a PR that adjusts it along with the potential clippy fixes.
-  RUST_STABLE_VER: "1.81" # In quotes because otherwise (e.g.) 1.70 would be interpreted as 1.7
-  # The purpose of checking with the minimum supported Rust toolchain is to detect its staleness.
-  # If the compilation fails, then the version specified here needs to be bumped up to reality.
-  # Be sure to also update the rust-version property in the workspace Cargo.toml file,
-  # plus all the README.md files of the affected packages.
-  RUST_MIN_VER: "1.79"
+  RUST_MIN_VER: "1.85"
   # List of packages that will be checked with the minimum supported Rust version.
   # This should be limited to packages that are intended for publishing.
   RUST_MIN_VER_PKGS: "-p algebra -p lattice -p fhe_core -p zkfhe"
@@ -20,9 +11,6 @@ on:
   workflow_dispatch:
   pull_request:
   merge_group:
-  # We run on push, even though the commit is the same as when we ran in merge_group. 
-  # This allows the cache to be primed.
-  # See https://github.com/orgs/community/discussions/66430
   push:
     branches:
       - main
@@ -32,12 +20,11 @@ jobs:
     name: formatting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: install stable toolchain
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.RUST_STABLE_VER }}
           components: rustfmt
 
       - name: cargo fmt
@@ -51,18 +38,17 @@ jobs:
         # os: [windows-latest, macos-latest, ubuntu-latest]
         os: [macos-latest, ubuntu-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+
+      - name: install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
 
       - name: restore cache
         uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.event_name != 'merge_group' }}
-
-      - name: install stable toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.RUST_STABLE_VER }}
-          components: clippy
 
       - name: install cargo-hack
         uses: taiki-e/install-action@v2
@@ -84,28 +70,25 @@ jobs:
         # os: [windows-latest, macos-latest, ubuntu-latest]
         os: [macos-latest, ubuntu-latest]
     steps:
-      - uses: actions/checkout@v4
-        # We intentionally do not use lfs: true here, instead using the caching method to save LFS bandwidth.
+      - uses: actions/checkout@v6
+
+      - name: install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
 
       - name: restore cache
         uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.event_name != 'merge_group' }}
 
-      - name: install stable toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.RUST_STABLE_VER }}
-
       - name: Install cargo-nextest
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-nextest
 
-      - name: cargo test
+      - name: cargo test (no default features)
         run: cargo nextest run --workspace --no-default-features
 
-      - name: cargo test
+      - name: cargo test (all default features)
         run: cargo nextest run --workspace
 
   check-msrv:
@@ -116,17 +99,17 @@ jobs:
         # os: [windows-latest, macos-latest, ubuntu-latest]
         os: [macos-latest, ubuntu-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+
+      - name: install msrv toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_MIN_VER }}
 
       - name: restore cache
         uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.event_name != 'merge_group' }}
-
-      - name: install msrv toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.RUST_MIN_VER }}
 
       - name: install cargo-hack
         uses: taiki-e/install-action@v2
@@ -142,16 +125,16 @@ jobs:
     #       If we get per-platform docs (win/macos/linux/wasm32/..) then doc jobs should match that.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+
+      - name: install nightly toolchain
+        uses: dtolnay/rust-toolchain@nightly
 
       - name: restore cache
         uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.event_name != 'merge_group' }}
 
-      - name: install nightly toolchain
-        uses: dtolnay/rust-toolchain@nightly
-      
       - name: cargo test doc
         run: cargo test --doc --workspace --all-features
 
@@ -163,7 +146,7 @@ jobs:
   typos:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: check typos
         uses: crate-ci/typos@v1.23.2
