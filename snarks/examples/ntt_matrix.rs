@@ -1,18 +1,14 @@
 use std::time::Instant;
 
-use algebra::{
-    BabyBear, BabyBearExetension, FieldUniformSampler, NTTField,
-    derive::{DecomposableField, FheField, Field, NTT, Prime},
-    modulus::BabyBearModulus,
-    transformation::AbstractNTT,
-};
+use algebra::{BabyBear, BabyBearExetension};
 use bincode::config::standard;
 use helper::Transcript;
 use pcs::{
     multilinear::BrakedownPCS,
     utils::code::{ExpanderCode, ExpanderCodeSpec},
 };
-use snarks::ntt::{NTTMatrixEvalSnarks, NTTMatrixEvalSnarksProof};
+use piop::SumcheckPIOP;
+use snarks::ntt::NTTMatrixEvalSnarks;
 use trace::NTTTrace;
 
 type FF = BabyBear;

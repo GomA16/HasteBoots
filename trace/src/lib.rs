@@ -6,6 +6,12 @@ mod ntt_trace;
 
 pub use ntt_trace::{NTTInstanceInfo, NTTTrace, NTTTraceInfo, NTTTraceMLE};
 
+pub trait FieldTrace<F: Field> {
+    type EFInfo;
+    fn get_commit_poly(&self) -> DenseMultilinearExtension<F>;
+    fn info_ef<EF: AbstractExtensionField<F>>(&self) -> Self::EFInfo;
+}
+
 pub trait ConvertToEF<F: Field, EF: AbstractExtensionField<F>> {
     type Output;
     fn into_ef(self) -> Self::Output;

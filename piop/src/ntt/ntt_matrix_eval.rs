@@ -7,7 +7,7 @@ use sumcheck::{MLSumcheck, Proof, verifier::SubClaim};
 use trace::NTTTraceMLE;
 
 use crate::{
-    SumcheckClaim,
+    SumcheckClaim, SumcheckPIOP,
     ntt::{
         NTTFourierEvalIOP, NTTFourierEvalInfo, fourier_eval::NTTFourierProof,
         ntt_eval::init_fourier_table,
@@ -96,6 +96,10 @@ impl<F: Field> NTTMatrixEvalInstance<F> {
         }
     }
 
+    pub fn sumcheck_num_vars(&self) -> usize {
+        self.log_coeff_count
+    }
+
     pub fn info(&self) -> NTTMatrixEvalInfo<F> {
         NTTMatrixEvalInfo {
             ntt_table: Rc::clone(&self.ntt_table),
@@ -106,16 +110,22 @@ impl<F: Field> NTTMatrixEvalInstance<F> {
     }
 }
 
-impl<F: Field + Serialize> NTTMatrixEvalIOP<F> {
-    /// Prover for NTT Matrix Evaluation IOP
-    pub fn prover(
-        trans: &mut Transcript<F>,
-        instance: &NTTMatrixEvalInstance<F>,
-    ) -> (NTTMatrixEvalProof<F>, NTTMatrixEvalProverState<F>) {
+impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
+    type Instance = NTTMatrixEvalInstance<F>;
+    type Info = NTTMatrixEvalInfo<F>;
+    type Proof = NTTMatrixEvalProof<F>;
+    type ProverState = NTTMatrixEvalProverState<F>;
+    type VerifierSubclaim = NTTMatrixEvalVerifierSubclaim<F>;
+    type FSTranscript = Transcript<F>;
+
+    fn prover(
+        trans: &mut Self::FSTranscript,
+        instance: &Self::Instance,
+    ) -> (Self::Proof, Self::ProverState) {
         let statement = instance.info();
         trans.append_message(b"[NTT Matrix Evaluation Statement", &statement);
 
-        let mut sumcheck_claim = SumcheckClaim::new(instance.log_coeff_count);
+        let mut sumcheck_claim = SumcheckClaim::new(instance.sumcheck_num_vars());
         let mut prover_state =
             Self::prover_batch_sumcheck(instance, &mut sumcheck_claim, &[F::one()]);
         let (sumcheck_proof, sumcheck_state) = MLSumcheck::prove(trans, sumcheck_claim.poly_ref())
@@ -136,10 +146,11 @@ impl<F: Field + Serialize> NTTMatrixEvalIOP<F> {
             point_v: sumcheck_state.randomness.clone(),
             eval: fourier_eval_at_u_r,
         };
+
         let fourier_eval_proof = NTTFourierEvalIOP::<F>::prover(trans, &fourier_eval_subclaim);
 
         (
-            NTTMatrixEvalProof {
+            Self::Proof {
                 poly_info: sumcheck_claim.poly_ref().info(),
                 sumcheck_proof,
                 coeff_eval_at_r_v,
@@ -150,12 +161,12 @@ impl<F: Field + Serialize> NTTMatrixEvalIOP<F> {
         )
     }
 
-    pub fn verifier(
-        trans: &mut Transcript<F>,
-        statement: &NTTMatrixEvalInfo<F>,
-        proof: &NTTMatrixEvalProof<F>,
-    ) -> (bool, NTTMatrixEvalVerifierSubclaim<F>) {
-        trans.append_message(b"[NTT Matrix Evaluation Statement", &statement);
+    fn verifier(
+        trans: &mut Self::FSTranscript,
+        info: &Self::Info,
+        proof: &Self::Proof,
+    ) -> (bool, Self::VerifierSubclaim) {
+        trans.append_message(b"[NTT Matrix Evaluation Statement", &info);
 
         let mut res = true;
 
@@ -171,9 +182,9 @@ impl<F: Field + Serialize> NTTMatrixEvalIOP<F> {
         res &= sumcheck_subclaim.expected_evaluations.is_zero();
 
         let ntt_fourier_eval_info = NTTFourierEvalInfo {
-            log_coeff_count: statement.point_u.len(),
-            ntt_table: Rc::clone(&statement.ntt_table),
-            point_u: statement.point_u.clone(),
+            log_coeff_count: info.point_u.len(),
+            ntt_table: Rc::clone(&info.ntt_table),
+            point_u: info.point_u.clone(),
             point_v: sumcheck_subclaim.point.clone(),
             eval: proof.fourier_eval_at_u_r,
         };
@@ -189,11 +200,11 @@ impl<F: Field + Serialize> NTTMatrixEvalIOP<F> {
         )
     }
 
-    pub fn prover_batch_sumcheck(
-        instance: &NTTMatrixEvalInstance<F>,
+    fn prover_batch_sumcheck(
+        instance: &Self::Instance,
         claim: &mut SumcheckClaim<F>,
         randomness: &[F],
-    ) -> NTTMatrixEvalProverState<F> {
+    ) -> Self::ProverState {
         assert_eq!(randomness.len(), 1);
         let fourier_at_u = Rc::new(init_fourier_table(&instance.point_u, &instance.ntt_table));
         let coeffs_at_v_back = Rc::new(instance.coefficients.fix_variables_back(&instance.point_v));
@@ -202,15 +213,15 @@ impl<F: Field + Serialize> NTTMatrixEvalIOP<F> {
             randomness[0],
         );
         *claim.sum_mut() += instance.evaluations_at_u_v * randomness[0];
-        NTTMatrixEvalProverState {
+        Self::ProverState {
             fourier_at_u,
             coeffs_at_v_back,
             point_r: Vec::with_capacity(instance.log_coeff_count),
         }
     }
 
-    pub fn verifier_compute_subclaim(
-        proof: &NTTMatrixEvalProof<F>,
+    fn verifier_compute_subclaim(
+        proof: &Self::Proof,
         subclaim: &mut SubClaim<F>,
         randomness: &[F],
     ) {
@@ -223,6 +234,7 @@ impl<F: Field + Serialize> NTTMatrixEvalIOP<F> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::SumcheckPIOP;
     use algebra::{
         FieldUniformSampler, NTTField,
         derive::{DecomposableField, FheField, Field, NTT, Prime},

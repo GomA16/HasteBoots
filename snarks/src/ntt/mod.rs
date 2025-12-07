@@ -1,3 +1,3 @@
-mod ntt_eval_matrix;
+mod ntt_matrix_eval;
 
-pub use ntt_eval_matrix::{NTTMatrixEvalSnarks, NTTMatrixEvalSnarksProof};
+pub use ntt_matrix_eval::{NTTMatrixEvalSnarks, NTTMatrixEvalSnarksProof};
