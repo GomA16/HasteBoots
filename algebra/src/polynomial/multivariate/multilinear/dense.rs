@@ -309,6 +309,31 @@ impl<F: Field> MultilinearExtension<F> for DenseMultilinearExtension<F> {
         Self::from_evaluations_vec(nv - dim, poly)
     }
 
+    fn fix_variables_back(&self, partial_point: &[F]) -> Self {
+        assert!(
+            partial_point.len() <= self.num_vars,
+            "invalid size of partial point"
+        );
+        let mut poly = self.evaluations.to_vec();
+        let nv = self.num_vars;
+        let dim = partial_point.len();
+        // evaluate nv variable of partial point from right to left
+        // with dim rounds and \sum_{i=1}^{dim} 2^(nv - i)
+        // (If dim = nv, then the complexity is 2^{nv}.)
+        for i in 1..dim + 1 {
+            // fix a single variable to evaluate (1 << (nv - i)) evaluations from the last round
+            // with complexity of 2^(1 << (nv - i)) field multiplications
+            let r = partial_point[dim - i];
+            for b in 0..(1 << (nv - i)) {
+                let left = poly[b];
+                let right = poly[b + (1 << (nv - i))];
+                poly[b] = left + r * (right - left);
+            }
+        }
+        poly.truncate(1 << (nv - dim));
+        Self::from_evaluations_vec(nv - dim, poly)
+    }
+
     #[inline]
     fn to_evaluations(&self) -> Vec<F> {
         self.evaluations.to_vec()

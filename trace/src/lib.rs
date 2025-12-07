@@ -4,7 +4,7 @@ use algebra::{
 
 mod ntt_trace;
 
-pub use ntt_trace::{NTTInstanceInfo, NTTTrace, NTTTraceMLE};
+pub use ntt_trace::{NTTInstanceInfo, NTTTrace, NTTTraceInfo, NTTTraceMLE};
 
 pub trait ConvertToEF<F: Field, EF: AbstractExtensionField<F>> {
     type Output;

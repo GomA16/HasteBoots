@@ -11,7 +11,7 @@
 //!    Let L denote the logarithm of the next power-of-two number that is bigger or equal to k.
 //!    Let delta denote 2^L - k
 //!    It is necessary to be proven with 2 range checks:
-//!       one is to prove c(x) - 1 \in [2^L]
+//!       one is to prove `c(x) - 1 \in [2^L]`
 //!       the other is to prove c(x) - 1 + delta \in [2^L]
 //! 3. w(x)(1 - w(x)) = 0 where w indicates the option in the following constraint
 //! 4. w(x)(a(x)\cdot \lambda_1+b(x)\cdot \lambda_2)+(1-w(x))(a(x)-b(x)\cdot k-c(x))=0

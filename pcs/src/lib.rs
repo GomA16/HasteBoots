@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 /// Polymomial Commitment Scheme
 pub trait PolynomialCommitmentScheme<F: Field, EF: AbstractExtensionField<F>, S> {
     /// System parameters
-    type Parameters: Default;
+    type Parameters: Default + Clone;
     /// Polynomial to commit
     type Polynomial: MultilinearExtension<F>;
     /// Extension field polynomial to commit

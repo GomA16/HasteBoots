@@ -182,3 +182,27 @@ fn evaluate_lists_of_products_with_op_at_a_point() {
     let point = field_vec!(FF; 1, 0);
     assert_eq!(poly.evaluate(&point), FF::new(80));
 }
+
+#[test]
+fn fix_variables_back() {
+    let nv = 10;
+    let half_nv = nv >> 1;
+    let mut rng = rand::rng();
+    let poly = DenseMultilinearExtension::<FF>::random(nv, &mut rng);
+    let uniform = FieldUniformSampler::new();
+    let point_u = uniform
+        .sample_iter(&mut rng)
+        .take(half_nv)
+        .collect::<Vec<FF>>();
+    let point_v = uniform
+        .sample_iter(&mut rng)
+        .take(half_nv)
+        .collect::<Vec<FF>>();
+
+    let fixed_poly_left = poly.fix_variables(&point_u);
+    let fixed_poly_right = poly.fix_variables_back(&point_v);
+    assert_eq!(
+        fixed_poly_left.evaluate(&point_v),
+        fixed_poly_right.evaluate(&point_u)
+    );
+}

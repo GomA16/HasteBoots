@@ -32,7 +32,7 @@ use crate::{
 pub const BRAKEDOWN_SECURITY_BIT: usize = 128;
 
 /// The PCS struct for Brakedown.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct BrakedownPCS<F, H, C, S, EF>(PhantomData<(F, H, C, S, EF)>)
 where
     F: Field,

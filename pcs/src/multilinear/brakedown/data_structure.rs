@@ -14,7 +14,7 @@ use crate::utils::{
 use crate::multilinear::brakedown::BRAKEDOWN_SECURITY_BIT;
 
 /// Define the structure of Brakedown parameters.
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Clone)]
 pub struct BrakedownParams<F: Field, EF: AbstractExtensionField<F>, C: LinearCode<F>> {
     security_bit: usize,
     num_vars: usize,
@@ -199,7 +199,7 @@ where
 }
 
 /// Commitment state of Brakedown
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct BrakedownCommitmentState<F: Field, H: Hash + Send + Sync> {
     /// The matrix that represents the polynomial.
     pub matrix: Vec<F>,

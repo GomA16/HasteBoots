@@ -11,7 +11,7 @@ members = [
     "sumcheck",
     "trace",
     "piop",
-    "helper",
+    "helper", "snarks",
 ]
 
 resolver = "3"

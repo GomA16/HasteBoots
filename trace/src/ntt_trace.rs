@@ -17,6 +17,14 @@ pub struct NTTTrace<F: Field> {
     pub evaluations: Vec<F>,
 }
 
+#[derive(Serialize)]
+pub struct NTTTraceInfo<F: Field> {
+    pub log_coeff_count: usize,
+    pub log_num_ntt: usize,
+    #[serde(skip)]
+    pub ntt_table: Rc<Vec<F>>,
+}
+
 pub struct NTTBatchedTrace<F: Field> {
     pub log_coeff_count: usize,
     pub log_num_ntt: usize,
@@ -53,6 +61,22 @@ impl<F: Field> NTTTrace<F> {
             evaluations: Vec::with_capacity(1 << log_coeff_count),
         }
     }
+
+    #[inline]
+    pub fn get_commit_poly(&self) -> DenseMultilinearExtension<F> {
+        DenseMultilinearExtension::from_evaluations_vec(
+            self.log_coeff_count + self.log_num_ntt,
+            self.coefficients.clone(),
+        )
+    }
+
+    pub fn info_ef<EF: AbstractExtensionField<F>>(&self) -> NTTTraceInfo<EF> {
+        NTTTraceInfo {
+            log_coeff_count: self.log_coeff_count,
+            log_num_ntt: self.log_num_ntt,
+            ntt_table: Rc::new(self.ntt_table.iter().map(|x| EF::from_base(*x)).collect()),
+        }
+    }
 }
 
 impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for NTTTrace<F> {
@@ -81,7 +105,11 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for NTTTrace<F>
 impl<F: NTTField> NTTTrace<F> {
     /// Generate a random NTT trace
     #[inline]
-    pub fn random<R: rand::Rng + rand::CryptoRng>(log_coeff_count: usize, log_num_ntt: usize, rng: &mut R) -> Self {
+    pub fn random<R: rand::Rng + rand::CryptoRng>(
+        log_coeff_count: usize,
+        log_num_ntt: usize,
+        rng: &mut R,
+    ) -> Self {
         let size = 1 << (log_coeff_count + log_num_ntt);
         let coefficients = FieldUniformSampler::new()
             .sample_iter(rng)
@@ -93,7 +121,7 @@ impl<F: NTTField> NTTTrace<F> {
 
         evaluations
             .chunks_exact_mut(1 << log_coeff_count)
-            .for_each(|chunk|ntt_table.transform_slice(chunk));
+            .for_each(|chunk| ntt_table.transform_slice(chunk));
 
         // F::get_ntt_table(log_coeff_count as u32)
         //     .unwrap()
@@ -244,11 +272,11 @@ impl<F: Field> From<NTTTrace<F>> for NTTTraceMLE<F> {
     #[inline]
     fn from(trace: NTTTrace<F>) -> Self {
         let coefficients = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
-            trace.log_coeff_count,
+            trace.log_coeff_count + trace.log_num_ntt,
             trace.coefficients,
         ));
         let evaluations = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
-            trace.log_coeff_count,
+            trace.log_coeff_count + trace.log_num_ntt,
             trace.evaluations,
         ));
         let ntt_table = Rc::new(trace.ntt_table);

@@ -3,9 +3,9 @@ use algebra::{Field, ListOfProductsOfPolynomials, PolynomialInfo};
 use helper::Transcript;
 use helper::utils::{eval_identity_function, gen_identity_evaluations};
 use serde::Serialize;
-use sumcheck::{Proof, prover::ProverState, verifier::SubClaim};
 use std::{marker::PhantomData, rc::Rc};
 use sumcheck::MLSumcheck;
+use sumcheck::{Proof, prover::ProverState, verifier::SubClaim};
 
 /// Fourier Matrix evaluation instance
 ///
@@ -28,11 +28,14 @@ pub struct NTTFourierEvalInfo<F: Field> {
     pub log_coeff_count: usize,
     #[serde(skip)]
     pub ntt_table: Rc<Vec<F>>,
+    #[serde(skip)]
     pub point_u: Vec<F>,
+    #[serde(skip)]
     pub point_v: Vec<F>,
     pub eval: F,
 }
 
+#[derive(Serialize)]
 pub struct NTTFourierProof<F: Field> {
     /// each delegation is a sumcheck proof
     pub sumcheck_proofs: Vec<Proof<F>>,
@@ -50,16 +53,14 @@ pub struct IntermediateMLEs<F: Field> {
 
 impl<F: Field + Serialize> NTTFourierEvalIOP<F> {
     /// Generate proof for the evaluation of Fourier matrix at point (u, v) in O(log N) rounds with O(N) time.
-    pub fn prover(
-        trans: &mut Transcript<F>,
-        info: &NTTFourierEvalInfo<F>,
-    ) -> NTTFourierProof<F> {
+    pub fn prover(trans: &mut Transcript<F>, info: &NTTFourierEvalInfo<F>) -> NTTFourierProof<F> {
         trans.append_message(b"[NTT Fourier Evaluation Statement]", &info);
 
         let log_n = info.log_coeff_count;
 
         // initialize the Fourier table F(u, x) with storing the intermediate mles
-        let (f_mles, w_mles) = init_fourier_table_with_mle(&info.point_u, &info.ntt_table).into_mles();
+        let (f_mles, w_mles) =
+            init_fourier_table_with_mle(&info.point_u, &info.ntt_table).into_mles();
 
         let mut requested_point = info.point_v.clone();
         let mut reduced_claim;
@@ -68,7 +69,7 @@ impl<F: Field + Serialize> NTTFourierEvalIOP<F> {
         let mut sumcheck_proofs = Vec::with_capacity(log_n - 1);
         // store the sub_claims of the sumcheck protocol in each delegation round
         let mut sub_claims = Vec::with_capacity(log_n - 1);
-        
+
         // k iterates from log_n - 1 down to 1, corresponding to the `i` in the algorithm description.
         // k also denotes the number of variables in this round of sumcheck protocol
         for k in (1..log_n).rev() {
@@ -85,7 +86,7 @@ impl<F: Field + Serialize> NTTFourierEvalIOP<F> {
                 &w_mles[k],
             );
             sumcheck_proofs.push(this_round_proof);
-        
+
             // the requested point returned from this round of sumcheck protocol, which initiates the claimed sum of the next round
             requested_point = this_round_state.randomness;
             reduced_claim = f_poly.evaluate(&requested_point);
@@ -101,7 +102,7 @@ impl<F: Field + Serialize> NTTFourierEvalIOP<F> {
     /// The delegation of evaluating F(u, v) consists of log_n - 1 rounds, each of which is a sumcheck protocol.
     ///
     /// We define A^{(k)}:{0,1}^{k+1} -> \mathbb{F} and ω^{(k)}_{i+1}:{0,1}^{k+1} -> \mathbb{F}.
-    /// The prover asserts the following sum = A^{(k)}(x, b) at a random point 
+    /// The prover asserts the following sum = A^{(k)}(x, b) at a random point
     /// where x \in {0,1}^{k} and b \in {0, 1}:
     /// Note that the summation is over a hypercube of dimension k, i.e., z \in {0, 1}^k.
     /// sum = \sum_{z\in {0,1}}^k
@@ -307,6 +308,7 @@ impl<F: Field> IntermediateMLEs<F> {
     }
 
     /// Convert into the stored mles
+    #[warn(clippy::type_complexity)]
     pub fn into_mles(
         self,
     ) -> (
@@ -467,7 +469,10 @@ mod test {
         reverse_index
     }
 
-    fn generate_fourier_matrix<F: Field>(dim: usize, ntt_table: &[F]) -> DenseMultilinearExtension<F> {
+    fn generate_fourier_matrix<F: Field>(
+        dim: usize,
+        ntt_table: &[F],
+    ) -> DenseMultilinearExtension<F> {
         let mut fourier_matrix = vec![F::zero(); (1 << dim) * (1 << dim)];
         let m = ntt_table.len();
 
