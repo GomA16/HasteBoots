@@ -1,8 +1,14 @@
 use algebra::NTTField;
 use fhe_core::{LWECiphertext, LWEModulusType, utils::*};
 use rand::Rng;
-use zkfhe::bfhe_trace::{DEFAULT_TERNARY_128_BITS_PARAMETERS, Evaluator};
+use trace::{HadamardProdTrace, HadamardProdTraceMLE};
+use zkfhe::bfhe_trace::{DEFAULT_TERNARY_128_BITS_PARAMETERS, Evaluator, BABY_BEAR_TERNARY_128_BITS_PARAMETERS};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
+use algebra::FieldUniformSampler;
+use piop::ntt::{NTTMatrixEvalInstance, NTTMatrixEvalIOP};
+use piop::SumcheckPIOP;
+use rand_distr::Distribution;
+use helper::Transcript;
 
 type M = bool;
 type C = u16;
@@ -42,24 +48,45 @@ fn main() {
     let y = enc.encrypt(b);
     // let mut z = enc.encrypt(c);
 
-    for i in 0..1 {
-        let _start = std::time::Instant::now();
-        let ct_nand = join_bit_operations(&eval, &x, &y);
+    let _start = std::time::Instant::now();
+    let (ct_nand, trace) = eval.nand(&x, &y);
 
-        // nand
-        let (m, noise) = dec.decrypt_with_noise::<M>(&ct_nand);
-        assert_eq!(m, nand(a, b), "Noise: {noise}");
-        check_noise(noise, "nand");
+    // nand
+    let (m, noise) = dec.decrypt_with_noise::<M>(&ct_nand);
+    assert_eq!(m, nand(a, b), "Noise: {noise}");
+    check_noise(noise, "nand");
 
-        println!("The {i} group test done!\n");
-    }
-}
 
-#[allow(clippy::type_complexity)]
-fn join_bit_operations<T: LWEModulusType, F: NTTField>(
-    eval: &Evaluator<T, F>,
-    x: &LWECiphertext<T>,
-    y: &LWECiphertext<T>,
-) -> LWECiphertext<T> {
-    eval.nand(x, y)
+    // Generate SNARKs for nand
+    println!("Starting verification of nand.\n");
+    let hadamard_trace = trace.vec_trace[0].clone();
+    let mut rng = rand::rng();
+    let log_coeff_count = hadamard_trace.log_coeff_count;
+    let log_num_ntt = hadamard_trace.log_num_round;
+
+    let uniform = FieldUniformSampler::new();
+    let ntt_trace_instance = HadamardProdTraceMLE::from(hadamard_trace).get_ntt_trace_mle();
+    let point_u = uniform
+            .sample_iter(&mut rng)
+            .take(log_coeff_count)
+            .collect::<Vec<_>>();
+    let point_v = uniform
+        .sample_iter(&mut rng)
+        .take(log_num_ntt)
+        .collect::<Vec<_>>();
+    let ntt_matrix_eval_instance =
+            NTTMatrixEvalInstance::from(&ntt_trace_instance, &point_u, &point_v);
+
+    let ntt_eval_info = ntt_matrix_eval_instance.info();
+
+    let mut prover_trans = Transcript::default();
+    let (proof, _) =
+        NTTMatrixEvalIOP::prover(&mut prover_trans, &ntt_matrix_eval_instance);
+    println!("Proofs generation done!\n");
+
+    let mut verifier_trans = Transcript::default();
+    let (res, _) =
+        NTTMatrixEvalIOP::verifier(&mut verifier_trans, &ntt_eval_info, &proof);
+    println!("Proofs verification done!\n");
+    assert!(res);
 }

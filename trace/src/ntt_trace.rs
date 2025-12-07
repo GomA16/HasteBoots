@@ -7,7 +7,7 @@ use algebra::{
 use rand_distr::Distribution;
 use serde::Serialize;
 
-use crate::{ConvertToEF, FieldTrace};
+use crate::{ConvertToEF};
 
 pub struct NTTTrace<F: Field> {
     pub log_coeff_count: usize,
@@ -123,9 +123,6 @@ impl<F: NTTField> NTTTrace<F> {
             .chunks_exact_mut(1 << log_coeff_count)
             .for_each(|chunk| ntt_table.transform_slice(chunk));
 
-        // F::get_ntt_table(log_coeff_count as u32)
-        //     .unwrap()
-        //     .transform_slice(&mut evaluations);
         Self {
             log_coeff_count,
             log_num_ntt,

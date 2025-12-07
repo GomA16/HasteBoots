@@ -8,11 +8,14 @@ algebra = { path = "../algebra", default-features = false }
 lattice = { path = "../lattice", default-features = false }
 fhe_core = { path = "../fhe_core", default-features = false }
 trace = {path = "../trace", default-features = false}
+piop = { path = "../piop", default-features = false }
+helper = { path = "../helper", default-features = false }
 
 rand = { workspace = true }
 rayon = { workspace = true }
 once_cell = { workspace = true }
 itertools = { workspace = true }
+rand_distr = { workspace = true }
 
 [features]
 default = ["concrete-ntt"]
