@@ -1,9 +1,9 @@
 //! Blind Rotation
 
-mod ntru;
+// mod ntru;
 mod rlwe;
 
-pub use ntru::BlindRotationKey as NTRUBlindRotationKey;
+// pub use ntru::BlindRotationKey as NTRUBlindRotationKey;
 pub use rlwe::BlindRotationKey as RLWEBlindRotationKey;
 
 // pub use rlwe::binary::BinaryBlindRotationKey;

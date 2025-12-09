@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use algebra::{NTTField, NTTPolynomial, Polynomial, utils::Prg};
+use algebra::{AsInto, NTTField, NTTPolynomial, Polynomial, utils::Prg};
 use lattice::{sample_binary_values, sample_ternary_values};
 
 use crate::{
@@ -44,12 +44,12 @@ pub struct SecretKeyPack<C: LWEModulusType, Q: NTTField> {
     /// LWE secret key
     lwe_secret_key: Vec<C>,
 
+    inter_lwe_secret_key: Option<Vec<C>>,
+
     /// ring secret key
     ring_secret_key: RingSecretKey<Q>,
     /// ntt version ring secret key
     ntt_ring_secret_key: NTTRingSecretKey<Q>,
-    /// ntt version inverse ring secret key
-    ntt_inv_ring_secret_key: Option<NTTRingSecretKey<Q>>,
 
     /// boolean fhe's parameters
     parameters: Parameters<C, Q>,
@@ -76,56 +76,39 @@ impl<C: LWEModulusType, Q: NTTField> SecretKeyPack<C, Q> {
 
         let ring_dimension = params.ring_dimension();
 
-        let ntt_ring_secret_key;
-        let ntt_inv_ring_secret_key;
-
-        let ring_secret_key = match params.steps() {
-            Steps::BrMsKs => match params.ring_secret_key_type() {
-                RingSecretKeyType::Binary => {
-                    Polynomial::random_with_binary(ring_dimension, &mut csrng)
-                }
-                RingSecretKeyType::Ternary => {
-                    Polynomial::random_with_ternary(ring_dimension, &mut csrng)
-                }
-            },
-            Steps::BrKsMs => match params.ring_secret_key_type() {
-                RingSecretKeyType::Binary => {
-                    Polynomial::random_with_binary(ring_dimension, &mut csrng)
-                }
-                RingSecretKeyType::Ternary => {
-                    Polynomial::random_with_ternary(ring_dimension, &mut csrng)
-                }
-            },
-            Steps::BrMs => {
-                assert!(
-                    params.ring_secret_key_type() == RingSecretKeyType::Binary
-                        || params.ring_secret_key_type() == RingSecretKeyType::Ternary
-                );
-                assert_eq!(params.lwe_dimension(), params.ring_dimension());
-                // conversion
-                let convert = |v: &C| {
-                    if v.is_zero() {
-                        Q::zero()
-                    } else if v.is_one() {
-                        Q::one()
-                    } else {
-                        Q::neg_one()
-                    }
-                };
-
-                // s = [s_0, s_1,..., s_{n-1}]
-                <Polynomial<Q>>::new(lwe_secret_key.iter().map(convert).collect())
+        let ring_secret_key = match params.ring_secret_key_type() {
+            RingSecretKeyType::Binary => Polynomial::random_with_binary(ring_dimension, &mut csrng),
+            RingSecretKeyType::Ternary => {
+                Polynomial::random_with_ternary(ring_dimension, &mut csrng)
             }
-            Steps::KsBr => todo!(),
         };
-        ntt_ring_secret_key = ring_secret_key.clone().into_ntt_polynomial();
-        ntt_inv_ring_secret_key = None;
+        let ntt_ring_secret_key = ring_secret_key.clone().into_ntt_polynomial();
+
+        let (lwe_secret_key, inter_lwe_secret_key) = if let Steps::BrKsMs = params.steps() {
+            (lwe_secret_key, None)
+        } else {
+            let neg_one = Q::MODULUS_VALUE.into() - 1u64;
+            let neg_one: C = neg_one.as_into();
+            let convert = |v: &Q| {
+                if v.is_zero() {
+                    C::ZERO
+                } else if v.is_one() {
+                    C::ONE
+                } else {
+                    neg_one
+                }
+            };
+
+            let _temp: Vec<C> = ring_secret_key.iter().map(convert).collect();
+            todo!()
+            // (temp, Some(lwe_secret_key))
+        };
 
         Self {
             lwe_secret_key,
+            inter_lwe_secret_key,
             ring_secret_key,
             ntt_ring_secret_key,
-            ntt_inv_ring_secret_key,
             parameters: params,
             csrng: RefCell::new(csrng),
         }
@@ -147,12 +130,6 @@ impl<C: LWEModulusType, Q: NTTField> SecretKeyPack<C, Q> {
     #[inline]
     pub fn ntt_ring_secret_key(&self) -> &NTTRingSecretKey<Q> {
         &self.ntt_ring_secret_key
-    }
-
-    /// Returns a reference to the ntt inv ring secret key of this [`SecretKeyPack<C, Q>`].
-    #[inline]
-    pub fn ntt_inv_ring_secret_key(&self) -> Option<&NTTPolynomial<Q>> {
-        self.ntt_inv_ring_secret_key.as_ref()
     }
 
     /// Returns the parameters of this [`SecretKeyPack<C, Q>`].

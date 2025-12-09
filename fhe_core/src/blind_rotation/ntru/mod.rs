@@ -66,7 +66,6 @@ impl<F: NTTField> BlindRotationKey<F> {
         match parameters.lwe_secret_key_type() {
             LWESecretKeyType::Binary => BlindRotationKey::Binary(BinaryBlindRotationKey::generate(
                 secret_key_pack.lwe_secret_key(),
-                secret_key_pack.ntt_inv_ring_secret_key().unwrap(),
                 parameters.blind_rotation_basis(),
                 chi,
                 &mut *csrng,
@@ -74,7 +73,6 @@ impl<F: NTTField> BlindRotationKey<F> {
             LWESecretKeyType::Ternary => {
                 BlindRotationKey::Ternary(TernaryBlindRotationKey::generate(
                     secret_key_pack.lwe_secret_key(),
-                    secret_key_pack.ntt_inv_ring_secret_key().unwrap(),
                     parameters.blind_rotation_basis(),
                     chi,
                     &mut *csrng,
