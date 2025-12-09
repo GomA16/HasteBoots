@@ -57,13 +57,17 @@ fn main() {
 
     // Generate SNARKs for nand
     println!("Starting verification of nand.\n");
-    let hadamard_trace = trace.vec_trace[0].clone();
-    let mut rng = rand::rng();
-    let log_coeff_count = hadamard_trace.log_coeff_count;
-    let log_num_ntt = hadamard_trace.log_num_round;
-
     let uniform = FieldUniformSampler::new();
-    let ntt_trace_instance = HadamardProdTraceMLE::from(hadamard_trace).get_ntt_trace_mle();
+    let randomness = uniform
+        .sample_iter(&mut rng)
+        .take(trace.vec_trace.len())
+        .collect::<Vec<_>>();
+
+    let ntt_trace = trace.extract_random_ntt_trace_mle(&randomness);
+
+    let log_coeff_count = trace.log_coeff_count;
+    let log_num_ntt = trace.log_num_round;
+
     let point_u = uniform
         .sample_iter(&mut rng)
         .take(log_coeff_count)

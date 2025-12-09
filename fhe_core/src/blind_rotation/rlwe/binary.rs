@@ -2,7 +2,7 @@ use algebra::{AsInto, Basis, FieldDiscreteGaussianSampler, NTTField, NTTPolynomi
 use lattice::{DecompositionSpace, LWE, NTTRGSW, NTTRLWESpace, PolynomialSpace, RLWE, RLWESpace};
 
 use crate::LWEModulusType;
-use trace::{AccTrace, HadamardProdsTrace};
+use trace::{AccTrace, BatchedHadamardTrace};
 
 /// FHE binary blind rotation key
 #[derive(Debug, Clone)]
@@ -76,8 +76,8 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
         lwe: &LWE<C>,
         // Trace
         acc_trace: &mut AccTrace<F>,
-        hadmard_trace_a: &mut HadamardProdsTrace<F>,
-        hadmard_trace_b: &mut HadamardProdsTrace<F>,
+        hadmard_trace_a: &mut BatchedHadamardTrace<F>,
+        hadmard_trace_b: &mut BatchedHadamardTrace<F>,
     ) -> RLWE<F>
     where
         C: LWEModulusType,

@@ -1,12 +1,21 @@
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 
 mod hadamard_prod_trace;
+<<<<<<< HEAD
 mod ntt_trace;
+=======
+mod acc_trace;
+>>>>>>> 80c5744 (nand)
 
 pub use hadamard_prod_trace::{
     AccTrace, HadamardProdTrace, HadamardProdTraceMLE, HadamardProdsTrace,
 };
 pub use ntt_trace::{NTTInstanceInfo, NTTTrace, NTTTraceInfo, NTTTraceMLE};
+<<<<<<< HEAD
+=======
+pub use hadamard_prod_trace::{HadamardTrace, BatchedHadamardTrace, HadamardTraceMLE};
+pub use acc_trace::{AccTrace};
+>>>>>>> 80c5744 (nand)
 
 pub trait FieldTrace<F: Field> {
     type EFInfo;

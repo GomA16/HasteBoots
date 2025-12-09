@@ -1,6 +1,6 @@
 use algebra::{Basis, NTTField, Polynomial};
 use lattice::{LWE, RLWE};
-use trace::{AccTrace, HadamardProdsTrace};
+use trace::{AccTrace, BatchedHadamardTrace};
 
 use crate::{LWEModulusType, LWESecretKeyType, SecretKeyPack};
 
@@ -62,8 +62,8 @@ impl<F: NTTField> BlindRotationKey<F> {
         blind_rotation_basis: Basis<F>,
         // Trace
         acc_trace: &mut AccTrace<F>,
-        hadmard_trace_a: &mut HadamardProdsTrace<F>,
-        hadmard_trace_b: &mut HadamardProdsTrace<F>,
+        hadmard_trace_a: &mut BatchedHadamardTrace<F>,
+        hadmard_trace_b: &mut BatchedHadamardTrace<F>,
     ) -> RLWE<F> {
         match self {
             BlindRotationKey::Binary(bootstrapping_key) => bootstrapping_key.blind_rotate_w_trace(
