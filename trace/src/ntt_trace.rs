@@ -25,12 +25,12 @@ pub struct NTTTraceInfo<F: Field> {
     pub ntt_table: Rc<Vec<F>>,
 }
 
-pub struct NTTBatchedTrace<F: Field> {
+pub struct BatchedNTTTraceMLE<F: Field> {
     pub log_coeff_count: usize,
     pub log_num_ntt: usize,
-    pub ntt_table: Vec<F>,
-    pub coefficients: Vec<Vec<F>>,
-    pub evaluations: Vec<Vec<F>>,
+    pub ntt_table: Rc<Vec<F>>,
+    pub coefficients: Vec<DenseMultilinearExtension<F>>,
+    pub evaluations: Vec<DenseMultilinearExtension<F>>,
 }
 
 /// NTT instance to be proved
@@ -135,52 +135,11 @@ impl<F: NTTField> NTTTrace<F> {
     }
 }
 
-impl<F: NTTField> NTTBatchedTrace<F> {
-    /// Generate random batched NTT trace
+
+
+impl<F: Field> BatchedNTTTraceMLE<F> {
     #[inline]
-    pub fn random<R: rand::Rng + rand::CryptoRng>(
-        log_coeff_count: usize,
-        num_instances: usize,
-        rng: &mut R,
-    ) -> Self {
-        todo!("need to fix batched ntt trace generation");
-        let size = 1 << log_coeff_count;
-        let mut coefficients = Vec::with_capacity(num_instances);
-        let mut evaluations = Vec::with_capacity(num_instances);
-
-        let uniform = FieldUniformSampler::new();
-
-        let mut sample_coeffs = || {
-            uniform
-                .sample_iter(&mut *rng)
-                .take(size)
-                .collect::<Vec<F>>()
-        };
-
-        for _ in 0..num_instances {
-            let coeffs: Vec<F> = sample_coeffs();
-            let mut evals = coeffs.clone();
-            F::get_ntt_table(log_coeff_count as u32)
-                .unwrap()
-                .transform_slice(&mut evals);
-            coefficients.push(coeffs);
-            evaluations.push(evals);
-        }
-        Self {
-            log_coeff_count,
-            log_num_ntt: num_instances.trailing_zeros() as usize,
-            ntt_table: F::get_ntt_table(log_coeff_count as u32)
-                .unwrap()
-                .root_powers(),
-            coefficients,
-            evaluations,
-        }
-    }
-}
-
-impl<F: Field> NTTBatchedTrace<F> {
-    #[inline]
-    pub fn to_random_instance(&self, randomness: &[F]) -> NTTTraceMLE<F> {
+    pub fn to_random_trace(&self, randomness: &[F]) -> NTTTraceMLE<F> {
         let size = 1 << self.log_coeff_count;
         let mut rand_coeffs = vec![F::zero(); size];
         let mut rand_evals = vec![F::zero(); size];
@@ -194,18 +153,24 @@ impl<F: Field> NTTBatchedTrace<F> {
         self.coefficients
             .iter()
             .zip(randomness.iter())
-            .for_each(|(coeffs, r)| add_assign(&mut rand_coeffs, coeffs, *r));
+            .for_each(|(coeffs, r)| add_assign(&mut rand_coeffs, coeffs.as_slice(), *r));
         self.evaluations
             .iter()
             .zip(randomness.iter())
-            .for_each(|(evals, r)| add_assign(&mut rand_evals, evals, *r));
+            .for_each(|(evals, r)| add_assign(&mut rand_evals, evals.as_slice(), *r));
 
-        NTTTrace {
+        NTTTraceMLE {
             log_coeff_count: self.log_coeff_count,
             log_num_ntt: self.log_num_ntt,
             ntt_table: self.ntt_table.clone(),
-            coefficients: rand_coeffs,
-            evaluations: rand_evals,
+            coefficients: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
+                self.log_coeff_count + self.log_num_ntt,
+                rand_coeffs,
+            )),
+            evaluations: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
+                self.log_coeff_count + self.log_num_ntt,
+                rand_evals,
+            )),
         }
         .into()
     }
@@ -228,18 +193,24 @@ impl<F: Field> NTTBatchedTrace<F> {
         self.coefficients
             .iter()
             .zip(randomness.iter())
-            .for_each(|(coeffs, r)| add_assign(&mut rand_coeffs, coeffs, *r));
+            .for_each(|(coeffs, r)| add_assign(&mut rand_coeffs, coeffs.as_slice(), *r));
         self.evaluations
             .iter()
             .zip(randomness.iter())
-            .for_each(|(evals, r)| add_assign(&mut rand_evals, evals, *r));
-
-        NTTTrace::<EF> {
+            .for_each(|(evals, r)| add_assign(&mut rand_evals, evals.as_slice(), *r));
+        
+        NTTTraceMLE::<EF> {
             log_coeff_count: self.log_coeff_count,
             log_num_ntt: self.log_num_ntt,
-            ntt_table: self.ntt_table.to_ef(),
-            coefficients: rand_coeffs,
-            evaluations: rand_evals,
+            ntt_table: Rc::new(self.ntt_table.to_ef()),
+            coefficients: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
+                self.log_coeff_count + self.log_num_ntt,
+                rand_coeffs,
+            )),
+            evaluations: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
+                self.log_coeff_count + self.log_num_ntt,
+                rand_evals,
+            )),
         }
         .into()
     }

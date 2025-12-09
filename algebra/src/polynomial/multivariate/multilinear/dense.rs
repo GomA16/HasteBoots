@@ -108,6 +108,12 @@ impl<F: Field> DenseMultilinearExtension<F> {
         self.evaluations.iter_mut()
     }
 
+    /// Returns the evaluations as a slice
+    #[inline]
+    pub fn as_slice(&self) -> &[F] {
+        &self.evaluations
+    }
+
     /// Split the mle into two mles with one less variable, eliminating the far right variable
     /// original evaluations: f(x, b) for x \in \{0, 1\}^{k-1} and b\{0, 1\}
     /// resulting two mles: f0(x) = f(x, 0) for x \in \{0, 1\}^{k-1} and f1(x) = f(x, 1) for x \in \{0, 1\}^{k-1}

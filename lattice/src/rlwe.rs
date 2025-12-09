@@ -5,7 +5,7 @@ use algebra::{
     ntt_add_mul_assign_fast, ntt_add_mul_inplace, transformation::AbstractNTT,
 };
 use rand::{CryptoRng, Rng};
-use trace::HadamardProdsTrace;
+use trace::BatchedHadamardTrace;
 
 use crate::{
     DecompositionSpace, GadgetRLWE, LWE, NTTGadgetRLWE, NTTRGSW, NTTRLWESpace, PolynomialSpace,
@@ -575,8 +575,8 @@ impl<F: NTTField> RLWE<F> {
         polynomial_space: &mut PolynomialSpace<F>,
         median: &mut NTTRLWESpace<F>,
         // Trace
-        trace_a: &mut HadamardProdsTrace<F>,
-        trace_b: &mut HadamardProdsTrace<F>,
+        trace_a: &mut BatchedHadamardTrace<F>,
+        trace_b: &mut BatchedHadamardTrace<F>,
     ) {
         ntt_rgsw.c_neg_s_m().mul_polynomial_inplace_fast_w_traces(
             self.a(),
@@ -1032,7 +1032,7 @@ impl<F: NTTField> NTTRLWE<F> {
         decompose_space: &mut DecompositionSpace<F>,
         polynomial_space: &mut PolynomialSpace<F>,
         // Trace
-        trace: &mut HadamardProdsTrace<F>,
+        trace: &mut BatchedHadamardTrace<F>,
     ) {
         let coeff_count = polynomial.coeff_count();
         debug_assert_eq!(coeff_count, polynomial_space.coeff_count());
