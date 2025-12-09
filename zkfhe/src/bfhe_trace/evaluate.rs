@@ -38,6 +38,7 @@ impl<C: LWEModulusType, Q: NTTField> EvaluationKey<C, Q> {
                 KeySwitchingKeyEnum::RLWE(KeySwitchingRLWEKey::generate(secret_key_pack))
             }
             Steps::BrMs => KeySwitchingKeyEnum::None,
+            Steps::KsBr => todo!(),
         };
 
         Self {
@@ -131,6 +132,7 @@ impl<C: LWEModulusType, Q: NTTField> EvaluationKey<C, Q> {
 
                 lwe_modulus_switch_inplace(lwe, parameters.lwe_cipher_modulus_value(), &mut c);
             }
+            Steps::KsBr => todo!(),
         }
 
         (c, hadmard_trace_a)

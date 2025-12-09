@@ -235,9 +235,8 @@ mod test {
     use super::*;
     use crate::SumcheckPIOP;
     use algebra::{
-        FieldUniformSampler, NTTField,
+        FieldUniformSampler,
         derive::{DecomposableField, FheField, Field, NTT, Prime},
-        transformation::AbstractNTT,
     };
     use helper::Transcript;
     use rand_distr::Distribution;

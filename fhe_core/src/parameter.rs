@@ -28,6 +28,10 @@ pub enum Steps {
     ///
     /// (n, q) -> (n, 2N) -> (N, Q) -> (n, q)
     BrMs,
+    /// Key Switch -> Modulus Switch or Scale? -> Blind Rotation.
+    ///
+    /// (N, Q) -> (n, Q) -> (n, q) -> (N, Q)
+    KsBr,
 }
 
 /// The process type before blind rotation

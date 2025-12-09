@@ -116,6 +116,7 @@ impl<C: LWEModulusType, Q: NTTField> SecretKeyPack<C, Q> {
                 // s = [s_0, s_1,..., s_{n-1}]
                 <Polynomial<Q>>::new(lwe_secret_key.iter().map(convert).collect())
             }
+            Steps::KsBr => todo!(),
         };
         ntt_ring_secret_key = ring_secret_key.clone().into_ntt_polynomial();
         ntt_inv_ring_secret_key = None;
