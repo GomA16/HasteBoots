@@ -7,7 +7,7 @@ use algebra::{
 use rand_distr::Distribution;
 use serde::Serialize;
 
-use crate::{ConvertToEF};
+use crate::ConvertToEF;
 
 pub struct NTTTrace<F: Field> {
     pub log_coeff_count: usize,

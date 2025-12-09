@@ -1,8 +1,6 @@
-use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field, MultilinearExtension};
+use algebra::{AbstractExtensionField, Field};
 use helper::Transcript;
 use pcs::PolynomialCommitmentScheme;
-use serde::Serialize;
-use trace::FieldTrace;
 
 pub mod ntt;
 

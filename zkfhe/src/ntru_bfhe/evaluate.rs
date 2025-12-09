@@ -49,7 +49,6 @@ impl<C: LWEModulusType, Q: NTTField> EvaluationKey<C, Q> {
     pub fn bootstrap(&self, mut c: LWECiphertext<C>, lut: Polynomial<Q>) -> LWECiphertext<C> {
         let parameters = self.parameters();
         let pre = parameters.process_before_blind_rotation();
-        let round_method = parameters.modulus_switch_round_method();
 
         match pre.process() {
             ProcessType::ModulusSwitch => {
@@ -57,7 +56,6 @@ impl<C: LWEModulusType, Q: NTTField> EvaluationKey<C, Q> {
                     &mut c,
                     parameters.lwe_cipher_modulus_value(),
                     pre.twice_ring_dimension_value(),
-                    round_method,
                 );
             }
             ProcessType::Scale { ratio } => {
@@ -92,7 +90,6 @@ impl<C: LWEModulusType, Q: NTTField> EvaluationKey<C, Q> {
                 lwe_modulus_switch_inplace(
                     key_switched,
                     parameters.lwe_cipher_modulus_value(),
-                    round_method,
                     &mut c,
                 );
                 c

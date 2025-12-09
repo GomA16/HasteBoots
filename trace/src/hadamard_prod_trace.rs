@@ -1,13 +1,8 @@
 use std::rc::Rc;
 
-use algebra::{
-    AbstractExtensionField, DenseMultilinearExtension, Field, FieldUniformSampler, NTTField,
-    transformation::AbstractNTT,
-};
-use rand_distr::Distribution;
-use serde::Serialize;
+use algebra::{DenseMultilinearExtension, Field, NTTField, transformation::AbstractNTT};
 
-use crate::{ConvertToEF, NTTTraceMLE};
+use crate::NTTTraceMLE;
 
 /// Store the traces of each round of Hadamard product during blind rotation.
 #[derive(Debug, Clone)]
@@ -27,19 +22,21 @@ pub struct HadamardProdTraceMLE<F: Field> {
     pub ntt_table: Rc<Vec<F>>,
     pub bit_poly: Rc<DenseMultilinearExtension<F>>,
     pub bit_ntt: Rc<DenseMultilinearExtension<F>>,
-    pub key_ntt: (Rc<DenseMultilinearExtension<F>>, Rc<DenseMultilinearExtension<F>>),
+    pub key_ntt: (
+        Rc<DenseMultilinearExtension<F>>,
+        Rc<DenseMultilinearExtension<F>>,
+    ),
 }
 
 impl<F: NTTField> From<HadamardProdTrace<F>> for HadamardProdTraceMLE<F> {
     #[inline]
     fn from(trace: HadamardProdTrace<F>) -> Self {
         let num_vars = trace.log_coeff_count + trace.log_num_round;
-        let bit_poly_mle = DenseMultilinearExtension::from_evaluations_vec(num_vars, trace.bit_poly);
+        let bit_poly_mle =
+            DenseMultilinearExtension::from_evaluations_vec(num_vars, trace.bit_poly);
         let bit_ntt_mle = DenseMultilinearExtension::from_evaluations_vec(num_vars, trace.bit_ntt);
-        let key_mle_0 =
-            DenseMultilinearExtension::from_evaluations_vec(num_vars, trace.key_ntt.0);
-        let key_mle_1 =
-            DenseMultilinearExtension::from_evaluations_vec(num_vars, trace.key_ntt.1);
+        let key_mle_0 = DenseMultilinearExtension::from_evaluations_vec(num_vars, trace.key_ntt.0);
+        let key_mle_1 = DenseMultilinearExtension::from_evaluations_vec(num_vars, trace.key_ntt.1);
 
         Self {
             log_coeff_count: trace.log_coeff_count,
@@ -69,7 +66,9 @@ impl<F: NTTField> HadamardProdTrace<F> {
         Self {
             log_coeff_count,
             log_num_round: log_num_poly,
-            ntt_table: F::get_ntt_table(log_coeff_count as u32).unwrap().root_powers(),
+            ntt_table: F::get_ntt_table(log_coeff_count as u32)
+                .unwrap()
+                .root_powers(),
             bit_poly: Vec::with_capacity(1 << (log_coeff_count + log_num_poly)),
             bit_ntt: Vec::with_capacity(1 << (log_coeff_count + log_num_poly)),
             key_ntt: (

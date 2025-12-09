@@ -1,12 +1,12 @@
-use algebra::{
-    AbstractExtensionField, DenseMultilinearExtension, Field, NTTField, transformation::AbstractNTT,
-};
+use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 
-mod ntt_trace;
 mod hadamard_prod_trace;
+mod ntt_trace;
 
+pub use hadamard_prod_trace::{
+    AccTrace, HadamardProdTrace, HadamardProdTraceMLE, HadamardProdsTrace,
+};
 pub use ntt_trace::{NTTInstanceInfo, NTTTrace, NTTTraceInfo, NTTTraceMLE};
-pub use hadamard_prod_trace::{HadamardProdTrace, HadamardProdsTrace, HadamardProdTraceMLE, AccTrace};
 
 pub trait FieldTrace<F: Field> {
     type EFInfo;
@@ -43,4 +43,3 @@ pub trait PackTrace<F: Field> {
     fn pack_to_vec(&self) -> Vec<F>;
     fn generate_oracle(&self) -> DenseMultilinearExtension<F>;
 }
-

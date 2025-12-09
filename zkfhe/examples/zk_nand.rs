@@ -1,14 +1,16 @@
+use algebra::FieldUniformSampler;
 use algebra::NTTField;
 use fhe_core::{LWECiphertext, LWEModulusType, utils::*};
-use rand::Rng;
-use trace::{HadamardProdTrace, HadamardProdTraceMLE};
-use zkfhe::bfhe_trace::{DEFAULT_TERNARY_128_BITS_PARAMETERS, Evaluator, BABY_BEAR_TERNARY_128_BITS_PARAMETERS};
-use zkfhe::{Decryptor, Encryptor, KeyGen};
-use algebra::FieldUniformSampler;
-use piop::ntt::{NTTMatrixEvalInstance, NTTMatrixEvalIOP};
-use piop::SumcheckPIOP;
-use rand_distr::Distribution;
 use helper::Transcript;
+use piop::SumcheckPIOP;
+use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInstance};
+use rand::Rng;
+use rand_distr::Distribution;
+use trace::{HadamardProdTrace, HadamardProdTraceMLE};
+use zkfhe::bfhe_trace::{
+    BABY_BEAR_TERNARY_128_BITS_PARAMETERS, DEFAULT_TERNARY_128_BITS_PARAMETERS, Evaluator,
+};
+use zkfhe::{Decryptor, Encryptor, KeyGen};
 
 type M = bool;
 type C = u16;
@@ -56,7 +58,6 @@ fn main() {
     assert_eq!(m, nand(a, b), "Noise: {noise}");
     check_noise(noise, "nand");
 
-
     // Generate SNARKs for nand
     println!("Starting verification of nand.\n");
     let hadamard_trace = trace.vec_trace[0].clone();
@@ -67,26 +68,24 @@ fn main() {
     let uniform = FieldUniformSampler::new();
     let ntt_trace_instance = HadamardProdTraceMLE::from(hadamard_trace).get_ntt_trace_mle();
     let point_u = uniform
-            .sample_iter(&mut rng)
-            .take(log_coeff_count)
-            .collect::<Vec<_>>();
+        .sample_iter(&mut rng)
+        .take(log_coeff_count)
+        .collect::<Vec<_>>();
     let point_v = uniform
         .sample_iter(&mut rng)
         .take(log_num_ntt)
         .collect::<Vec<_>>();
     let ntt_matrix_eval_instance =
-            NTTMatrixEvalInstance::from(&ntt_trace_instance, &point_u, &point_v);
+        NTTMatrixEvalInstance::from(&ntt_trace_instance, &point_u, &point_v);
 
     let ntt_eval_info = ntt_matrix_eval_instance.info();
 
     let mut prover_trans = Transcript::default();
-    let (proof, _) =
-        NTTMatrixEvalIOP::prover(&mut prover_trans, &ntt_matrix_eval_instance);
+    let (proof, _) = NTTMatrixEvalIOP::prover(&mut prover_trans, &ntt_matrix_eval_instance);
     println!("Proofs generation done!\n");
 
     let mut verifier_trans = Transcript::default();
-    let (res, _) =
-        NTTMatrixEvalIOP::verifier(&mut verifier_trans, &ntt_eval_info, &proof);
+    let (res, _) = NTTMatrixEvalIOP::verifier(&mut verifier_trans, &ntt_eval_info, &proof);
     println!("Proofs verification done!\n");
     assert!(res);
 }

@@ -1,6 +1,5 @@
 use algebra::{DenseMultilinearExtension, Field, MultilinearExtension, PolynomialInfo};
 use helper::Transcript;
-use num_traits::ops::mul_add;
 use serde::Serialize;
 use std::rc::Rc;
 use sumcheck::{MLSumcheck, Proof, verifier::SubClaim};
