@@ -21,8 +21,8 @@ pub mod utils;
 pub use error::FHECoreError;
 
 pub use parameter::{
-    BlindRotationType, ConstParameters, DefaultExtendsionFieldU32x4, DefaultFieldU32, DefaultQks,
-    Parameters, ProcessBeforeBlindRotation, ProcessType, Steps,
+    ConstParameters, DefaultExtendsionFieldU32x4, DefaultFieldU32, DefaultQks, Parameters,
+    ProcessBeforeBlindRotation, ProcessType, Steps,
 };
 
 pub use ciphertext::{

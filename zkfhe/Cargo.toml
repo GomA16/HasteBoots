@@ -34,10 +34,6 @@ criterion = { workspace = true }
 name = "zk_bfhe"
 harness = false
 
-[[bench]]
-name = "zk_bnfhe"
-harness = false
-
 [package.metadata.docs.rs]
 all-features = true
 # enable unstable features in the documentation

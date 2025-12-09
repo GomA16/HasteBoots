@@ -1,15 +1,12 @@
 use algebra::FieldUniformSampler;
-use algebra::NTTField;
-use fhe_core::{LWECiphertext, LWEModulusType, utils::*};
+use fhe_core::utils::*;
 use helper::Transcript;
 use piop::SumcheckPIOP;
 use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInstance};
 use rand::Rng;
 use rand_distr::Distribution;
-use trace::{HadamardProdTrace, HadamardProdTraceMLE};
-use zkfhe::bfhe_trace::{
-    BABY_BEAR_TERNARY_128_BITS_PARAMETERS, DEFAULT_TERNARY_128_BITS_PARAMETERS, Evaluator,
-};
+use trace::HadamardProdTraceMLE;
+use zkfhe::bfhe_trace::{DEFAULT_TERNARY_128_BITS_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
 type M = bool;

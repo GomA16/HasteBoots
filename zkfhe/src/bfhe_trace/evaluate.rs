@@ -1,8 +1,8 @@
 use algebra::{NTTField, Polynomial};
 use fhe_core::{
-    BlindRotationType, KeySwitchingKeyEnum, KeySwitchingLWEKey, KeySwitchingRLWEKey, LWECiphertext,
-    LWEModulusType, Parameters, ProcessType, RLWEBlindRotationKey, SecretKeyPack, Steps,
-    lwe_modulus_switch, lwe_modulus_switch_assign_between_modulus, lwe_modulus_switch_inplace,
+    KeySwitchingKeyEnum, KeySwitchingLWEKey, KeySwitchingRLWEKey, LWECiphertext, LWEModulusType,
+    Parameters, ProcessType, RLWEBlindRotationKey, SecretKeyPack, Steps, lwe_modulus_switch,
+    lwe_modulus_switch_assign_between_modulus, lwe_modulus_switch_inplace,
 };
 use trace::{AccTrace, HadamardProdsTrace};
 
@@ -27,7 +27,6 @@ impl<C: LWEModulusType, Q: NTTField> EvaluationKey<C, Q> {
     /// Creates a new [`EvaluationKey`] from the given [`SecretKeyPack`].
     pub fn new(secret_key_pack: &SecretKeyPack<C, Q>) -> Self {
         let parameters = secret_key_pack.parameters();
-        assert_eq!(parameters.blind_rotation_type(), BlindRotationType::RLWE);
 
         let blind_rotation_key = RLWEBlindRotationKey::generate(secret_key_pack);
 
