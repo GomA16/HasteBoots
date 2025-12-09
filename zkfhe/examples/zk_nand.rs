@@ -5,7 +5,7 @@ use piop::SumcheckPIOP;
 use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInstance};
 use rand::Rng;
 use rand_distr::Distribution;
-use trace::HadamardProdTraceMLE;
+// use trace::HadamardProdTraceMLE;
 use zkfhe::bfhe_trace::{DEFAULT_TERNARY_128_BITS_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
@@ -77,7 +77,7 @@ fn main() {
         .take(log_num_ntt)
         .collect::<Vec<_>>();
     let ntt_matrix_eval_instance =
-        NTTMatrixEvalInstance::from(&ntt_trace_instance, &point_u, &point_v);
+        NTTMatrixEvalInstance::from(&ntt_trace, &point_u, &point_v);
 
     let ntt_eval_info = ntt_matrix_eval_instance.info();
 

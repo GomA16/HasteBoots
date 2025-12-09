@@ -49,15 +49,7 @@ impl<C: LWEModulusType, Q: NTTField> EvaluationKey<C, Q> {
     }
 
     /// Complete the bootstrapping operation with LWE Ciphertext *`c`* and lookup table `lut`.
-<<<<<<< HEAD
-    pub fn bootstrap(
-        &self,
-        mut c: LWECiphertext<C>,
-        lut: Polynomial<Q>,
-    ) -> (LWECiphertext<C>, HadamardProdsTrace<Q>) {
-=======
     pub fn bootstrap(&self, mut c: LWECiphertext<C>, lut: Polynomial<Q>) -> (LWECiphertext<C>, BatchedHadamardTrace<Q>) {
->>>>>>> 80c5744 (nand)
         let parameters = self.parameters();
         let pre = parameters.process_before_blind_rotation();
 
@@ -166,15 +158,7 @@ impl<C: LWEModulusType, Q: NTTField> Evaluator<C, Q> {
 
     /// Complete the bootstrapping operation with LWE Ciphertext *`c`* and lookup table `lut`.
     #[inline]
-<<<<<<< HEAD
-    pub fn bootstrap(
-        &self,
-        c: LWECiphertext<C>,
-        lut: Polynomial<Q>,
-    ) -> (LWECiphertext<C>, HadamardProdsTrace<Q>) {
-=======
     pub fn bootstrap(&self, c: LWECiphertext<C>, lut: Polynomial<Q>) -> (LWECiphertext<C>, BatchedHadamardTrace<Q>) {
->>>>>>> 80c5744 (nand)
         self.ek.bootstrap(c, lut)
     }
 
@@ -203,15 +187,7 @@ impl<C: LWEModulusType, Q: NTTField> Evaluator<C, Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `not(a and b)`.
-<<<<<<< HEAD
-    pub fn nand(
-        &self,
-        c0: &LWECiphertext<C>,
-        c1: &LWECiphertext<C>,
-    ) -> (LWECiphertext<C>, HadamardProdsTrace<Q>) {
-=======
     pub fn nand(&self, c0: &LWECiphertext<C>, c1: &LWECiphertext<C>) -> (LWECiphertext<C>, BatchedHadamardTrace<Q>) {
->>>>>>> 80c5744 (nand)
         let parameters = self.parameters();
         let lwe_modulus = parameters.lwe_cipher_modulus();
 
@@ -229,15 +205,7 @@ impl<C: LWEModulusType, Q: NTTField> Evaluator<C, Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `a and b`.
-<<<<<<< HEAD
-    pub fn and(
-        &self,
-        c0: &LWECiphertext<C>,
-        c1: &LWECiphertext<C>,
-    ) -> (LWECiphertext<C>, HadamardProdsTrace<Q>) {
-=======
     pub fn and(&self, c0: &LWECiphertext<C>, c1: &LWECiphertext<C>) -> (LWECiphertext<C>, BatchedHadamardTrace<Q>) {
->>>>>>> 80c5744 (nand)
         let parameters = self.parameters();
         let lwe_modulus = parameters.lwe_cipher_modulus();
 
@@ -256,15 +224,7 @@ impl<C: LWEModulusType, Q: NTTField> Evaluator<C, Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `a or b`.
-<<<<<<< HEAD
-    pub fn or(
-        &self,
-        c0: &LWECiphertext<C>,
-        c1: &LWECiphertext<C>,
-    ) -> (LWECiphertext<C>, HadamardProdsTrace<Q>) {
-=======
     pub fn or(&self, c0: &LWECiphertext<C>, c1: &LWECiphertext<C>) -> (LWECiphertext<C>, BatchedHadamardTrace<Q>) {
->>>>>>> 80c5744 (nand)
         let parameters = self.parameters();
         let lwe_modulus = parameters.lwe_cipher_modulus();
 
@@ -282,15 +242,7 @@ impl<C: LWEModulusType, Q: NTTField> Evaluator<C, Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `not(a or b)`.
-<<<<<<< HEAD
-    pub fn nor(
-        &self,
-        c0: &LWECiphertext<C>,
-        c1: &LWECiphertext<C>,
-    ) -> (LWECiphertext<C>, HadamardProdsTrace<Q>) {
-=======
     pub fn nor(&self, c0: &LWECiphertext<C>, c1: &LWECiphertext<C>) -> (LWECiphertext<C>, BatchedHadamardTrace<Q>) {
->>>>>>> 80c5744 (nand)
         let parameters = self.parameters();
         let lwe_modulus = parameters.lwe_cipher_modulus();
 
@@ -308,15 +260,7 @@ impl<C: LWEModulusType, Q: NTTField> Evaluator<C, Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `a xor b`.
-<<<<<<< HEAD
-    pub fn xor(
-        &self,
-        c0: &LWECiphertext<C>,
-        c1: &LWECiphertext<C>,
-    ) -> (LWECiphertext<C>, HadamardProdsTrace<Q>) {
-=======
     pub fn xor(&self, c0: &LWECiphertext<C>, c1: &LWECiphertext<C>) -> (LWECiphertext<C>, BatchedHadamardTrace<Q>) {
->>>>>>> 80c5744 (nand)
         let parameters = self.parameters();
         let lwe_modulus = parameters.lwe_cipher_modulus();
 
@@ -335,15 +279,7 @@ impl<C: LWEModulusType, Q: NTTField> Evaluator<C, Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `not(a xor b)`.
-<<<<<<< HEAD
-    pub fn xnor(
-        &self,
-        c0: &LWECiphertext<C>,
-        c1: &LWECiphertext<C>,
-    ) -> (LWECiphertext<C>, HadamardProdsTrace<Q>) {
-=======
     pub fn xnor(&self, c0: &LWECiphertext<C>, c1: &LWECiphertext<C>) -> (LWECiphertext<C>, BatchedHadamardTrace<Q>) {
->>>>>>> 80c5744 (nand)
         let parameters = self.parameters();
         let lwe_modulus = parameters.lwe_cipher_modulus();
 

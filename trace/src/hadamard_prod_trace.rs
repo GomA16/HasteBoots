@@ -1,13 +1,9 @@
 use std::rc::Rc;
 
-<<<<<<< HEAD
-use algebra::{DenseMultilinearExtension, Field, NTTField, transformation::AbstractNTT};
-=======
 use algebra::{
     AbstractExtensionField, DenseMultilinearExtension, Field, FieldUniformSampler, NTTField,
     transformation::AbstractNTT,
 };
->>>>>>> 80c5744 (nand)
 
 use crate::NTTTraceMLE;
 
@@ -25,19 +21,9 @@ pub struct HadamardTrace<F: NTTField> {
 pub struct BatchedHadamardTrace<F: NTTField> {
     pub log_coeff_count: usize,
     pub log_num_round: usize,
-<<<<<<< HEAD
-    pub ntt_table: Rc<Vec<F>>,
-    pub bit_poly: Rc<DenseMultilinearExtension<F>>,
-    pub bit_ntt: Rc<DenseMultilinearExtension<F>>,
-    pub key_ntt: (
-        Rc<DenseMultilinearExtension<F>>,
-        Rc<DenseMultilinearExtension<F>>,
-    ),
-=======
     // pub ntt_table: Vec<F>,
     pub num_trace: usize,
     pub vec_trace: Vec<HadamardTrace<F>>,
->>>>>>> 80c5744 (nand)
 }
 
 #[derive(Clone)]
@@ -87,13 +73,7 @@ impl<F: NTTField> HadamardTrace<F> {
         Self {
             log_coeff_count,
             log_num_round: log_num_poly,
-<<<<<<< HEAD
-            ntt_table: F::get_ntt_table(log_coeff_count as u32)
-                .unwrap()
-                .root_powers(),
-=======
             // ntt_table: F::get_ntt_table(log_coeff_count as u32).unwrap().root_powers(),
->>>>>>> 80c5744 (nand)
             bit_poly: Vec::with_capacity(1 << (log_coeff_count + log_num_poly)),
             bit_ntt: Vec::with_capacity(1 << (log_coeff_count + log_num_poly)),
             key_ntt: (
