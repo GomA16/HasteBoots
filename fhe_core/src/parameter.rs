@@ -22,12 +22,6 @@ pub enum Steps {
     /// (n, q) -> (n, 2N) -> (N, Q) -> (n, Q) -> (n, q)
     #[default]
     BrKsMs,
-    /// Modulus Switch or Scale? -> Blind Rotation -> Modulus Switch.
-    ///
-    /// ### Case: n = N
-    ///
-    /// (n, q) -> (n, 2N) -> (N, Q) -> (n, q)
-    BrMs,
     /// Key Switch -> Modulus Switch or Scale? -> Blind Rotation.
     ///
     /// (N, Q) -> (n, Q) -> (n, q) -> (N, Q)
@@ -175,21 +169,6 @@ impl<C: LWEModulusType, Q: NTTField> Parameters<C, Q> {
         let steps = params.steps;
         let secret_key_type = params.lwe_secret_key_type;
         let ring_secret_key_type = params.ring_secret_key_type;
-
-        match steps {
-            Steps::BrMs => {
-                // Currently, only support RLWE Blind Rotation for this mode
-                if !(lwe_dimension == ring_dimension
-                    && ((secret_key_type == LWESecretKeyType::Binary
-                        && ring_secret_key_type == RingSecretKeyType::Binary)
-                        || (secret_key_type == LWESecretKeyType::Ternary
-                            && ring_secret_key_type == RingSecretKeyType::Ternary)))
-                {
-                    return Err(FHECoreError::StepsParametersNotCompatible);
-                }
-            }
-            _ => {}
-        }
 
         // N = 2^i
         if !ring_dimension.is_power_of_two() {

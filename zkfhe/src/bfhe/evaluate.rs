@@ -36,7 +36,6 @@ impl<C: LWEModulusType, Q: NTTField> EvaluationKey<C, Q> {
             Steps::BrKsMs => {
                 KeySwitchingKeyEnum::RLWE(KeySwitchingRLWEKey::generate(secret_key_pack))
             }
-            Steps::BrMs => KeySwitchingKeyEnum::None,
             Steps::KsBr => todo!(),
         };
 
@@ -99,11 +98,6 @@ impl<C: LWEModulusType, Q: NTTField> EvaluationKey<C, Q> {
                     parameters.lwe_cipher_modulus_value(),
                     &mut c,
                 );
-            }
-            Steps::BrMs => {
-                let lwe = acc.extract_lwe_locally();
-
-                lwe_modulus_switch_inplace(lwe, parameters.lwe_cipher_modulus_value(), &mut c);
             }
             Steps::KsBr => todo!(),
         }
