@@ -13,10 +13,6 @@ use crate::{FHECoreError, LWEModulusType, LWESecretKeyType, RingSecretKeyType};
 /// - `Scale`:`q < 2N`, `q|2N`
 #[derive(Debug, Default, Clone, Copy)]
 pub enum Steps {
-    /// Modulus Switch or Scale? -> Blind Rotation -> Modulus Switch -> Key Switch.
-    ///
-    /// (n, q) -> (n, 2N) -> (N, Q) -> (N, q) -> (n, q)
-    BrMsKs,
     /// Modulus Switch or Scale? -> Blind Rotation -> Key Switch -> Modulus Switch.
     ///
     /// (n, q) -> (n, 2N) -> (N, Q) -> (n, Q) -> (n, q)

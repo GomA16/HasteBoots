@@ -76,8 +76,7 @@ fn main() {
         .sample_iter(&mut rng)
         .take(log_num_ntt)
         .collect::<Vec<_>>();
-    let ntt_matrix_eval_instance =
-        NTTMatrixEvalInstance::from(&ntt_trace, &point_u, &point_v);
+    let ntt_matrix_eval_instance = NTTMatrixEvalInstance::from(&ntt_trace, &point_u, &point_v);
 
     let ntt_eval_info = ntt_matrix_eval_instance.info();
 

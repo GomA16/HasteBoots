@@ -82,7 +82,7 @@ pub static CUSTOM_TERNARY_128_BITS_PARAMETERS: Lazy<Parameters<u16, DefaultField
             blind_rotation_basis_bits: 7,
             key_switching_basis_bits: 7,
             key_switching_standard_deviation: 3.2 * ((1 << 1) as f64),
-            steps: Steps::BrMsKs,
+            steps: Steps::BrKsMs,
         })
         .unwrap()
     });

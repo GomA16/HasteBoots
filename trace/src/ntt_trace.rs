@@ -135,8 +135,6 @@ impl<F: NTTField> NTTTrace<F> {
     }
 }
 
-
-
 impl<F: Field> BatchedNTTTraceMLE<F> {
     #[inline]
     pub fn to_random_trace(&self, randomness: &[F]) -> NTTTraceMLE<F> {
@@ -198,7 +196,7 @@ impl<F: Field> BatchedNTTTraceMLE<F> {
             .iter()
             .zip(randomness.iter())
             .for_each(|(evals, r)| add_assign(&mut rand_evals, evals.as_slice(), *r));
-        
+
         NTTTraceMLE::<EF> {
             log_coeff_count: self.log_coeff_count,
             log_num_ntt: self.log_num_ntt,

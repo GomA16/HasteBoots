@@ -60,8 +60,6 @@ impl<F: NTTField> RLWETrace<F> {
     }
 }
 
-
-
 impl<F: NTTField> AccTrace<F> {
     pub fn new(log_coeff_count: usize, log_num_round: usize) -> Self {
         Self {

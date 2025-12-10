@@ -1,7 +1,7 @@
 use algebra::{NTTField, Polynomial};
 use fhe_core::{
-    KeySwitchingKeyEnum, KeySwitchingLWEKey, KeySwitchingRLWEKey, LWECiphertext, LWEModulusType,
-    Parameters, ProcessType, RLWEBlindRotationKey, SecretKeyPack, Steps, lwe_modulus_switch,
+    KeySwitchingKeyEnum, KeySwitchingRLWEKey, LWECiphertext, LWEModulusType, Parameters,
+    ProcessType, RLWEBlindRotationKey, SecretKeyPack, Steps,
     lwe_modulus_switch_assign_between_modulus, lwe_modulus_switch_inplace,
 };
 
@@ -30,9 +30,6 @@ impl<C: LWEModulusType, Q: NTTField> EvaluationKey<C, Q> {
         let blind_rotation_key = RLWEBlindRotationKey::generate(secret_key_pack);
 
         let key_switching_key = match parameters.steps() {
-            Steps::BrMsKs => {
-                KeySwitchingKeyEnum::LWE(KeySwitchingLWEKey::generate(secret_key_pack))
-            }
             Steps::BrKsMs => {
                 KeySwitchingKeyEnum::RLWE(KeySwitchingRLWEKey::generate(secret_key_pack))
             }
@@ -74,17 +71,6 @@ impl<C: LWEModulusType, Q: NTTField> EvaluationKey<C, Q> {
         acc.b_mut()[0] += Q::new(Q::MODULUS_VALUE >> 3);
 
         match parameters.steps() {
-            Steps::BrMsKs => {
-                let acc = acc.extract_lwe_locally();
-                let cipher = lwe_modulus_switch(acc, parameters.lwe_cipher_modulus_value());
-
-                let ksk = match self.key_switching_key {
-                    KeySwitchingKeyEnum::LWE(ref ksk) => ksk,
-                    _ => panic!("Unable to get the corresponding key switching key!"),
-                };
-
-                c = ksk.key_switch_for_lwe(cipher);
-            }
             Steps::BrKsMs => {
                 let ksk = match self.key_switching_key {
                     KeySwitchingKeyEnum::RLWE(ref ksk) => ksk,
