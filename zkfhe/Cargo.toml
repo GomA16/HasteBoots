@@ -16,6 +16,8 @@ rayon = { workspace = true }
 once_cell = { workspace = true }
 itertools = { workspace = true }
 rand_distr = { workspace = true }
+log = { workspace = true }
+env_logger = "0.10"
 
 [features]
 default = ["concrete-ntt"]

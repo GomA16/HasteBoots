@@ -3,6 +3,7 @@ use fhe_core::{
     KeySwitchingKeyEnum, KeySwitchingRLWEKey, LWECiphertext, Parameters, RLWEBlindRotationKey,
     SecretKeyPack, lwe_modulus_switch,
 };
+use trace::{AccTrace, BatchedHadamardTrace};
 
 /// The evaluator of the homomorphic encryption scheme.
 #[derive(Debug, Clone)]
@@ -39,15 +40,37 @@ impl<Q: NTTField> EvaluationKey<Q> {
     }
 
     /// Complete the bootstrapping operation with LWE Ciphertext *`c`* and lookup table `lut`.
-    pub fn bootstrap(&self, c: LWECiphertext<Q>, lut: Polynomial<Q>) -> LWECiphertext<Q> {
+    pub fn bootstrap(&self, c: LWECiphertext<Q>, lut: Polynomial<Q>) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
         let parameters = self.parameters();
         let pre = parameters.process_before_blind_rotation();
 
         let c_prime = lwe_modulus_switch(&c, pre.twice_ring_dimension_value());
 
-        let mut acc =
-            self.blind_rotation_key
-                .blind_rotate(lut, &c_prime, parameters.blind_rotation_basis());
+        let log_coeff_count = parameters.ring_dimension().trailing_zeros() as usize;
+        let log_num_round = parameters
+            .lwe_dimension()
+            .next_power_of_two()
+            .trailing_zeros() as usize;
+        let mut acc_trace = AccTrace::<Q>::new(log_coeff_count, log_num_round);
+        let mut hadmard_trace_a = BatchedHadamardTrace::<Q>::new(
+            parameters.blind_rotation_basis().decompose_len(),
+            log_coeff_count,
+            log_num_round,
+        );
+        let mut hadmard_trace_b = BatchedHadamardTrace::<Q>::new(
+            parameters.blind_rotation_basis().decompose_len(),
+            log_coeff_count,
+            log_num_round,
+        );
+
+        let mut acc = self.blind_rotation_key.blind_rotate_w_trace(
+            lut,
+            &c_prime,
+            parameters.blind_rotation_basis(),
+            &mut acc_trace,
+            &mut hadmard_trace_a,
+            &mut hadmard_trace_b,
+        );
 
         acc.b_mut()[0] += Q::new(Q::MODULUS_VALUE >> 3u32);
 
@@ -56,7 +79,9 @@ impl<Q: NTTField> EvaluationKey<Q> {
             _ => panic!("Unable to get the corresponding key switching key!"),
         };
 
-        ksk.key_switch_for_rlwe(acc)
+        let output_lwe = ksk.key_switch_for_rlwe(acc);
+
+        (output_lwe, hadmard_trace_a)
     }
 }
 
@@ -83,7 +108,7 @@ impl<Q: NTTField> Evaluator<Q> {
 
     /// Complete the bootstrapping operation with LWE Ciphertext *`c`* and lookup table `lut`.
     #[inline]
-    pub fn bootstrap(&self, c: LWECiphertext<Q>, lut: Polynomial<Q>) -> LWECiphertext<Q> {
+    pub fn bootstrap(&self, c: LWECiphertext<Q>, lut: Polynomial<Q>) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
         self.ek.bootstrap(c, lut)
     }
 
@@ -110,7 +135,7 @@ impl<Q: NTTField> Evaluator<Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `not(a and b)`.
-    pub fn nand(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> LWECiphertext<Q> {
+    pub fn nand(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
         let parameters = self.parameters();
 
         let add = c0.add_component_wise_ref(c1);
@@ -127,7 +152,7 @@ impl<Q: NTTField> Evaluator<Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `a and b`.
-    pub fn and(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> LWECiphertext<Q> {
+    pub fn and(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
         let parameters = self.parameters();
 
         let add = c0.add_component_wise_ref(c1);
@@ -145,7 +170,7 @@ impl<Q: NTTField> Evaluator<Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `a or b`.
-    pub fn or(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> LWECiphertext<Q> {
+    pub fn or(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
         let parameters = self.parameters();
 
         let add = c0.add_component_wise_ref(c1);
@@ -162,7 +187,7 @@ impl<Q: NTTField> Evaluator<Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `not(a or b)`.
-    pub fn nor(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> LWECiphertext<Q> {
+    pub fn nor(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
         let parameters = self.parameters();
 
         let add = c0.add_component_wise_ref(c1);
@@ -179,7 +204,7 @@ impl<Q: NTTField> Evaluator<Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `a xor b`.
-    pub fn xor(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> LWECiphertext<Q> {
+    pub fn xor(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
         let parameters = self.parameters();
 
         let mut sub = c0.sub_component_wise_ref(c1);
@@ -197,7 +222,7 @@ impl<Q: NTTField> Evaluator<Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `not(a xor b)`.
-    pub fn xnor(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> LWECiphertext<Q> {
+    pub fn xnor(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
         let parameters = self.parameters();
 
         let mut sub = c0.sub_component_wise_ref(c1);
@@ -222,7 +247,7 @@ impl<Q: NTTField> Evaluator<Q> {
         c0: &LWECiphertext<Q>,
         c1: &LWECiphertext<Q>,
         c2: &LWECiphertext<Q>,
-    ) -> LWECiphertext<Q> {
+    ) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
         let parameters = self.parameters();
 
         let mut add = c0.add_component_wise_ref(c1);
@@ -247,12 +272,12 @@ impl<Q: NTTField> Evaluator<Q> {
         c0: &LWECiphertext<Q>,
         c1: &LWECiphertext<Q>,
         c2: &LWECiphertext<Q>,
-    ) -> LWECiphertext<Q> {
+    ) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
         let parameters = self.parameters();
 
         let not_c0 = self.not(c0);
 
-        let (mut t0, t1) = rayon::join(|| self.and(c0, c1), || self.and(&not_c0, c2));
+        let ((mut t0, _), (t1, _)) = rayon::join(|| self.and(c0, c1), || self.and(&not_c0, c2));
 
         // (a & b) | (!a & c)
         t0.add_inplace_component_wise(&t1);

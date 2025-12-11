@@ -137,14 +137,14 @@ fn join_bit_operations<F: NTTField>(
     let mut ct_mux: Option<LWECiphertext<F>> = None;
 
     rayon::scope(|s| {
-        s.spawn(|_| ct_and = Some(eval.and(x, y)));
-        s.spawn(|_| ct_nand = Some(eval.nand(x, y)));
-        s.spawn(|_| ct_or = Some(eval.or(x, y)));
-        s.spawn(|_| ct_nor = Some(eval.nor(x, y)));
-        s.spawn(|_| ct_xor = Some(eval.xor(x, y)));
-        s.spawn(|_| ct_xnor = Some(eval.xnor(x, y)));
-        s.spawn(|_| ct_majority = Some(eval.majority(x, y, z)));
-        s.spawn(|_| ct_mux = Some(eval.mux(x, y, z)));
+        s.spawn(|_| ct_and = Some(eval.and(x, y).0));
+        s.spawn(|_| ct_nand = Some(eval.nand(x, y).0));
+        s.spawn(|_| ct_or = Some(eval.or(x, y).0));
+        s.spawn(|_| ct_nor = Some(eval.nor(x, y).0));
+        s.spawn(|_| ct_xor = Some(eval.xor(x, y).0));
+        s.spawn(|_| ct_xnor = Some(eval.xnor(x, y).0));
+        s.spawn(|_| ct_majority = Some(eval.majority(x, y, z).0));
+        s.spawn(|_| ct_mux = Some(eval.mux(x, y, z).0));
     });
     (
         ct_and.unwrap(),

@@ -46,7 +46,7 @@ fn main() {
 
     #[cfg(feature = "count_ntt")]
     count::enable_count_ntt_and_intt();
-    let ct = evaluator.nand(&x, &y);
+    let (ct, _) = evaluator.nand(&x, &y);
     #[cfg(feature = "count_ntt")]
     {
         count::disable_count_ntt_and_intt();
@@ -65,7 +65,7 @@ fn main() {
         count::enable_count_ntt_and_intt();
     }
 
-    let ct = evaluator.mux(&x, &y, &z);
+    let (ct, _) = evaluator.mux(&x, &y, &z);
 
     #[cfg(feature = "count_ntt")]
     {
