@@ -1,3 +1,4 @@
+pub mod lookup;
 pub mod ntt;
 
 use algebra::{Field, ListOfProductsOfPolynomials};

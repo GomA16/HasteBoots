@@ -19,7 +19,7 @@ pub struct NTTMatrixEvalIOP<F: Field> {
 
 /// Consider a coefficient matrix `C` where each row is the coefficients of a polynomial.
 /// Matrix indexing: `C[Y][X]` where `X` is the row index and `Y` is the column index.
-/// MLE indexing: `C[y0, y1, ..., yN, x0, x1, ..., xM]` where `Y = y0*2^0 + y1*2^1 + ...
+/// MLE indexing: `C(y0, y1, ..., yN, x0, x1, ..., xM)` where `Y = y0*2^0 + y1*2^1 + ...
 /// + yN*2^N` and `X = x0*2^0 + x1*2^1 + ... + xM*2^M`. This is the little-endian
 /// representation.
 ///
@@ -205,6 +205,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
         randomness: &[F],
     ) -> Self::ProverState {
         assert_eq!(randomness.len(), 1);
+        // TODO optimize the init_fourier_table with intermediate storage
         let fourier_at_u = Rc::new(init_fourier_table(&instance.point_u, &instance.ntt_table));
         let coeffs_at_v_back = Rc::new(instance.coefficients.fix_variables_back(&instance.point_v));
         claim.poly_mut().add_product(

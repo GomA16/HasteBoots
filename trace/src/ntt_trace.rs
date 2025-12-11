@@ -42,12 +42,12 @@ pub struct NTTTraceMLE<F: Field> {
     pub evaluations: Rc<DenseMultilinearExtension<F>>,
 }
 
-#[derive(Clone)]
-pub struct NTTInstanceInfo<F: Field> {
-    pub log_coeff_count: usize,
-    pub ntt_table: Rc<Vec<F>>,
-    pub num_instances: usize,
-}
+// #[derive(Clone)]
+// pub struct NTTInstanceInfo<F: Field> {
+//     pub log_coeff_count: usize,
+//     pub ntt_table: Rc<Vec<F>>,
+//     pub num_instances: usize,
+// }
 
 impl<F: Field> NTTTrace<F> {
     /// Create a new empty NTT trace
@@ -214,24 +214,24 @@ impl<F: Field> BatchedNTTTraceMLE<F> {
     }
 }
 
-impl<F: Serialize + Field> Serialize for NTTInstanceInfo<F> {
-    /// Serialize only the necessary fields
-    #[inline]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        (self.log_coeff_count, self.num_instances).serialize(serializer)
-    }
-}
+// impl<F: Serialize + Field> Serialize for NTTInstanceInfo<F> {
+//     /// Serialize only the necessary fields
+//     #[inline]
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: serde::Serializer,
+//     {
+//         (self.log_coeff_count, self.num_instances).serialize(serializer)
+//     }
+// }
 
-impl<F: Field> NTTInstanceInfo<F> {
-    /// Get number of variables
-    #[inline]
-    pub fn num_vars(&self) -> usize {
-        self.log_coeff_count
-    }
-}
+// impl<F: Field> NTTInstanceInfo<F> {
+//     /// Get number of variables
+//     #[inline]
+//     pub fn num_vars(&self) -> usize {
+//         self.log_coeff_count
+//     }
+// }
 
 impl<F: Field> From<NTTTrace<F>> for NTTTraceMLE<F> {
     /// Convert NTT trace to NTT instance

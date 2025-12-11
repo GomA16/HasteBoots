@@ -2,6 +2,7 @@ use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 
 mod acc_trace;
 mod hadamard_prod_trace;
+// mod lookup_trace;
 mod ntt_trace;
 
 // pub use hadamard_prod_trace::{
@@ -11,7 +12,7 @@ pub use acc_trace::AccTrace;
 pub use hadamard_prod_trace::{
     BatchedHadamardTrace, BatchedHadamardTraceMLE, HadamardTrace, HadamardTraceMLE,
 };
-pub use ntt_trace::{NTTInstanceInfo, NTTTrace, NTTTraceInfo, NTTTraceMLE};
+pub use ntt_trace::{NTTTrace, NTTTraceInfo, NTTTraceMLE};
 
 pub trait FieldTrace<F: Field> {
     type EFInfo;
@@ -34,6 +35,18 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for Vec<F> {
 
     fn to_ef(&self) -> Self::Output {
         self.iter().map(|&b| EF::from_base(b)).collect()
+    }
+}
+
+impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for DenseMultilinearExtension<F> {
+    type Output = DenseMultilinearExtension<EF>;
+
+    fn into_ef(self) -> Self::Output {
+        DenseMultilinearExtension::from_evaluations_vec(self.num_vars, self.evaluations.into_ef())
+    }
+
+    fn to_ef(&self) -> Self::Output {
+        DenseMultilinearExtension::from_evaluations_vec(self.num_vars, self.evaluations.to_ef())
     }
 }
 

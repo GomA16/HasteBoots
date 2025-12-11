@@ -60,7 +60,6 @@ impl<F: NTTField> From<HadamardTrace<F>> for HadamardTraceMLE<F> {
         Self {
             log_coeff_count: trace.log_coeff_count,
             log_num_round: trace.log_num_round,
-            // ntt_table: Rc::new(trace.ntt_table),
             bit_poly: Rc::new(bit_poly_mle),
             bit_ntt: Rc::new(bit_ntt_mle),
             key_ntt: (Rc::new(key_mle_0), Rc::new(key_mle_1)),
@@ -133,7 +132,6 @@ impl<F: NTTField> BatchedHadamardTrace<F> {
         Self {
             log_coeff_count,
             log_num_round: log_num_poly,
-            // ntt_table: F::get_ntt_table(log_coeff_count as u32).unwrap().root_powers(),
             num_trace,
             vec_trace: vec![HadamardTrace::new(log_coeff_count, log_num_poly); num_trace],
         }

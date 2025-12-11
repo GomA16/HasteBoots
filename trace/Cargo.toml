@@ -5,6 +5,9 @@ edition = "2024"
 
 [dependencies]
 algebra = { path = "../algebra" }
+helper = { path = "../helper" }
 rand = { workspace = true }
 rand_distr = { workspace = true }
 serde = { workspace = true }
+rayon = { workspace = true }
+log = { workspace = true }
