@@ -2,17 +2,19 @@ use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 
 mod acc_trace;
 mod hadamard_prod_trace;
-// mod lookup_trace;
+mod lookup_trace;
 mod ntt_trace;
+mod pbs_trace;
 
 // pub use hadamard_prod_trace::{
 //     HadamardProdTrace, HadamardProdTraceMLE, HadamardProdsTrace,
 // };
-pub use acc_trace::AccTrace;
+pub use acc_trace::{AccTrace, AccTraceMLE};
 pub use hadamard_prod_trace::{
     BatchedHadamardTrace, BatchedHadamardTraceMLE, HadamardTrace, HadamardTraceMLE,
 };
 pub use ntt_trace::{NTTTrace, NTTTraceInfo, NTTTraceMLE};
+pub use lookup_trace::{LookupTrace, LookupTraceMLE, LookupWitness, LookupWitnessHelper};
 
 pub trait FieldTrace<F: Field> {
     type EFInfo;

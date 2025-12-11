@@ -20,6 +20,19 @@ pub struct RLWETrace<F: NTTField> {
     pub poly: (Vec<F>, Vec<F>),
     pub ntt: (Vec<F>, Vec<F>),
 }
+pub struct AccTraceMLE<F: NTTField> {
+    pub log_coeff_count: usize,
+    pub log_num_round: usize,
+    pub input_acc: RLWETraceMLE<F>,
+    pub output_acc: RLWETraceMLE<F>,
+}
+
+pub struct RLWETraceMLE<F: NTTField> {
+    pub log_coeff_count: usize,
+    pub log_num_round: usize,
+    pub poly: (DenseMultilinearExtension<F>, DenseMultilinearExtension<F>),
+    pub ntt: (DenseMultilinearExtension<F>, DenseMultilinearExtension<F>),
+}
 
 impl<F: NTTField> RLWETrace<F> {
     pub fn new(log_coeff_count: usize, log_num_round: usize) -> Self {
@@ -120,5 +133,47 @@ impl<F: NTTField> AccTrace<F> {
         self.input_acc.ntt.1.extend_from_slice(&ntt_b);
         self.output_acc.ntt.0.extend_from_slice(&ntt_a);
         self.output_acc.ntt.1.extend_from_slice(&ntt_b);
+    }
+}
+
+impl<F: NTTField> From<RLWETrace<F>> for RLWETraceMLE<F> {
+    #[inline]
+    fn from(trace: RLWETrace<F>) -> Self {
+        Self {
+            log_coeff_count: trace.log_coeff_count,
+            log_num_round: trace.log_num_round,
+            poly: (
+                DenseMultilinearExtension::from_evaluations_vec(
+                    trace.log_coeff_count + trace.log_num_round,
+                    trace.poly.0,
+                ),
+                DenseMultilinearExtension::from_evaluations_vec(
+                    trace.log_coeff_count + trace.log_num_round,
+                    trace.poly.1,
+                ),
+            ),
+            ntt: (
+                DenseMultilinearExtension::from_evaluations_vec(
+                    trace.log_coeff_count + trace.log_num_round,
+                    trace.ntt.0,
+                ),
+                DenseMultilinearExtension::from_evaluations_vec(
+                    trace.log_coeff_count + trace.log_num_round,
+                    trace.ntt.1,
+                ),
+            ),
+        }
+    }
+}
+
+impl<F: NTTField> From<AccTrace<F>> for AccTraceMLE<F> {
+    #[inline]
+    fn from(trace: AccTrace<F>) -> Self {
+        Self {
+            log_coeff_count: trace.log_coeff_count,
+            log_num_round: trace.log_num_round,
+            input_acc: RLWETraceMLE::from(trace.input_acc),
+            output_acc: RLWETraceMLE::from(trace.output_acc),
+        }
     }
 }

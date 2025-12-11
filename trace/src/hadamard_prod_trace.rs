@@ -12,7 +12,6 @@ use crate::NTTTraceMLE;
 pub struct HadamardTrace<F: NTTField> {
     pub log_coeff_count: usize,
     pub log_num_round: usize,
-    // pub ntt_table: Vec<F>,
     pub bit_poly: Vec<F>,
     pub bit_ntt: Vec<F>,
     pub key_ntt: (Vec<F>, Vec<F>),
@@ -21,7 +20,6 @@ pub struct HadamardTrace<F: NTTField> {
 pub struct BatchedHadamardTrace<F: NTTField> {
     pub log_coeff_count: usize,
     pub log_num_round: usize,
-    // pub ntt_table: Vec<F>,
     pub num_trace: usize,
     pub vec_trace: Vec<HadamardTrace<F>>,
 }
@@ -30,7 +28,6 @@ pub struct BatchedHadamardTrace<F: NTTField> {
 pub struct HadamardTraceMLE<F: Field> {
     pub log_coeff_count: usize,
     pub log_num_round: usize,
-    // pub ntt_table: Rc<Vec<F>>,
     pub bit_poly: Rc<DenseMultilinearExtension<F>>,
     pub bit_ntt: Rc<DenseMultilinearExtension<F>>,
     pub key_ntt: (
@@ -42,7 +39,6 @@ pub struct HadamardTraceMLE<F: Field> {
 pub struct BatchedHadamardTraceMLE<F: Field> {
     pub log_coeff_count: usize,
     pub log_num_round: usize,
-    // pub ntt_table: Rc<Vec<F>>,
     pub num_trace: usize,
     pub vec_trace: Vec<HadamardTraceMLE<F>>,
 }
@@ -64,6 +60,28 @@ impl<F: NTTField> From<HadamardTrace<F>> for HadamardTraceMLE<F> {
             bit_ntt: Rc::new(bit_ntt_mle),
             key_ntt: (Rc::new(key_mle_0), Rc::new(key_mle_1)),
         }
+    }
+}
+
+impl<F: NTTField> From<BatchedHadamardTrace<F>> for BatchedHadamardTraceMLE<F> {
+    #[inline]
+    fn from(trace: BatchedHadamardTrace<F>) -> Self {
+        Self {
+            log_coeff_count: trace.log_coeff_count,
+            log_num_round: trace.log_num_round,
+            num_trace: trace.num_trace,
+            vec_trace: trace
+                .vec_trace
+                .into_iter()
+                .map(HadamardTraceMLE::from)
+                .collect(),
+        }
+    }
+}
+
+impl<F: NTTField> BatchedHadamardTraceMLE<F> {
+    pub fn iter(&self) -> impl Iterator<Item = &HadamardTraceMLE<F>> {
+        self.vec_trace.iter()
     }
 }
 
