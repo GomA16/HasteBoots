@@ -1,3 +1,14 @@
+use std::{
+    fmt::{Debug, Display},
+    ops::{
+        BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Shl, ShlAssign, Shr,
+        ShrAssign,
+    },
+};
+
+use num_traits::{ConstOne, ConstZero, FromBytes, MulAdd, MulAddAssign, NumAssign, Pow, ToBytes};
+use rand_distr::uniform::SampleUniform;
+
 /// A trait for big number calculation
 pub trait Widening: Sized {
     /// A wider type for multiplication
@@ -87,39 +98,121 @@ uint_widening_impl! { u64, u128 }
 /// Extension trait to provide access to bits of integers.
 pub trait Bits {
     /// The number of bits this type has.
-    const N_BITS: u32;
+    const BITS: u32;
+
+    /// Returns the number of ones in the binary representation of `self`.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let n = 0b01001100u8;
+    ///
+    /// assert_eq!(n.count_ones(), 3);
+    /// ```
+    fn count_ones(self) -> u32;
+
+    /// Returns the number of zeros in the binary representation of `self`.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let n = 0b01001100u8;
+    ///
+    /// assert_eq!(n.count_zeros(), 5);
+    /// ```
+    fn count_zeros(self) -> u32;
+
+    /// Returns the number of leading zeros in the binary representation
+    /// of `self`.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let n = 0b0101000u16;
+    ///
+    /// assert_eq!(n.leading_zeros(), 10);
+    /// ```
+    fn leading_zeros(self) -> u32;
+
+    /// Returns the number of leading ones in the binary representation
+    /// of `self`.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let n = 0xF00Du16;
+    ///
+    /// assert_eq!(n.leading_ones(), 4);
+    /// ```
+    fn leading_ones(self) -> u32;
+
+    /// Returns the number of trailing zeros in the binary representation
+    /// of `self`.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let n = 0b0101000u16;
+    ///
+    /// assert_eq!(n.trailing_zeros(), 3);
+    /// ```
+    fn trailing_zeros(self) -> u32;
+
+    /// Returns the number of trailing ones in the binary representation
+    /// of `self`.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let n = 0xBEEFu16;
+    ///
+    /// assert_eq!(n.trailing_ones(), 4);
+    /// ```
+    fn trailing_ones(self) -> u32;
 }
 
-macro_rules! bits {
-    ($t:tt, $n:tt) => {
-        impl Bits for $t {
-            const N_BITS: u32 = $n;
-        }
+macro_rules! impl_bits {
+    ($($T:ty),*) => {
+        $(
+            impl Bits for $T {
+                const BITS: u32 = <$T>::BITS;
+
+                #[inline]
+                fn count_ones(self) -> u32 {
+                    <$T>::count_ones(self)
+                }
+
+                #[inline]
+                fn count_zeros(self) -> u32 {
+                    <$T>::count_zeros(self)
+                }
+
+                #[inline]
+                fn leading_zeros(self) -> u32 {
+                    <$T>::leading_zeros(self)
+                }
+
+                #[inline]
+                fn leading_ones(self) -> u32 {
+                    <$T>::leading_ones(self)
+                }
+
+
+                #[inline]
+                fn trailing_zeros(self) -> u32 {
+                    <$T>::trailing_zeros(self)
+                }
+
+                #[inline]
+                fn trailing_ones(self) -> u32 {
+                    <$T>::trailing_ones(self)
+                }
+            }
+        )*
     };
 }
 
-bits!(i8, 8);
-bits!(u8, 8);
-bits!(i16, 16);
-bits!(u16, 16);
-bits!(i32, 32);
-bits!(u32, 32);
-bits!(i64, 64);
-bits!(u64, 64);
-bits!(i128, 128);
-bits!(u128, 128);
-
-#[cfg(target_pointer_width = "32")]
-bits!(isize, 32);
-
-#[cfg(target_pointer_width = "32")]
-bits!(usize, 32);
-
-#[cfg(target_pointer_width = "64")]
-bits!(isize, 64);
-
-#[cfg(target_pointer_width = "64")]
-bits!(usize, 64);
+impl_bits! {i8, u8, i16, u16, i32, u32, i64, u64, i128, u128, isize, usize}
 
 #[doc = " Calculates the quotient of `self` and `rhs`, rounding the result towards positive infinity."]
 #[doc = ""]
@@ -243,3 +336,198 @@ impl_as_from!(f32 => { f64, u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i
 impl_as_from!(f64 => { f32, u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize });
 impl_as_from!(char => { u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize });
 impl_as_from!(bool => { u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize });
+
+/// A helper trait defines all `as` cast between all primitive integer types.
+pub trait AsCast:
+    AsFrom<i8>
+    + AsFrom<u8>
+    + AsFrom<i16>
+    + AsFrom<u16>
+    + AsFrom<i32>
+    + AsFrom<u32>
+    + AsFrom<i64>
+    + AsFrom<u64>
+    + AsFrom<i128>
+    + AsFrom<u128>
+    + AsFrom<isize>
+    + AsFrom<usize>
+    + AsFrom<f32>
+    + AsFrom<f64>
+    + AsInto<i8>
+    + AsInto<u8>
+    + AsInto<i16>
+    + AsInto<u16>
+    + AsInto<i32>
+    + AsInto<u32>
+    + AsInto<i64>
+    + AsInto<u64>
+    + AsInto<i128>
+    + AsInto<u128>
+    + AsInto<isize>
+    + AsInto<usize>
+    + AsInto<f32>
+    + AsInto<f64>
+{
+}
+
+macro_rules! impl_as_cast {
+    ($($T: ty),*) => {$(
+        impl AsCast for $T {}
+    )*};
+}
+
+impl_as_cast! {u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize}
+
+/// Defines an associated constant representing `2` for `Self`.
+pub trait ConstTwo {
+    /// `2`
+    const TWO: Self;
+}
+
+macro_rules! impl_two {
+    ($($T:ty),*) => {
+        $(
+            impl ConstTwo for $T {
+                const TWO: Self = 2;
+            }
+        )*
+    };
+}
+
+impl_two! {i8, u8, i16, u16, i32, u32, i64, u64, i128, u128, isize, usize}
+
+/// Numbers which have upper and lower bounds
+pub trait ConstBounded {
+    /// The smallest finite number this type can represent
+    const MIN: Self;
+    /// The largest finite number this type can represent
+    const MAX: Self;
+}
+
+macro_rules! impl_bounded {
+    ($($T:ty),*) => {
+        $(
+            impl ConstBounded for $T {
+                const MIN: Self = <$T>::MIN;
+                const MAX: Self = <$T>::MAX;
+            }
+        )*
+    };
+}
+
+impl_bounded! {i8, u8, i16, u16, i32, u32, i64, u64, i128, u128, isize, usize}
+
+/// An abstraction over integer types
+pub trait Integer:
+    Sized
+    + Send
+    + Sync
+    + Clone
+    + Copy
+    + Default
+    + PartialOrd
+    + Ord
+    + PartialEq
+    + Eq
+    + Debug
+    + Display
+    + Bits
+    + ToBytes
+    + FromBytes
+    + ConstZero
+    + ConstOne
+    + ConstTwo
+    + ConstBounded
+    + AsCast
+    + AsFrom<bool>
+    + NumAssign
+    + WrappingOps
+    // + WrappingAdd
+    // + WrappingSub
+    // + WrappingNeg
+    // + WrappingMul
+    // + WrappingShl
+    // + WrappingShr
+    // + OverflowingAdd
+    // + OverflowingSub
+    // + OverflowingMul
+    // + CheckedAdd
+    // + CheckedSub
+    // + CheckedMul
+    // + CheckedDiv
+    // + CheckedNeg
+    // + CheckedRem
+    // + CheckedShl
+    // + CheckedShr
+    + MulAdd
+    + MulAddAssign
+    + Not<Output = Self>
+    + BitAnd<Output = Self>
+    + BitOr<Output = Self>
+    + BitXor<Output = Self>
+    + BitAndAssign
+    + BitOrAssign
+    + BitXorAssign
+    + Shl<usize, Output = Self>
+    + Shr<usize, Output = Self>
+    + Shl<u32, Output = Self>
+    + Shr<u32, Output = Self>
+    + ShlAssign<u32>
+    + ShrAssign<u32>
+    + Pow<u32, Output = Self>
+    + Pow<usize, Output = Self>
+    + SampleUniform<Sampler: Copy>
+{
+}
+
+macro_rules! empty_trait_impl {
+    ($name:ident for $($t:ty)*) => ($(
+        impl $name for $t {}
+    )*)
+}
+
+empty_trait_impl!(Integer for u8 u16 u32 u64 u128 i8 i16 i32 i64 i128);
+
+/// An abstract over unsigned integer type.
+pub trait UnsignedInteger:
+    Integer + num_traits::Unsigned + Widening + TryFrom<usize> + TryInto<usize>
+{
+    /// signed type
+    type SignedInteger: Integer;
+
+    /// Returns `true` if and only if `self == 2^k` for some `k`.
+    #[must_use]
+    #[inline(always)]
+    fn is_power_of_two(self) -> bool {
+        self.count_ones() == 1
+    }
+
+    /// cast from signed type
+    fn cast_from_signed(value: Self::SignedInteger) -> Self;
+
+    /// Wrapping (modular) addition with a signed integer. Computes `self + rhs`, wrapping around at the boundary of the type.
+    fn wrapping_add_signed(self, rhs: Self::SignedInteger) -> Self;
+}
+
+macro_rules! impl_unsigned_integer {
+    ($t:ty, $i:ty) => {
+        impl UnsignedInteger for $t {
+            type SignedInteger = $i;
+
+            #[inline]
+            fn cast_from_signed(value: Self::SignedInteger) -> Self {
+                value as $t
+            }
+
+            #[inline(always)]
+            fn wrapping_add_signed(self, rhs: Self::SignedInteger) -> Self {
+                <$t>::wrapping_add_signed(self, rhs)
+            }
+        }
+    };
+}
+
+impl_unsigned_integer! {u8, i8}
+impl_unsigned_integer! {u16, i16}
+impl_unsigned_integer! {u32, i32}
+impl_unsigned_integer! {u64, i64}

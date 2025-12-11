@@ -1,7 +1,9 @@
-use algebra::{AsInto, Basis, FieldDiscreteGaussianSampler, NTTField, NTTPolynomial, Polynomial};
+use algebra::{
+    AsInto, Basis, Field, FieldDiscreteGaussianSampler, NTTField, NTTPolynomial, Polynomial,
+};
 use lattice::{DecompositionSpace, LWE, NTTRGSW, NTTRLWESpace, PolynomialSpace, RLWE, RLWESpace};
 
-use crate::LWEModulusType;
+use num_traits::Zero;
 use trace::{AccTrace, BatchedHadamardTrace};
 
 /// FHE binary blind rotation key
@@ -18,10 +20,7 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
     }
 
     /// Performs the blind rotation operation.
-    pub fn blind_rotate<C>(&self, mut lut: Polynomial<F>, lwe: &LWE<C>) -> RLWE<F>
-    where
-        C: LWEModulusType,
-    {
+    pub fn blind_rotate(&self, mut lut: Polynomial<F>, lwe: &LWE<<F as Field>::Value>) -> RLWE<F> {
         let rlwe_dimension = lut.coeff_count();
 
         let decompose_space = &mut DecompositionSpace::new(rlwe_dimension);
@@ -70,18 +69,15 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
             })
     }
 
-    pub fn blind_rotate_w_trace<C>(
+    pub fn blind_rotate_w_trace(
         &self,
         mut lut: Polynomial<F>,
-        lwe: &LWE<C>,
+        lwe: &LWE<<F as Field>::Value>,
         // Trace
         acc_trace: &mut AccTrace<F>,
         hadmard_trace_a: &mut BatchedHadamardTrace<F>,
         hadmard_trace_b: &mut BatchedHadamardTrace<F>,
-    ) -> RLWE<F>
-    where
-        C: LWEModulusType,
-    {
+    ) -> RLWE<F> {
         println!("Binary Blind Rotation with Trace");
         let rlwe_dimension = lut.coeff_count();
         let lwe_dimension = lwe.a().len();
@@ -146,8 +142,8 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
     }
 
     /// Generates the [`BinaryBlindRotationKey<F>`].
-    pub(crate) fn generate<Rng, C>(
-        lwe_secret_key: &[C],
+    pub(crate) fn generate<Rng>(
+        lwe_secret_key: &[F],
         rlwe_secret_key: &NTTPolynomial<F>,
         blind_rotation_basis: Basis<F>,
         chi: FieldDiscreteGaussianSampler,
@@ -155,7 +151,6 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
     ) -> Self
     where
         Rng: rand::Rng + rand::CryptoRng,
-        C: LWEModulusType,
     {
         let key = lwe_secret_key
             .iter()

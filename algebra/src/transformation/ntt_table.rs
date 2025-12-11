@@ -381,8 +381,8 @@ where
 
 #[inline]
 fn guard<F: FheField>(a: F) -> F {
-    if a.value() >= (F::MODULUS_VALUE << 1) {
-        F::lazy_new(a.value() - (F::MODULUS_VALUE << 1))
+    if a.value() >= (F::MODULUS_VALUE << 1u32) {
+        F::lazy_new(a.value() - (F::MODULUS_VALUE << 1u32))
     } else {
         a
     }
@@ -391,8 +391,8 @@ fn guard<F: FheField>(a: F) -> F {
 #[inline]
 fn ntt_normalize_assign<F: FheField>(a: &mut F) {
     let mut r = a.value();
-    if r >= (F::MODULUS_VALUE << 1) {
-        r = r - (F::MODULUS_VALUE << 1);
+    if r >= (F::MODULUS_VALUE << 1u32) {
+        r = r - (F::MODULUS_VALUE << 1u32);
     }
     if r >= F::MODULUS_VALUE {
         r = r - F::MODULUS_VALUE;
@@ -415,8 +415,8 @@ fn add_no_reduce<F: FheField>(a: F, b: F) -> F {
 #[inline]
 fn add_fast<F: FheField>(a: F, b: F) -> F {
     let r = a.value() + b.value();
-    if r >= (F::MODULUS_VALUE << 1) {
-        F::lazy_new(r - (F::MODULUS_VALUE << 1))
+    if r >= (F::MODULUS_VALUE << 1u32) {
+        F::lazy_new(r - (F::MODULUS_VALUE << 1u32))
     } else {
         F::lazy_new(r)
     }
@@ -424,7 +424,7 @@ fn add_fast<F: FheField>(a: F, b: F) -> F {
 
 #[inline]
 fn sub_fast<F: FheField>(a: F, b: F) -> F {
-    F::lazy_new(a.value() + (F::MODULUS_VALUE << 1) - b.value())
+    F::lazy_new(a.value() + (F::MODULUS_VALUE << 1u32) - b.value())
 }
 
 #[inline]

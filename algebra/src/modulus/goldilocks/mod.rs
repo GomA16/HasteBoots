@@ -248,8 +248,8 @@ mod tests {
             to_canonical_u64(a.mul_reduce(b_inv, GoldilocksModulus))
         );
 
-        assert_eq!(to_canonical_u64(a.pow_reduce(0, GoldilocksModulus)), 1);
-        assert_eq!(to_canonical_u64(a.pow_reduce(1, GoldilocksModulus)), a);
+        assert_eq!(to_canonical_u64(a.pow_reduce(0u8, GoldilocksModulus)), 1);
+        assert_eq!(to_canonical_u64(a.pow_reduce(1u8, GoldilocksModulus)), a);
         assert_eq!(
             to_canonical_u64(a.pow_reduce(b, GoldilocksModulus)),
             pow(a, b)

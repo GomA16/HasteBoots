@@ -1,12 +1,11 @@
 use algebra::{
-    AsInto, Basis, FieldDiscreteGaussianSampler, NTTField, NTTPolynomial, Polynomial,
+    AsInto, Basis, Field, FieldDiscreteGaussianSampler, NTTField, NTTPolynomial, Polynomial,
     transformation::MonomialNTT,
 };
 use lattice::{
     DecompositionSpace, LWE, NTTRGSW, NTTRGSWSpace, NTTRLWESpace, PolynomialSpace, RLWE, RLWESpace,
 };
-
-use crate::LWEModulusType;
+use num_traits::Zero;
 
 /// FHE ternary blind rotation key
 #[derive(Debug, Clone)]
@@ -22,15 +21,12 @@ impl<F: NTTField> TernaryBlindRotationKey<F> {
     }
 
     /// Performs the blind rotation operation.
-    pub fn blind_rotate<C>(
+    pub fn blind_rotate(
         &self,
         mut lut: Polynomial<F>,
-        lwe: &LWE<C>,
+        lwe: &LWE<<F as Field>::Value>,
         blind_rotation_basis: Basis<F>,
-    ) -> RLWE<F>
-    where
-        C: LWEModulusType,
-    {
+    ) -> RLWE<F> {
         let rlwe_dimension = lut.coeff_count();
 
         let decompose_space = &mut DecompositionSpace::new(rlwe_dimension);
@@ -96,8 +92,8 @@ impl<F: NTTField> TernaryBlindRotationKey<F> {
     }
 
     /// Generates the [`TernaryBlindRotationKey<F>`].
-    pub(crate) fn generate<Rng, C>(
-        lwe_secret_key: &[C],
+    pub(crate) fn generate<Rng>(
+        lwe_secret_key: &[F],
         rlwe_secret_key: &NTTPolynomial<F>,
         blind_rotation_basis: Basis<F>,
         chi: FieldDiscreteGaussianSampler,
@@ -105,7 +101,6 @@ impl<F: NTTField> TernaryBlindRotationKey<F> {
     ) -> Self
     where
         Rng: rand::Rng + rand::CryptoRng,
-        C: LWEModulusType,
     {
         let key = lwe_secret_key
             .iter()

@@ -1,7 +1,7 @@
-use std::ops::{Add, AddAssign, Sub, SubAssign};
+use std::ops::{Add, AddAssign, MulAssign, Neg, Sub, SubAssign};
 
 use algebra::{
-    AsFrom,
+    AsFrom, FieldDiscreteGaussianSampler, FieldUniformSampler, NTTField,
     reduce::{
         AddReduce, AddReduceAssign, DotProductReduce, MulReduce, MulReduceAssign, NegReduce,
         NegReduceAssign, SubReduce, SubReduceAssign,
@@ -283,6 +283,28 @@ impl<T: Copy> LWE<T> {
     }
 
     /// Performs an in-place scalar multiplication
+    /// on the `self` [`LWE<T>`] with `scalar` `T`.
+    #[inline]
+    pub fn scalar_mul_inplace(&mut self, scalar: T)
+    where
+        T: MulAssign<T>,
+    {
+        self.a.iter_mut().for_each(|v| *v *= scalar);
+        self.b *= scalar;
+    }
+
+    /// Performs an in-place scalar multiplication
+    /// on the `self` [`LWE<T>`] with `scalar` `T`.
+    #[inline]
+    pub fn double_inplace(&mut self)
+    where
+        T: AddAssign<T>,
+    {
+        self.a.iter_mut().for_each(|v| *v += *v);
+        self.b += self.b;
+    }
+
+    /// Performs an in-place scalar multiplication
     /// on the `rhs` [`LWE<T>`] with `scalar` `T`,
     /// then add to `self`.
     #[inline]
@@ -320,6 +342,16 @@ impl<T: Copy> LWE<T> {
         self.a.iter_mut().for_each(|v| v.neg_reduce_assign(modulus));
         self.b.neg_reduce_assign(modulus)
     }
+
+    /// Performs an negation on the `self` [`LWE<T>`].
+    #[inline]
+    pub fn neg(&self) -> Self
+    where
+        T: Neg<Output = T>,
+    {
+        let a = self.a.iter().map(|&v| -v).collect();
+        Self::new(a, -self.b)
+    }
 }
 
 impl<T: Copy> LWE<T> {
@@ -348,6 +380,26 @@ impl<T: Copy> LWE<T> {
         let a: Vec<T> = uniform.sample_iter(&mut *rng).take(len).collect();
         let b = T::dot_product_reduce(&a, secret_key, modulus)
             .add_reduce(error_sampler.sample(rng), modulus);
+        LWE { a, b }
+    }
+}
+
+impl<Q: NTTField> LWE<Q> {
+    /// Generate a `LWE<T>` sample which encrypts `0`.
+    pub fn generate_random_zero_sample_field<R>(
+        secret_key: &[Q],
+        error_sampler: FieldDiscreteGaussianSampler,
+        rng: &mut R,
+    ) -> Self
+    where
+        R: Rng + CryptoRng,
+    {
+        let len = secret_key.len();
+        let uniform = FieldUniformSampler::new();
+
+        let a: Vec<Q> = uniform.sample_iter(&mut *rng).take(len).collect();
+        let e: Q = error_sampler.sample(rng);
+        let b = Q::dot_product(&a, secret_key) + e;
         LWE { a, b }
     }
 }

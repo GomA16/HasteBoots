@@ -1,14 +1,10 @@
-use std::ops::ShrAssign;
-
-use num_traits::{One, PrimInt};
-
 use crate::modulus::BarrettModulus;
 use crate::reduce::{
     AddReduce, AddReduceAssign, DivReduce, DivReduceAssign, InvReduce, InvReduceAssign,
     LazyMulReduce, LazyMulReduceAssign, LazyReduce, MulReduce, MulReduceAssign, NegReduce,
     NegReduceAssign, PowReduce, Reduce, SubReduce, SubReduceAssign,
 };
-use crate::{Bits, Widening};
+use crate::{UnsignedInteger, Widening};
 
 impl<T> AddReduce<BarrettModulus<T>> for T
 where
@@ -102,8 +98,8 @@ where
 
 impl<T, E> PowReduce<BarrettModulus<T>, E> for T
 where
-    T: Copy + One + PartialOrd + MulReduce<BarrettModulus<T>, Output = T>,
-    E: PrimInt + ShrAssign<u32> + Bits,
+    T: UnsignedInteger + MulReduce<BarrettModulus<T>, Output = T>,
+    E: UnsignedInteger,
 {
     fn pow_reduce(self, mut exp: E, modulus: BarrettModulus<T>) -> Self {
         if exp.is_zero() {
@@ -127,7 +123,7 @@ where
         }
 
         let mut intermediate: Self = power;
-        for _ in 1..(E::N_BITS - exp.leading_zeros()) {
+        for _ in 1..(E::BITS - exp.leading_zeros()) {
             exp >>= 1;
             power = power.mul_reduce(power, modulus);
             if !(exp & E::one()).is_zero() {
@@ -206,7 +202,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use num_traits::Zero;
+    use num_traits::{One, Zero};
     use rand::prelude::*;
 
     use crate::utils::Prime;

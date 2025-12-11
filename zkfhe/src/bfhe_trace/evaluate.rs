@@ -31,7 +31,7 @@ impl<C: LWEModulusType, Q: NTTField> EvaluationKey<C, Q> {
         let blind_rotation_key = RLWEBlindRotationKey::generate(secret_key_pack);
 
         let key_switching_key = match parameters.steps() {
-            Steps::BrKsMs => {
+            Steps::BrKs => {
                 KeySwitchingKeyEnum::RLWE(KeySwitchingRLWEKey::generate(secret_key_pack))
             }
             Steps::KsBr => todo!(),
@@ -98,7 +98,7 @@ impl<C: LWEModulusType, Q: NTTField> EvaluationKey<C, Q> {
         acc.b_mut()[0] += Q::new(Q::MODULUS_VALUE >> 3);
 
         match parameters.steps() {
-            Steps::BrKsMs => {
+            Steps::BrKs => {
                 let ksk = match self.key_switching_key {
                     KeySwitchingKeyEnum::RLWE(ref ksk) => ksk,
                     _ => panic!("Unable to get the corresponding key switching key!"),

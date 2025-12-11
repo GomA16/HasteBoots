@@ -1,5 +1,5 @@
 pub mod bfhe;
-pub mod bfhe_trace;
+// pub mod bfhe_trace;
 // pub mod ntru_bfhe;
 
 mod decrypt;

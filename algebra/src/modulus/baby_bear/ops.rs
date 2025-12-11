@@ -1,8 +1,4 @@
-use std::ops::ShrAssign;
-
-use num_traits::PrimInt;
-
-use crate::{Bits, reduce::*};
+use crate::{UnsignedInteger, reduce::*};
 
 use super::{BabyBearModulus, P, from_monty, monty_reduce, try_inverse};
 
@@ -81,7 +77,7 @@ impl MulReduceAssign<BabyBearModulus> for u32 {
 
 impl<E> PowReduce<BabyBearModulus, E> for u32
 where
-    E: PrimInt + ShrAssign<u32> + Bits,
+    E: UnsignedInteger,
 {
     fn pow_reduce(self, mut exp: E, _: BabyBearModulus) -> Self {
         if exp.is_zero() {
@@ -105,7 +101,7 @@ where
         }
 
         let mut intermediate: Self = power;
-        for _ in 1..(E::N_BITS - exp.leading_zeros()) {
+        for _ in 1..(E::BITS - exp.leading_zeros()) {
             exp >>= 1;
             power = power.mul_reduce(power, BabyBearModulus);
             if !(exp & E::one()).is_zero() {

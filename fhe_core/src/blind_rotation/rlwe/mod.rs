@@ -1,8 +1,8 @@
-use algebra::{Basis, NTTField, Polynomial};
+use algebra::{Basis, Field, NTTField, Polynomial};
 use lattice::{LWE, RLWE};
 use trace::{AccTrace, BatchedHadamardTrace};
 
-use crate::{LWEModulusType, LWESecretKeyType, SecretKeyPack};
+use crate::{LWESecretKeyType, SecretKeyPack};
 
 mod binary;
 mod ternary;
@@ -40,10 +40,10 @@ impl<F: NTTField> BlindRotationKey<F> {
     }
 
     /// Performs the blind rotation operation.
-    pub fn blind_rotate<C: LWEModulusType>(
+    pub fn blind_rotate(
         &self,
         lut: Polynomial<F>,
-        lwe: &LWE<C>,
+        lwe: &LWE<<F as Field>::Value>,
         blind_rotation_basis: Basis<F>,
     ) -> RLWE<F> {
         match self {
@@ -55,10 +55,10 @@ impl<F: NTTField> BlindRotationKey<F> {
     }
 
     /// Performs the blind rotation operation.
-    pub fn blind_rotate_w_trace<C: LWEModulusType>(
+    pub fn blind_rotate_w_trace(
         &self,
         lut: Polynomial<F>,
-        lwe: &LWE<C>,
+        lwe: &LWE<<F as Field>::Value>,
         blind_rotation_basis: Basis<F>,
         // Trace
         acc_trace: &mut AccTrace<F>,
@@ -80,10 +80,7 @@ impl<F: NTTField> BlindRotationKey<F> {
     }
 
     /// Generates the [`BlindRotationKey<F>`].
-    pub fn generate<C>(secret_key_pack: &SecretKeyPack<C, F>) -> Self
-    where
-        C: LWEModulusType,
-    {
+    pub fn generate(secret_key_pack: &SecretKeyPack<F>) -> Self {
         let parameters = secret_key_pack.parameters();
         let chi = parameters.ring_noise_distribution();
         let mut csrng = secret_key_pack.csrng_mut();

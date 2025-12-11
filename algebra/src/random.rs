@@ -1,79 +1,23 @@
 //! This module defines a trait to get some distributions easily.
 
-use std::ops::Rem;
-
+use num_traits::ConstZero;
 use rand::Rng;
-use rand_distr::{Distribution, Normal};
+use rand_distr::{Distribution, Normal, Uniform};
 
-use crate::{AlgebraError, AsFrom, AsInto, Field, Widening, WrappingOps};
-
-/// A trait to impl uniform for `Field`.
-pub trait UniformBase: Copy {
-    /// The type for uniform sample.
-    type Sample: Copy
-        + AsFrom<Self>
-        + AsInto<Self>
-        + Widening
-        + WrappingOps
-        + PartialOrd
-        + Rem<Output = Self::Sample>;
-
-    /// Generate a sample for uniform sampler.
-    fn gen_sample<R: Rng + ?Sized>(rng: &mut R) -> Self::Sample;
-}
-
-macro_rules! uniform_int_impl {
-    ($ty:ty, $sample_ty:ident) => {
-        impl UniformBase for $ty {
-            type Sample = $sample_ty;
-
-            #[inline]
-            fn gen_sample<R: Rng + ?Sized>(rng: &mut R) -> Self::Sample {
-                rng.random::<$sample_ty>()
-            }
-        }
-    };
-}
-
-uniform_int_impl! { u8, u32 }
-uniform_int_impl! { u16, u32 }
-uniform_int_impl! { u32, u32 }
-uniform_int_impl! { u64, u64 }
+use crate::{AlgebraError, AsInto, Field};
 
 /// The uniform sampler for Field.
 #[derive(Clone, Copy)]
 pub struct FieldUniformSampler<F: Field> {
-    /// range
-    range: <F::Value as UniformBase>::Sample,
-    /// thresh
-    thresh: <F::Value as UniformBase>::Sample,
+    sampler: Uniform<<F as Field>::Value>,
 }
 
 impl<F: Field> FieldUniformSampler<F> {
     /// Creates a new [`FieldUniformSampler<F>`].
     #[inline]
     pub fn new() -> Self {
-        let range = <F::Value as UniformBase>::Sample::as_from(F::MODULUS_VALUE);
-        Self {
-            range,
-            thresh: range.wrapping_neg() % range,
-        }
-    }
-
-    /// Samples a uniformly random value in a smaller range `[0, range)` of a specific field.
-    #[inline]
-    pub fn sample_range<R: Rng + ?Sized>(&self, rng: &mut R, range: F::Value) -> F {
-        let range = <F::Value as UniformBase>::Sample::as_from(range);
-        let thresh = range.wrapping_neg() % range;
-
-        let hi = loop {
-            let (lo, hi) = <F::Value as UniformBase>::gen_sample(rng).widen_mul(range);
-            if lo >= thresh {
-                break hi;
-            }
-        };
-
-        F::new((hi).as_into())
+        let sampler = Uniform::new(<F::Value as ConstZero>::ZERO, F::MODULUS_VALUE).unwrap();
+        Self { sampler }
     }
 }
 
@@ -87,13 +31,7 @@ impl<F: Field> Default for FieldUniformSampler<F> {
 impl<F: Field> Distribution<F> for FieldUniformSampler<F> {
     #[inline]
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> F {
-        let hi = loop {
-            let (lo, hi) = <F::Value as UniformBase>::gen_sample(rng).widen_mul(self.range);
-            if lo >= self.thresh {
-                break hi;
-            }
-        };
-        F::new(hi.as_into())
+        F::new(self.sampler.sample(rng))
     }
 }
 

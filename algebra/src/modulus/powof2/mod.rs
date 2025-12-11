@@ -1,6 +1,4 @@
-use std::ops::Add;
-
-use num_traits::ConstOne;
+use crate::UnsignedInteger;
 
 #[macro_use]
 mod internal_macros;
@@ -8,23 +6,29 @@ mod internal_macros;
 /// A struct for power of 2 modulus.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
-pub struct PowOf2Modulus<T: Copy> {
+pub struct PowOf2Modulus<T: UnsignedInteger> {
     /// The special value for performing `reduce`.
     ///
     /// It's equal to modulus value sub one.
     mask: T,
 }
 
-impl<T: Copy> PowOf2Modulus<T> {
+impl<T: UnsignedInteger> PowOf2Modulus<T> {
     /// Returns the mask of this [`PowOf2Modulus<T>`],
     /// which is equal to modulus value sub one.
     #[inline]
     pub const fn mask(&self) -> T {
         self.mask
     }
-}
 
-impl<T: Copy + ConstOne + Add<Output = T>> PowOf2Modulus<T> {
+    /// .
+    #[inline]
+    pub fn from(value: T) -> Self {
+        Self {
+            mask: value - T::ONE,
+        }
+    }
+
     /// Returns the value of this [`PowOf2Modulus<T>`].
     #[inline]
     pub fn value(self) -> T {
@@ -36,7 +40,7 @@ impl_powof2_modulus!(impl PowOf2Modulus<u8>);
 impl_powof2_modulus!(impl PowOf2Modulus<u16>);
 impl_powof2_modulus!(impl PowOf2Modulus<u32>);
 impl_powof2_modulus!(impl PowOf2Modulus<u64>);
-impl_powof2_modulus!(impl PowOf2Modulus<u128>);
+// impl_powof2_modulus!(impl PowOf2Modulus<u128>);
 
 #[cfg(test)]
 mod tests {

@@ -4,11 +4,11 @@ use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use num_traits::{Inv, One, Pow, PrimInt, Zero};
+use num_traits::{Inv, One, Pow, Zero};
 use rand::{CryptoRng, Rng};
+use rand_distr::Distribution;
 
-use crate::random::UniformBase;
-use crate::{AsFrom, AsInto, Basis, Widening, WrappingOps};
+use crate::{Basis, FieldUniformSampler, UnsignedInteger};
 
 mod ntt_fields;
 mod prime_fields;
@@ -71,16 +71,7 @@ pub trait Field:
     + Pow<Self::Order, Output = Self>
 {
     /// The inner type of this field.
-    type Value: Debug
-        + Send
-        + Sync
-        + PrimInt
-        + Widening
-        + WrappingOps
-        + Into<u64>
-        + AsInto<f64>
-        + AsFrom<f64>
-        + UniformBase;
+    type Value: UnsignedInteger;
 
     /// The type of the field's order.
     type Order: Copy;
@@ -96,17 +87,9 @@ pub trait Field:
 
     /// generate a random element.
     fn random<R: CryptoRng + Rng>(rng: &mut R) -> Self {
-        let range = <Self::Value as UniformBase>::Sample::as_from(Self::MODULUS_VALUE);
-        let thresh = range.wrapping_neg() % range;
+        let sampler = FieldUniformSampler::new();
 
-        let hi = loop {
-            let (lo, hi) = <Self::Value as UniformBase>::gen_sample(rng).widen_mul(range);
-            if lo >= thresh {
-                break hi;
-            }
-        };
-
-        Self::new(hi.as_into())
+        sampler.sample(rng)
     }
 
     /// Gets inner value.

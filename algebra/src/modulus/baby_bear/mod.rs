@@ -227,8 +227,8 @@ mod tests {
             ((a_n as W * from_monty(b_inv) as W) % PW) as S
         );
 
-        assert_eq!(a_m.pow_reduce(0, BabyBearModulus), 1);
-        assert_eq!(a_m.pow_reduce(1, BabyBearModulus), a_m);
+        assert_eq!(a_m.pow_reduce(0u8, BabyBearModulus), 1);
+        assert_eq!(a_m.pow_reduce(1u8, BabyBearModulus), a_m);
         assert_eq!(a_m.pow_reduce(b_m, BabyBearModulus), pow(a_m, b_m));
 
         let mut a_n: Vec<u32> = dis.sample_iter(&mut rng).take(5).collect();

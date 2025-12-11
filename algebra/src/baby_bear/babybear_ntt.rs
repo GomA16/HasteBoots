@@ -155,6 +155,15 @@ impl NTTField for BabyBear {
             Ok(table)
         }
     }
+
+    fn dot_product(a: impl AsRef<[Self]>, b: impl AsRef<[Self]>) -> Self {
+        let a = a.as_ref();
+        let b = b.as_ref();
+        debug_assert_eq!(a.len(), b.len());
+        a.iter()
+            .zip(b)
+            .fold(BabyBear::zero(), |acc: Self, (&x, &y)| x * y + acc)
+    }
 }
 
 #[test]

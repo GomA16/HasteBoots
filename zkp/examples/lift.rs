@@ -1,5 +1,5 @@
 use algebra::derive::Field;
-use algebra::{DenseMultilinearExtension, Field};
+use algebra::{AsInto, DenseMultilinearExtension, Field};
 use algebra::{FieldUniformSampler, Goldilocks, GoldilocksExtension};
 use algebra::{NTTField, Polynomial, transformation::AbstractNTT};
 use itertools::izip;
@@ -56,12 +56,12 @@ fn generate_instance<F: Field + NTTField>(
         let mut coeff = vec![F::zero(); 1 << log_N];
         (*_k, *_row) = match _input < &N {
             true => {
-                coeff[_input.value().into() as usize] = F::one();
+                coeff[<<F as Field>::Value as AsInto<usize>>::as_into(_input.value())] = F::one();
                 (F::zero(), *_input)
             }
             false => {
                 let idx = *_input - N;
-                coeff[idx.value().into() as usize] = -F::one();
+                coeff[<<F as Field>::Value as AsInto<usize>>::as_into(idx.value())] = -F::one();
                 (F::one(), idx)
             }
         };

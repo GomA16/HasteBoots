@@ -4,7 +4,7 @@ use core::fmt;
 use std::rc::Rc;
 
 use algebra::{
-    AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
+    AbstractExtensionField, AsInto, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
 };
 use helper::Transcript;
 use serde::{Deserialize, Serialize};
@@ -150,7 +150,7 @@ impl<F: Field + Serialize> SparseEvalIOP<F> {
             instance
                 .row
                 .iter()
-                .map(|idx| eq_rx[idx.value().into() as usize])
+                .map(|idx| eq_rx[idx.value().as_into()])
                 .collect(),
         );
         instance.eval_rx = eval_rx;

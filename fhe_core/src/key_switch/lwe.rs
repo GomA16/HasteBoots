@@ -1,7 +1,7 @@
 use algebra::{NTTField, modulus::PowOf2Modulus};
 use lattice::{Basis, LWE, decompose_lsb_bits_inplace};
 
-use crate::{LWEModulusType, SecretKeyPack};
+use crate::SecretKeyPack;
 
 /// The Key Switching Key.
 ///

@@ -39,7 +39,9 @@ pub use polynomial::multivariate::{
 pub use polynomial::univariate::{
     NTTPolynomial, Polynomial, ntt_add_mul_assign, ntt_add_mul_assign_fast, ntt_add_mul_inplace,
 };
-pub use primitive::{AsFrom, AsInto, Bits, Widening, WrappingOps, div_ceil};
+pub use primitive::{
+    AsCast, AsFrom, AsInto, Bits, Integer, UnsignedInteger, Widening, WrappingOps, div_ceil,
+};
 pub use random::{
     FieldBinarySampler, FieldDiscreteGaussianSampler, FieldTernarySampler, FieldUniformSampler,
 };

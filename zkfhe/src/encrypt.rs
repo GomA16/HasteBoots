@@ -1,23 +1,23 @@
 //! implementation of encryption.
 
-use algebra::NTTField;
-use fhe_core::{LWECiphertext, LWEModulusType, LWEMsgType, SecretKeyPack};
+use algebra::{Field, NTTField};
+use fhe_core::{LWECiphertext, SecretKeyPack};
 
 /// Encryptor
-pub struct Encryptor<C: LWEModulusType, Q: NTTField> {
-    sk: SecretKeyPack<C, Q>,
+pub struct Encryptor<Q: NTTField> {
+    sk: SecretKeyPack<Q>,
 }
 
-impl<C: LWEModulusType, Q: NTTField> Encryptor<C, Q> {
+impl<Q: NTTField> Encryptor<Q> {
     /// New a Encryptor instance.
     #[inline]
-    pub fn new(sk: SecretKeyPack<C, Q>) -> Self {
+    pub fn new(sk: SecretKeyPack<Q>) -> Self {
         Self { sk }
     }
 
     /// Encrypt a bool message.
     #[inline]
-    pub fn encrypt<M: LWEMsgType>(&self, m: M) -> LWECiphertext<C> {
+    pub fn encrypt(&self, m: <Q as Field>::Value) -> LWECiphertext<Q> {
         self.sk.encrypt(m)
     }
 }

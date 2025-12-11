@@ -1,6 +1,7 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
+use algebra::AsInto;
 use algebra::derive::Field;
 use algebra::{
     BabyBear, BabyBearExetension, DenseMultilinearExtension, Field, FieldUniformSampler, NTTField,
@@ -57,12 +58,12 @@ fn generate_lift_instance<F: Field + NTTField>(
         let mut coeff = vec![F::zero(); 1 << log_N];
         (*_k, *_row) = match _input < &N {
             true => {
-                coeff[_input.value().into() as usize] = F::one();
+                coeff[<<F as Field>::Value as AsInto<usize>>::as_into(_input.value())] = F::one();
                 (F::zero(), *_input)
             }
             false => {
                 let idx = *_input - N;
-                coeff[idx.value().into() as usize] = -F::one();
+                coeff[<<F as Field>::Value as AsInto<usize>>::as_into(idx.value())] = -F::one();
                 (F::one(), idx)
             }
         };

@@ -1,3 +1,4 @@
+use algebra::AsInto;
 // cargo run --release --example count_ntt --features count_ntt
 #[cfg(feature = "count_ntt")]
 use algebra::transformation::count;
@@ -9,9 +10,6 @@ use zkfhe::{
     bfhe::{DEFAULT_TERNARY_128_BITS_PARAMETERS, Evaluator},
 };
 
-type M = bool;
-type C = u16;
-
 fn main() {
     // set random generator
     let mut rng = rand::rng();
@@ -19,9 +17,9 @@ fn main() {
     // set parameter
     let params = *DEFAULT_TERNARY_128_BITS_PARAMETERS;
 
-    let noise_max = (params.lwe_cipher_modulus_value() as f64 / 16.0) as C;
+    let noise_max = (params.lwe_cipher_modulus_value() as f64 / 16.0).as_into();
 
-    let check_noise = |noise: C, op: &str| {
+    let check_noise = |noise, op: &str| {
         assert!(
             noise < noise_max,
             "Type: {op}\nNoise: {noise} >= {noise_max}"
@@ -56,7 +54,7 @@ fn main() {
         println!("intt count: {}", count::get_intt_count());
     }
 
-    let (m, noise) = decryptor.decrypt_with_noise::<M>(&ct);
+    let (m, noise) = decryptor.decrypt_with_noise(&ct);
     assert_eq!(m, nand(a, b), "Noise: {noise}");
     check_noise(noise, "nand");
 
@@ -76,7 +74,7 @@ fn main() {
         println!("intt count: {}", count::get_intt_count());
     }
 
-    let (m, noise) = decryptor.decrypt_with_noise::<M>(&ct);
-    assert_eq!(m, if a { b } else { c }, "Noise: {noise}");
+    let (m, noise) = decryptor.decrypt_with_noise(&ct);
+    assert_eq!(m, if a != 0 { b } else { c }, "Noise: {noise}");
     check_noise(noise, "mux");
 }

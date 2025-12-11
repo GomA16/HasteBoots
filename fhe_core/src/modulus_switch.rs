@@ -1,19 +1,19 @@
-use algebra::{AsInto, DecomposableField};
+use algebra::{AsInto, DecomposableField, UnsignedInteger};
 use lattice::LWE;
 
-use crate::{LWECiphertext, LWEModulusType};
+use crate::LWECiphertext;
 
 /// Implementation of modulus switching.
 ///
 /// This function performs on a `LWE<F>`, returns a `LWE<C>` with desired modulus `modulus_after`.
-pub fn lwe_modulus_switch<C: LWEModulusType, F: DecomposableField>(
-    c: LWE<F>,
-    modulus_after: C,
-) -> LWECiphertext<C> {
+pub fn lwe_modulus_switch<T: UnsignedInteger, F: DecomposableField>(
+    c: &LWE<F>,
+    modulus_after: T,
+) -> LWECiphertext<T> {
     let modulus_before_f64: f64 = F::MODULUS_VALUE.as_into();
     let modulus_after_f64: f64 = modulus_after.as_into();
 
-    let reduce = |v: C| {
+    let reduce = |v: T| {
         if v < modulus_after {
             v
         } else {
@@ -22,12 +22,13 @@ pub fn lwe_modulus_switch<C: LWEModulusType, F: DecomposableField>(
     };
 
     let switch = |v: F| {
-        reduce(C::as_from(
-            (v.value().as_into() * modulus_after_f64 / modulus_before_f64).round(),
+        let v: f64 = v.value().as_into();
+        reduce(T::as_from(
+            (v * modulus_after_f64 / modulus_before_f64).round(),
         ))
     };
 
-    let a: Vec<C> = c.a().iter().copied().map(&switch).collect();
+    let a: Vec<T> = c.a().iter().copied().map(&switch).collect();
     let b = switch(c.b());
 
     LWECiphertext::new(a, b)
@@ -37,15 +38,15 @@ pub fn lwe_modulus_switch<C: LWEModulusType, F: DecomposableField>(
 ///
 /// This function performs on a `LWE<F>`, puts the result `LWE<C>` with desired modulus `modulus_after`
 /// into `destination`.
-pub fn lwe_modulus_switch_inplace<C: LWEModulusType, F: DecomposableField>(
+pub fn lwe_modulus_switch_inplace<T: UnsignedInteger, F: DecomposableField>(
     c: LWE<F>,
-    modulus_after: C,
-    destination: &mut LWECiphertext<C>,
+    modulus_after: T,
+    destination: &mut LWECiphertext<T>,
 ) {
     let modulus_before_f64: f64 = F::MODULUS_VALUE.as_into();
     let modulus_after_f64: f64 = modulus_after.as_into();
 
-    let reduce = |v: C| {
+    let reduce = |v: T| {
         if v < modulus_after {
             v
         } else {
@@ -54,8 +55,9 @@ pub fn lwe_modulus_switch_inplace<C: LWEModulusType, F: DecomposableField>(
     };
 
     let switch = |v: F| {
-        reduce(C::as_from(
-            (v.value().as_into() * modulus_after_f64 / modulus_before_f64).round(),
+        let v: f64 = v.value().as_into();
+        reduce(T::as_from(
+            (v * modulus_after_f64 / modulus_before_f64).round(),
         ))
     };
 
@@ -72,15 +74,15 @@ pub fn lwe_modulus_switch_inplace<C: LWEModulusType, F: DecomposableField>(
 ///
 /// This function performs on a `LWE<C>` with modulus `modulus_before`, puts the result `LWE<C>` with desired modulus `modulus_after`
 /// back to `c`.
-pub fn lwe_modulus_switch_assign_between_modulus<C: LWEModulusType>(
-    c: &mut LWE<C>,
-    modulus_before: C,
-    modulus_after: C,
+pub fn lwe_modulus_switch_assign_between_modulus<T: UnsignedInteger>(
+    c: &mut LWE<T>,
+    modulus_before: T,
+    modulus_after: T,
 ) {
     let modulus_before_f64: f64 = modulus_before.as_into();
     let modulus_after_f64: f64 = modulus_after.as_into();
 
-    let reduce = |v: C| {
+    let reduce = |v: T| {
         if v < modulus_after {
             v
         } else {
@@ -88,8 +90,8 @@ pub fn lwe_modulus_switch_assign_between_modulus<C: LWEModulusType>(
         }
     };
 
-    let switch = |v: C| {
-        reduce(C::as_from(
+    let switch = |v: T| {
+        reduce(T::as_from(
             (AsInto::<f64>::as_into(v) * modulus_after_f64 / modulus_before_f64).round(),
         ))
     };

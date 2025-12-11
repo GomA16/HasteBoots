@@ -1,49 +1,51 @@
 //! utility
 
+use algebra::UnsignedInteger;
+
 /// NOT
 #[inline]
-pub const fn not(a: bool) -> bool {
-    !a
+pub fn not<T: UnsignedInteger>(a: T) -> T {
+    if a.is_zero() { T::ONE } else { T::ZERO }
 }
 
 /// AND
 #[inline]
-pub const fn and(a: bool, b: bool) -> bool {
+pub fn and<T: UnsignedInteger>(a: T, b: T) -> T {
     a & b
 }
 
 /// NAND
 #[inline]
-pub const fn nand(a: bool, b: bool) -> bool {
+pub fn nand<T: UnsignedInteger>(a: T, b: T) -> T {
     not(and(a, b))
 }
 
 /// OR
 #[inline]
-pub const fn or(a: bool, b: bool) -> bool {
+pub fn or<T: UnsignedInteger>(a: T, b: T) -> T {
     a | b
 }
 
 /// NOR
 #[inline]
-pub const fn nor(a: bool, b: bool) -> bool {
+pub fn nor<T: UnsignedInteger>(a: T, b: T) -> T {
     not(or(a, b))
 }
 
 /// XOR
 #[inline]
-pub const fn xor(a: bool, b: bool) -> bool {
+pub fn xor<T: UnsignedInteger>(a: T, b: T) -> T {
     a ^ b
 }
 
 /// XNOR
 #[inline]
-pub const fn xnor(a: bool, b: bool) -> bool {
+pub fn xnor<T: UnsignedInteger>(a: T, b: T) -> T {
     not(xor(a, b))
 }
 
 /// MAJ
 #[inline]
-pub const fn majority(a: bool, b: bool, c: bool) -> bool {
+pub fn majority<T: UnsignedInteger>(a: T, b: T, c: T) -> T {
     (a & b) | (b & c) | (a & c)
 }

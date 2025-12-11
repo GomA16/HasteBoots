@@ -1,40 +1,35 @@
 use algebra::{NTTField, Polynomial};
 use fhe_core::{
-    KeySwitchingKeyEnum, KeySwitchingRLWEKey, LWECiphertext, LWEModulusType, Parameters,
-    ProcessType, RLWEBlindRotationKey, SecretKeyPack, Steps,
-    lwe_modulus_switch_assign_between_modulus, lwe_modulus_switch_inplace,
+    KeySwitchingKeyEnum, KeySwitchingRLWEKey, LWECiphertext, Parameters, RLWEBlindRotationKey,
+    SecretKeyPack, lwe_modulus_switch,
 };
 
 /// The evaluator of the homomorphic encryption scheme.
 #[derive(Debug, Clone)]
-pub struct EvaluationKey<C: LWEModulusType, Q: NTTField> {
+pub struct EvaluationKey<Q: NTTField> {
     /// Blind rotation key.
     blind_rotation_key: RLWEBlindRotationKey<Q>,
     /// Key switching key.
-    key_switching_key: KeySwitchingKeyEnum<C, Q>,
+    key_switching_key: KeySwitchingKeyEnum<Q>,
     /// The parameters of the fully homomorphic encryption scheme.
-    parameters: Parameters<C, Q>,
+    parameters: Parameters<Q>,
 }
 
-impl<C: LWEModulusType, Q: NTTField> EvaluationKey<C, Q> {
+impl<Q: NTTField> EvaluationKey<Q> {
     /// Returns the parameters of this [`EvaluationKey<F>`].
     #[inline]
-    pub fn parameters(&self) -> &Parameters<C, Q> {
+    pub fn parameters(&self) -> &Parameters<Q> {
         &self.parameters
     }
 
     /// Creates a new [`EvaluationKey`] from the given [`SecretKeyPack`].
-    pub fn new(secret_key_pack: &SecretKeyPack<C, Q>) -> Self {
+    pub fn new(secret_key_pack: &SecretKeyPack<Q>) -> Self {
         let parameters = secret_key_pack.parameters();
 
         let blind_rotation_key = RLWEBlindRotationKey::generate(secret_key_pack);
 
-        let key_switching_key = match parameters.steps() {
-            Steps::BrKsMs => {
-                KeySwitchingKeyEnum::RLWE(KeySwitchingRLWEKey::generate(secret_key_pack))
-            }
-            Steps::KsBr => todo!(),
-        };
+        let key_switching_key =
+            KeySwitchingKeyEnum::RLWE(KeySwitchingRLWEKey::generate(secret_key_pack));
 
         Self {
             blind_rotation_key,
@@ -44,64 +39,37 @@ impl<C: LWEModulusType, Q: NTTField> EvaluationKey<C, Q> {
     }
 
     /// Complete the bootstrapping operation with LWE Ciphertext *`c`* and lookup table `lut`.
-    pub fn bootstrap(&self, mut c: LWECiphertext<C>, lut: Polynomial<Q>) -> LWECiphertext<C> {
+    pub fn bootstrap(&self, c: LWECiphertext<Q>, lut: Polynomial<Q>) -> LWECiphertext<Q> {
         let parameters = self.parameters();
         let pre = parameters.process_before_blind_rotation();
 
-        match pre.process() {
-            ProcessType::ModulusSwitch => {
-                lwe_modulus_switch_assign_between_modulus(
-                    &mut c,
-                    parameters.lwe_cipher_modulus_value(),
-                    pre.twice_ring_dimension_value(),
-                );
-            }
-            ProcessType::Scale { ratio } => {
-                let ratio = C::as_from(ratio as u64);
-                c.a_mut().iter_mut().for_each(|v| *v = *v * ratio);
-                *c.b_mut() = c.b() * ratio;
-            }
-            ProcessType::Noop => (),
-        }
+        let c_prime = lwe_modulus_switch(&c, pre.twice_ring_dimension_value());
 
         let mut acc =
             self.blind_rotation_key
-                .blind_rotate(lut, &c, parameters.blind_rotation_basis());
+                .blind_rotate(lut, &c_prime, parameters.blind_rotation_basis());
 
-        acc.b_mut()[0] += Q::new(Q::MODULUS_VALUE >> 3);
+        acc.b_mut()[0] += Q::new(Q::MODULUS_VALUE >> 3u32);
 
-        match parameters.steps() {
-            Steps::BrKsMs => {
-                let ksk = match self.key_switching_key {
-                    KeySwitchingKeyEnum::RLWE(ref ksk) => ksk,
-                    _ => panic!("Unable to get the corresponding key switching key!"),
-                };
+        let ksk = match self.key_switching_key {
+            KeySwitchingKeyEnum::RLWE(ref ksk) => ksk,
+            _ => panic!("Unable to get the corresponding key switching key!"),
+        };
 
-                let key_switched = ksk.key_switch_for_rlwe(acc);
-
-                lwe_modulus_switch_inplace(
-                    key_switched,
-                    parameters.lwe_cipher_modulus_value(),
-                    &mut c,
-                );
-            }
-            Steps::KsBr => todo!(),
-        }
-
-        c
+        ksk.key_switch_for_rlwe(acc)
     }
 }
 
 /// Evaluator
 #[derive(Debug, Clone)]
-pub struct Evaluator<C: LWEModulusType, Q: NTTField> {
-    ek: EvaluationKey<C, Q>,
+pub struct Evaluator<Q: NTTField> {
+    ek: EvaluationKey<Q>,
 }
 
-impl<C: LWEModulusType, Q: NTTField> Evaluator<C, Q> {
+impl<Q: NTTField> Evaluator<Q> {
     /// Create a new instance.
     #[inline]
-    pub fn new(sk: &SecretKeyPack<C, Q>) -> Self {
+    pub fn new(sk: &SecretKeyPack<Q>) -> Self {
         Self {
             ek: EvaluationKey::new(sk),
         }
@@ -109,13 +77,13 @@ impl<C: LWEModulusType, Q: NTTField> Evaluator<C, Q> {
 
     /// Returns a reference to the parameters of this [`Evaluator<F>`].
     #[inline]
-    pub fn parameters(&self) -> &Parameters<C, Q> {
+    pub fn parameters(&self) -> &Parameters<Q> {
         self.ek.parameters()
     }
 
     /// Complete the bootstrapping operation with LWE Ciphertext *`c`* and lookup table `lut`.
     #[inline]
-    pub fn bootstrap(&self, c: LWECiphertext<C>, lut: Polynomial<Q>) -> LWECiphertext<C> {
+    pub fn bootstrap(&self, c: LWECiphertext<Q>, lut: Polynomial<Q>) -> LWECiphertext<Q> {
         self.ek.bootstrap(c, lut)
     }
 
@@ -127,13 +95,11 @@ impl<C: LWEModulusType, Q: NTTField> Evaluator<C, Q> {
     /// * Output: ciphertext with message `false`(resp. `true`).
     ///
     /// Link: <https://eprint.iacr.org/2020/086>
-    pub fn not(&self, c: &LWECiphertext<C>) -> LWECiphertext<C> {
+    pub fn not(&self, c: &LWECiphertext<Q>) -> LWECiphertext<Q> {
         let parameters = self.parameters();
-        let lwe_modulus = parameters.lwe_cipher_modulus();
 
-        let mut neg = c.neg_reduce(lwe_modulus);
-        neg.b_mut()
-            .add_reduce_assign(parameters.lwe_cipher_modulus_value() >> 2u32, lwe_modulus);
+        let mut neg = c.neg();
+        *neg.b_mut() += Q::new(parameters.lwe_cipher_modulus_value() >> 2u32);
         neg
     }
 
@@ -144,11 +110,10 @@ impl<C: LWEModulusType, Q: NTTField> Evaluator<C, Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `not(a and b)`.
-    pub fn nand(&self, c0: &LWECiphertext<C>, c1: &LWECiphertext<C>) -> LWECiphertext<C> {
+    pub fn nand(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> LWECiphertext<Q> {
         let parameters = self.parameters();
-        let lwe_modulus = parameters.lwe_cipher_modulus();
 
-        let add = c0.add_reduce_component_wise_ref(c1, lwe_modulus);
+        let add = c0.add_component_wise_ref(c1);
 
         let lut = init_nand_lut(parameters.ring_dimension(), parameters.lut_step());
 
@@ -162,11 +127,10 @@ impl<C: LWEModulusType, Q: NTTField> Evaluator<C, Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `a and b`.
-    pub fn and(&self, c0: &LWECiphertext<C>, c1: &LWECiphertext<C>) -> LWECiphertext<C> {
+    pub fn and(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> LWECiphertext<Q> {
         let parameters = self.parameters();
-        let lwe_modulus = parameters.lwe_cipher_modulus();
 
-        let add = c0.add_reduce_component_wise_ref(c1, lwe_modulus);
+        let add = c0.add_component_wise_ref(c1);
 
         let lut: Polynomial<Q> =
             init_and_majority_lut(parameters.ring_dimension(), parameters.lut_step());
@@ -181,11 +145,10 @@ impl<C: LWEModulusType, Q: NTTField> Evaluator<C, Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `a or b`.
-    pub fn or(&self, c0: &LWECiphertext<C>, c1: &LWECiphertext<C>) -> LWECiphertext<C> {
+    pub fn or(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> LWECiphertext<Q> {
         let parameters = self.parameters();
-        let lwe_modulus = parameters.lwe_cipher_modulus();
 
-        let add = c0.add_reduce_component_wise_ref(c1, lwe_modulus);
+        let add = c0.add_component_wise_ref(c1);
 
         let lut = init_or_lut(parameters.ring_dimension(), parameters.lut_step());
 
@@ -199,11 +162,10 @@ impl<C: LWEModulusType, Q: NTTField> Evaluator<C, Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `not(a or b)`.
-    pub fn nor(&self, c0: &LWECiphertext<C>, c1: &LWECiphertext<C>) -> LWECiphertext<C> {
+    pub fn nor(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> LWECiphertext<Q> {
         let parameters = self.parameters();
-        let lwe_modulus = parameters.lwe_cipher_modulus();
 
-        let add = c0.add_reduce_component_wise_ref(c1, lwe_modulus);
+        let add = c0.add_component_wise_ref(c1);
 
         let lut = init_nor_lut(parameters.ring_dimension(), parameters.lut_step());
 
@@ -217,12 +179,11 @@ impl<C: LWEModulusType, Q: NTTField> Evaluator<C, Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `a xor b`.
-    pub fn xor(&self, c0: &LWECiphertext<C>, c1: &LWECiphertext<C>) -> LWECiphertext<C> {
+    pub fn xor(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> LWECiphertext<Q> {
         let parameters = self.parameters();
-        let lwe_modulus = parameters.lwe_cipher_modulus();
 
-        let mut sub = c0.sub_reduce_component_wise_ref(c1, lwe_modulus);
-        sub.scalar_mul_reduce_inplace(C::TWO, lwe_modulus);
+        let mut sub = c0.sub_component_wise_ref(c1);
+        sub.double_inplace();
 
         let lut = init_xor_lut(parameters.ring_dimension(), parameters.lut_step());
 
@@ -236,12 +197,11 @@ impl<C: LWEModulusType, Q: NTTField> Evaluator<C, Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `not(a xor b)`.
-    pub fn xnor(&self, c0: &LWECiphertext<C>, c1: &LWECiphertext<C>) -> LWECiphertext<C> {
+    pub fn xnor(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> LWECiphertext<Q> {
         let parameters = self.parameters();
-        let lwe_modulus = parameters.lwe_cipher_modulus();
 
-        let mut sub = c0.sub_reduce_component_wise_ref(c1, lwe_modulus);
-        sub.scalar_mul_reduce_inplace(C::TWO, lwe_modulus);
+        let mut sub = c0.sub_component_wise_ref(c1);
+        sub.double_inplace();
 
         let lut = init_xnor_lut(parameters.ring_dimension(), parameters.lut_step());
 
@@ -259,15 +219,14 @@ impl<C: LWEModulusType, Q: NTTField> Evaluator<C, Q> {
     ///   If there are two or three `true`(resp. `false`) in `a`, `b` and `c`, it will return `true`(resp. `false`).
     pub fn majority(
         &self,
-        c0: &LWECiphertext<C>,
-        c1: &LWECiphertext<C>,
-        c2: &LWECiphertext<C>,
-    ) -> LWECiphertext<C> {
+        c0: &LWECiphertext<Q>,
+        c1: &LWECiphertext<Q>,
+        c2: &LWECiphertext<Q>,
+    ) -> LWECiphertext<Q> {
         let parameters = self.parameters();
-        let lwe_modulus = parameters.lwe_cipher_modulus();
 
-        let mut add = c0.add_reduce_component_wise_ref(c1, lwe_modulus);
-        add.add_reduce_inplace_component_wise(c2, lwe_modulus);
+        let mut add = c0.add_component_wise_ref(c1);
+        add.add_inplace_component_wise(c2);
 
         let lut = init_and_majority_lut(parameters.ring_dimension(), parameters.lut_step());
 
@@ -285,19 +244,18 @@ impl<C: LWEModulusType, Q: NTTField> Evaluator<C, Q> {
     ///   If `a` is `true`, it will return `b`. If `a` is `false`, it will return `c`.
     pub fn mux(
         &self,
-        c0: &LWECiphertext<C>,
-        c1: &LWECiphertext<C>,
-        c2: &LWECiphertext<C>,
-    ) -> LWECiphertext<C> {
+        c0: &LWECiphertext<Q>,
+        c1: &LWECiphertext<Q>,
+        c2: &LWECiphertext<Q>,
+    ) -> LWECiphertext<Q> {
         let parameters = self.parameters();
-        let lwe_modulus = parameters.lwe_cipher_modulus();
 
         let not_c0 = self.not(c0);
 
         let (mut t0, t1) = rayon::join(|| self.and(c0, c1), || self.and(&not_c0, c2));
 
         // (a & b) | (!a & c)
-        t0.add_reduce_inplace_component_wise(&t1, lwe_modulus);
+        t0.add_inplace_component_wise(&t1);
 
         let lut = init_or_lut(parameters.ring_dimension(), parameters.lut_step());
 
@@ -314,7 +272,7 @@ where
     F: NTTField,
 {
     let q = F::MODULUS_VALUE;
-    let q_div_8 = F::new(q >> 3);
+    let q_div_8 = F::new(q >> 3u32);
     let neg_q_div_8 = F::new(q - q_div_8.value());
 
     init_nand_and_majority_lut(
@@ -334,7 +292,7 @@ where
     F: NTTField,
 {
     let q = F::MODULUS_VALUE;
-    let q_div_8 = F::new(q >> 3);
+    let q_div_8 = F::new(q >> 3u32);
     let neg_q_div_8 = F::new(q - q_div_8.value());
 
     init_nand_and_majority_lut(
@@ -381,7 +339,7 @@ where
     F: NTTField,
 {
     let q = F::MODULUS_VALUE;
-    let q_div_8 = F::new(q >> 3);
+    let q_div_8 = F::new(q >> 3u32);
     let neg_q_div_8 = F::new(q - q_div_8.value());
 
     init_or_nor_lut(
@@ -401,7 +359,7 @@ where
     F: NTTField,
 {
     let q = F::MODULUS_VALUE;
-    let q_div_8 = F::new(q >> 3);
+    let q_div_8 = F::new(q >> 3u32);
     let neg_q_div_8 = F::new(q - q_div_8.value());
 
     init_or_nor_lut(
@@ -421,7 +379,7 @@ where
     F: NTTField,
 {
     let q = F::MODULUS_VALUE;
-    let q_div_8 = F::new(q >> 3);
+    let q_div_8 = F::new(q >> 3u32);
     let neg_q_div_8 = F::new(q - q_div_8.value());
 
     init_xor_xnor_lut(
@@ -441,7 +399,7 @@ where
     F: NTTField,
 {
     let q = F::MODULUS_VALUE;
-    let q_div_8 = F::new(q >> 3);
+    let q_div_8 = F::new(q >> 3u32);
     let neg_q_div_8 = F::new(q - q_div_8.value());
 
     init_xor_xnor_lut(

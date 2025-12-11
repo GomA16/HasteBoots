@@ -183,6 +183,37 @@ fn impl_ntt(input: Input) -> TokenStream {
 
                 Ok(())
             }
+
+            fn dot_product(a: impl AsRef<[Self]>, b: impl AsRef<[Self]>) -> Self {
+                /// `c += a * b`
+                fn multiply_add(c: &mut [#field_ty; 2], a: #field_ty, b: #field_ty) {
+                    let (lw, hw) = a.widen_mul(b);
+                    let carry;
+                    (c[0], carry) = c[0].overflowing_add(lw);
+                    (c[1], _) = c[1].carry_add(hw, carry);
+                }
+                use ::algebra::Widening;
+                use ::algebra::reduce::{AddReduce, Reduce};
+                let a = a.as_ref();
+                let b = b.as_ref();
+                debug_assert_eq!(a.len(), b.len());
+                let mut a_iter = a.chunks_exact(16);
+                let mut b_iter = b.chunks_exact(16);
+                let acc = (&mut a_iter)
+                    .zip(&mut b_iter)
+                    .map(|(a_s, b_s)| {
+                        let mut c: [#field_ty; 2] = [0, 0];
+                        for (&a, &b) in a_s.iter().zip(b_s) {
+                            multiply_add(&mut c, a.0, b.0);
+                        }
+                        c.reduce(<Self as ::algebra::ModulusConfig>::MODULUS)
+                    })
+                    .fold(0, |acc: #field_ty, b| {
+                        acc.add_reduce(b, <Self as ::algebra::ModulusConfig>::MODULUS)
+                    });
+
+                a_iter.remainder().iter().zip(b_iter.remainder()).fold(#name(acc),|acc,(&x,&y)| x*y+acc)
+            }
         }
     }
 }

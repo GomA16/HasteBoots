@@ -70,4 +70,7 @@ pub trait NTTField: PrimeField + FheField + From<usize> {
 
     /// Init ntt table with `log_n` slice.
     fn init_ntt_table(log_n: u32) -> Result<(), crate::AlgebraError>;
+
+    /// .
+    fn dot_product(a: impl AsRef<[Self]>, b: impl AsRef<[Self]>) -> Self;
 }

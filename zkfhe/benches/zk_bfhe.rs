@@ -1,5 +1,6 @@
 use std::hint::black_box;
 
+use algebra::AsInto;
 use criterion::{Criterion, criterion_group, criterion_main};
 use rand::Rng;
 use zkfhe::{
@@ -25,13 +26,13 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     println!("Evaluation Key Generation done!\n");
 
     let m0: M = rng.random();
-    let c0 = encryptor.encrypt(m0);
+    let c0 = encryptor.encrypt(m0.as_into());
 
     let m1: M = rng.random();
-    let c1 = encryptor.encrypt(m1);
+    let c1 = encryptor.encrypt(m1.as_into());
 
     let m2: M = rng.random();
-    let c2 = encryptor.encrypt(m2);
+    let c2 = encryptor.encrypt(m2.as_into());
 
     c.bench_function("rlwe not", |b| b.iter(|| evaluator.not(black_box(&c0))));
 

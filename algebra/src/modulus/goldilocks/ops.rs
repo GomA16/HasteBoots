@@ -1,8 +1,4 @@
-use std::ops::ShrAssign;
-
-use num_traits::PrimInt;
-
-use crate::{Bits, reduce::*};
+use crate::{UnsignedInteger, reduce::*};
 
 use super::{EPSILON, GoldilocksModulus, P, reduce128, try_inverse};
 
@@ -100,7 +96,7 @@ impl MulReduceAssign<GoldilocksModulus> for u64 {
 
 impl<E> PowReduce<GoldilocksModulus, E> for u64
 where
-    E: PrimInt + ShrAssign<u32> + Bits,
+    E: UnsignedInteger,
 {
     fn pow_reduce(self, mut exp: E, _: GoldilocksModulus) -> Self {
         if exp.is_zero() {
@@ -124,7 +120,7 @@ where
         }
 
         let mut intermediate: Self = power;
-        for _ in 1..(E::N_BITS - exp.leading_zeros()) {
+        for _ in 1..(E::BITS - exp.leading_zeros()) {
             exp >>= 1;
             power = power.mul_reduce(power, GoldilocksModulus);
             if !(exp & E::one()).is_zero() {

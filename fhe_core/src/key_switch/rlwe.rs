@@ -3,7 +3,7 @@ use std::slice::ChunksExact;
 use algebra::{Basis, NTTField, NTTPolynomial, Polynomial};
 use lattice::{DecompositionSpace, LWE, NTTGadgetRLWE, NTTRLWE, PolynomialSpace, RLWE};
 
-use crate::{LWEModulusType, NTRUCiphertext, SecretKeyPack};
+use crate::{NTRUCiphertext, SecretKeyPack};
 
 #[derive(Debug, Clone, Copy)]
 enum Operation {
@@ -26,10 +26,7 @@ pub struct KeySwitchingRLWEKey<Q: NTTField> {
 
 impl<Q: NTTField> KeySwitchingRLWEKey<Q> {
     /// Generates a new [`KeySwitchingKey`].
-    pub fn generate<C>(secret_key_pack: &SecretKeyPack<C, Q>) -> KeySwitchingRLWEKey<Q>
-    where
-        C: LWEModulusType,
-    {
+    pub fn generate(secret_key_pack: &SecretKeyPack<Q>) -> KeySwitchingRLWEKey<Q> {
         let parameters = secret_key_pack.parameters();
 
         let lwe_dimension = parameters.lwe_dimension();
@@ -37,30 +34,13 @@ impl<Q: NTTField> KeySwitchingRLWEKey<Q> {
         let ring_dimension = parameters.ring_dimension();
         assert!(extended_lwe_dimension <= ring_dimension);
 
-        let chi = parameters.key_switching_noise_distribution_for_ring();
+        let chi = parameters.key_switching_noise_distribution();
         let mut csrng = secret_key_pack.csrng_mut();
 
         let key_switching_basis = Basis::<Q>::new(parameters.key_switching_basis_bits());
 
-        // conversion
-        let convert = |v: &C| {
-            if *v == C::ZERO {
-                Q::zero()
-            } else if *v == C::ONE {
-                Q::one()
-            } else {
-                Q::neg_one()
-            }
-        };
-
         // s = [s_0, s_1,..., s_{n-1}, 0,..., 0]
-        let mut s = <Polynomial<Q>>::new(
-            secret_key_pack
-                .lwe_secret_key()
-                .iter()
-                .map(convert)
-                .collect(),
-        );
+        let mut s = <Polynomial<Q>>::new(secret_key_pack.lwe_secret_key().to_vec());
         s.resize(extended_lwe_dimension, Q::zero());
 
         let lwe_sk = s.into_ntt_polynomial();

@@ -19,7 +19,7 @@ pub static GOLDILOCKS_TERNARY_128_BITS_PARAMETERS: Lazy<Parameters<u16, Goldiloc
             blind_rotation_basis_bits: 3,
             key_switching_basis_bits: 1,
             key_switching_standard_deviation: 3.2 * ((1 << 1) as f64),
-            steps: Steps::BrKsMs,
+            steps: Steps::BrKs,
         })
         .unwrap()
     });
@@ -40,7 +40,7 @@ pub static BABY_BEAR_TERNARY_128_BITS_PARAMETERS: Lazy<Parameters<u16, BabyBear>
             blind_rotation_basis_bits: 3,
             key_switching_basis_bits: 1,
             key_switching_standard_deviation: 3.2 * ((1 << 1) as f64),
-            steps: Steps::BrKsMs,
+            steps: Steps::BrKs,
         })
         .unwrap()
     });
@@ -61,7 +61,7 @@ pub static DEFAULT_TERNARY_128_BITS_PARAMETERS: Lazy<Parameters<u16, DefaultFiel
             blind_rotation_basis_bits: 3,
             key_switching_basis_bits: 1,
             key_switching_standard_deviation: 3.2 * ((1 << 1) as f64),
-            steps: Steps::BrKsMs,
+            steps: Steps::BrKs,
         })
         .unwrap()
     });
@@ -82,7 +82,7 @@ pub static CUSTOM_TERNARY_128_BITS_PARAMETERS: Lazy<Parameters<u16, DefaultField
             blind_rotation_basis_bits: 7,
             key_switching_basis_bits: 7,
             key_switching_standard_deviation: 3.2 * ((1 << 1) as f64),
-            steps: Steps::BrKsMs,
+            steps: Steps::BrKs,
         })
         .unwrap()
     });

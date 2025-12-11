@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
-use algebra::AsFrom;
 use algebra::derive::{DecomposableField, Field};
+use algebra::{AsFrom, AsInto};
 use algebra::{BabyBear, BabyBearExetension, Basis, DenseMultilinearExtension};
 use algebra::{DecomposableField, Field, FieldUniformSampler};
 use itertools::izip;
@@ -40,8 +40,8 @@ fn generate_instance<Fq: Field + DecomposableField, F: DecomposableField>(
                 num_vars,
                 (0..(1 << num_vars))
                     .map(|_| {
-                        F::new(F::Value::as_from(
-                            uniform.sample(&mut rng).value().into() as u64 as f64,
+                        F::new(<<F as Field>::Value as AsFrom<u64>>::as_from(
+                            uniform.sample(&mut rng).value().as_into(),
                         ))
                     })
                     .collect(),
