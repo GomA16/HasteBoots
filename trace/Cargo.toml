@@ -12,3 +12,4 @@ rand_distr = { workspace = true }
 serde = { workspace = true }
 rayon = { workspace = true }
 log = { workspace = true }
+itertools = { workspace = true }

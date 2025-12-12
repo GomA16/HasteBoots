@@ -5,6 +5,7 @@ use std::rc::Rc;
 use sumcheck::{MLSumcheck, Proof, verifier::SubClaim};
 use trace::NTTTraceMLE;
 
+use crate::LagrangeKernel;
 use crate::SumcheckClaim;
 use crate::SumcheckPIOP;
 use crate::ntt::fourier_eval::NTTFourierProof;
@@ -95,7 +96,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTEvalIOP<F> {
         trans.append_message(b"[NTT Evaluation Statement]", &statement);
 
         let mut sumcheck_claim = SumcheckClaim::new(instance.log_coeff_count);
-        let prover_state = Self::prover_batch_sumcheck(instance, &mut sumcheck_claim, &[F::one()]);
+        let prover_state = Self::prover_batch_sumcheck(instance, &mut sumcheck_claim, &[F::one()], None);
         let (sumcheck_proof, sumcheck_state) =
             MLSumcheck::<F>::prove(trans, sumcheck_claim.poly_ref())
                 .expect("[NTTPolyIOP - Prover] Fail to generate sumcheck proof");
@@ -143,7 +144,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTEvalIOP<F> {
         )
         .expect("[NTTEvalIOP - Verifier] Fail to verify the sumcheck");
 
-        Self::verifier_compute_subclaim(proof, &mut sumcheck_subclaim, &[F::one()]);
+        Self::verifier_compute_subclaim(proof, &mut sumcheck_subclaim, &[F::one()], None);
         res &= sumcheck_subclaim.expected_evaluations.is_zero();
 
         let ntt_fourier_eval_info = NTTFourierEvalInfo {
@@ -169,7 +170,10 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTEvalIOP<F> {
         instance: &Self::Instance,
         claim: &mut SumcheckClaim<F>,
         randomness: &[F],
+        lagrange_kernel: Option<&LagrangeKernel<F>>,
     ) -> Self::ProverState {
+        assert!(lagrange_kernel.is_none(), "Lagrange kernel is not supported in NTTEvalIOP");
+
         assert_eq!(randomness.len(), 1);
         let fourier_at_u = Rc::new(init_fourier_table(&instance.point_u, &instance.ntt_table));
         claim.poly_mut().add_product(
@@ -187,7 +191,10 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTEvalIOP<F> {
         proof: &Self::Proof,
         subclaim: &mut SubClaim<F>,
         randomness: &[F],
+        lagrange_kernel: Option<&LagrangeKernel<F>>
     ) {
+        assert_eq!(lagrange_kernel.is_none(), true, "Lagrange kernel is not supported in NTTEvalIOP");
+
         assert_eq!(randomness.len(), 1);
         subclaim.expected_evaluations -=
             proof.coeff_eval_at_v * proof.fourier_eval_at_v * randomness[0];

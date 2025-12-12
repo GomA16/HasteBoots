@@ -1,7 +1,7 @@
 use crate::{AccTrace, AccTraceMLE, BatchedHadamardTrace, BatchedHadamardTraceMLE, HadamardTrace};
 use algebra::{Field, NTTField};
 use std::{iter::chain, rc::Rc};
-use crate::LookupTraceMLE;
+use crate::{LookupTraceMLE, LookupWitnessHelper};
 
 pub struct PBSParameters {
     // log of polynomial coefficient count, denoted as N=2^{log_coeff_count}
@@ -25,6 +25,16 @@ pub struct PBSTraceMLE<F: NTTField> {
     pub hadamard_trace_a: BatchedHadamardTraceMLE<F>,
     pub hadamard_trace_b: BatchedHadamardTraceMLE<F>,
     pub params: PBSParameters,
+}
+
+// The witness generated from PBS trace.
+pub struct PBSWitness<F: NTTField> {
+    pub lookup_witness: LookupTraceMLE<F>,
+}
+
+// The witness generated with help of randomness
+pub struct PBSRandomWitness<F: NTTField> {
+    pub lookup_witness_helper: LookupWitnessHelper<F>,
 }
 
 impl<F: NTTField> From<PBSTrace<F>> for PBSTraceMLE<F> {
