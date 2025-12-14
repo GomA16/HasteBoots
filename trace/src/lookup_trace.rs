@@ -1,13 +1,13 @@
-use algebra::{AbstractExtensionField, AsFrom, AsInto};
+use algebra::{AbstractExtensionField, AsFrom, AsInto, FieldUniformSampler};
 use algebra::{DenseMultilinearExtension, Field};
-use serde::de;
 use core::task;
 use helper::utils::batch_inverse;
+use itertools::Itertools;
 use rayon::iter::ParallelIterator;
 use rayon::slice::ParallelSlice;
 use rayon::{range, vec};
+use serde::de;
 use std::{collections::HashMap, rc::Rc};
-use itertools::Itertools;
 
 use crate::ConvertToEF;
 use log::{debug, info};
@@ -47,80 +47,29 @@ pub struct LookupWitnessHelper<F: Field> {
     pub phi_functions: Vec<Rc<DenseMultilinearExtension<F>>>,
 }
 
-// implementation for BabyBear using the Montgomery representation
-// TODO: optimize it without hashmap when using Goldilocks
-
-// compute multiplicity for range table
-// # Arguments
-// * `num_vars` - number of variables of the MLE
-// * `vec_input` - vector of input evaluations
-// * `range` - range of the table
-// # Returns
-// * `(table, multiplicity)` - the table and its corresponding multiplicity
-// pub fn compute_multiplicity_for_range_table<F: Field>(
-//     num_vars: usize,
-//     vec_input: &[Rc<DenseMultilinearExtension<F>>],
-//     range: usize,
-// ) -> LookupWitness<F> {
-//     assert!(range <= 1 << num_vars);
-
-//     // let padding_element = F::zero();
-//     let num_padding = (1 << num_vars) - range;
-//     let factor_for_padding_element = F::new((num_padding as u32 + 1).as_into());
-
-//     let mut multiplicity_hashmap = HashMap::new();
-
-//     vec_input.iter().for_each(|input| {
-//         input.iter().for_each(|&elem| {
-//             multiplicity_hashmap
-//                 .entry(elem)
-//                 .and_modify(|cnt| *cnt += 1u32)
-//                 .or_insert(1u32);
-//         });
-//     });
-
-//     // compute multiplicity
-//     let mut multiplicity = vec![F::zero(); 1 << num_vars];
-//     let mut table = vec![F::zero(); 1 << num_vars];
-//     let mut ele = F::zero();
-
-//     for (t_i, m_i) in table
-//         .iter_mut()
-//         .take(range)
-//         .zip(multiplicity.iter_mut().take(range))
-//     {
-//         *t_i = ele;
-//         let count = multiplicity_hashmap.remove(&ele).unwrap_or(0u32);
-//         *m_i = F::new((count as u32).as_into());
-//         ele += F::one();
-//     }
-
-//     // normalize the multiplicity for the padding element
-//     if num_padding > 0 {
-//         let multiplicity_of_zero = multiplicity[0];
-//         let multi_normalized = multiplicity_of_zero / factor_for_padding_element;
-//         multiplicity[0] = multi_normalized;
-//         for (t_i, m_i) in table
-//             .iter_mut()
-//             .skip(range)
-//             .zip(multiplicity.iter_mut().skip(range))
-//         {
-//             *t_i = F::zero();
-//             *m_i = multi_normalized;
-//         }
-//     }
-
-//     LookupWitness {
-//         num_vars,
-//         table: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
-//             num_vars, table,
-//         )),
-//         multiplicity: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
-//             num_vars,
-//             multiplicity,
-//         )),
-//     }
-// }
+impl<F: Field> LookupTrace<F> {
+    pub fn random<R: rand::Rng + rand::CryptoRng>(
+        rng: &mut R,
+        num_vars: usize,
+        num_vec: usize,
+        range: usize,
+    ) -> Self {
+        let size = 1 << num_vars;
+        let vec_input = (0..num_vec)
+            .map(|_| {
+                (0..size)
+                    .map(|_| F::new(rng.random_range(0..range).as_into()))
+                    .collect::<Vec<F>>()
+            })
+            .collect::<Vec<Vec<F>>>();
+        Self {
+            num_vars,
+            num_vec,
+            vec_input,
+            range,
+        }
+    }
+}
 
 impl<F: Field> From<LookupTrace<F>> for LookupTraceMLE<F> {
     #[inline]
@@ -166,7 +115,6 @@ impl<F: Field> LookupTraceMLE<F> {
     pub fn compute_multiplicity(&self) -> LookupWitness<F> {
         assert!(self.range <= 1 << self.num_vars);
 
-        // let padding_element = F::zero();
         let num_padding = (1 << self.num_vars) - self.range;
         let factor_for_padding_element = F::new((num_padding as u32 + 1).as_into());
 
@@ -215,7 +163,8 @@ impl<F: Field> LookupTraceMLE<F> {
         LookupWitness {
             num_vars: self.num_vars,
             table: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
-                self.num_vars, table,
+                self.num_vars,
+                table,
             )),
             multiplicity: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
                 self.num_vars,
@@ -256,13 +205,16 @@ impl<F: Field> LookupTraceMLE<F> {
             .flatten()
             .collect::<Vec<F>>();
 
+        // -1 / (t(x) + r) and -1 / (f(x) + r)
+        inversed_values.iter_mut().for_each(|x| *x = -*x);
+
         // m(x) / (t(x) + r)
         for (t_i, m_i) in inversed_values
             .iter_mut()
             .take(1 << self.num_vars)
             .zip(witness.multiplicity.iter())
         {
-            *t_i *= *m_i;
+            *t_i *= -*m_i;
         }
 
         let chunks_in_helper_functions = inversed_values.chunks(block_size * (1 << self.num_vars));
@@ -284,11 +236,13 @@ impl<F: Field> LookupTraceMLE<F> {
                 )
             })
             .collect::<Vec<_>>();
-        
-        let phi = table_and_inputs.into_iter().chunks(1 << self.num_vars).into_iter()
-            .map(|chunk|{
-                chunk.collect::<Vec<_>>()
-            }).collect::<Vec<_>>();
+
+        let phi = table_and_inputs
+            .into_iter()
+            .chunks(1 << self.num_vars)
+            .into_iter()
+            .map(|chunk| chunk.collect::<Vec<_>>())
+            .collect::<Vec<_>>();
 
         LookupWitnessHelper {
             block_size,
@@ -303,7 +257,8 @@ impl<F: Field> LookupTraceMLE<F> {
                     ))
                 })
                 .collect(),
-            phi_functions: phi.into_iter()
+            phi_functions: phi
+                .into_iter()
                 .map(|phi| {
                     Rc::new(DenseMultilinearExtension::from_evaluations_vec(
                         self.num_vars,

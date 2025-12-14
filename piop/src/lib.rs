@@ -2,7 +2,7 @@ pub mod lookup;
 pub mod ntt;
 
 use algebra::{DenseMultilinearExtension, Field, ListOfProductsOfPolynomials};
-use helper::{Transcript, utils::gen_identity_evaluations};
+use helper::{FiatShamirTranscript, Transcript, utils::gen_identity_evaluations};
 use std::rc::Rc;
 
 pub struct SumcheckClaim<F: Field> {
@@ -17,17 +17,48 @@ pub struct LagrangeKernel<F: Field> {
     pub eq_at_point: Rc<DenseMultilinearExtension<F>>,
 }
 
+impl<F: Field> LagrangeKernel<F> {
+    pub fn random(trans: &mut Transcript<F>, num_vars: usize) -> Self {
+        let point = trans.get_vec_challenge(
+            b"Sample random point for a batch of sumchecks over products",
+            num_vars,
+        );
+        let eq_at_point = Rc::new(gen_identity_evaluations(&point));
+        Self {
+            point,
+            eq_at_point,
+        }
+    }
+
+    pub fn evaluate(&self, x: &[F]) -> F {
+        self.eq_at_point.evaluate(x)
+    }
+}
+
 use serde::Serialize;
 use sumcheck::verifier::SubClaim as SumcheckSubclaim;
 
+pub trait SumcheckInstance<F: Field> {
+    type Info;
+
+    fn info(&self) -> Self::Info;
+    // fn num_sumchecks(&self) -> usize;
+    // fn sumcheck_num_vars(&self) -> usize;
+}
+
+pub trait SumcheckInfo<F: Field> {
+    fn num_sumchecks(&self) -> usize;
+    fn sumcheck_num_vars(&self) -> usize;
+}
+
 /// PIOP trait for sumcheck-based protocols
 pub trait SumcheckPIOP<F: Field> {
-    type Instance;
-    type Info: Serialize;
+    type Instance: SumcheckInstance<F>;
+    type Info: Serialize + SumcheckInfo<F>;
     type Proof;
     type ProverState; // State stored for prover to generate evaluation proofs later.
     type VerifierSubclaim; // Subclaim stored for verifier to check evaluation proofs later.
-    type FSTranscript;
+    type FSTranscript: FiatShamirTranscript<F>;
 
     /// Generate the PIOP proof (with transcript) for given instance
     /// and store the prover state to generate evaluation proofs later.
@@ -44,6 +75,13 @@ pub trait SumcheckPIOP<F: Field> {
         proof: &Self::Proof,
     ) -> (bool, Self::VerifierSubclaim);
 
+    fn sample_randomness_for_sumcheck(info: &Self::Info, trans: &mut Self::FSTranscript) -> Vec<F> {
+        trans.get_vec_challenge(
+            b"Sample random coefficients for a batch of sumchecks",
+            info.num_sumchecks(),
+        )
+    }
+
     /// Batch sumcheck protocols with given randomness.
     /// # Parameters
     /// - `instance`: The instance for the batched sumcheck protocol.
@@ -56,14 +94,15 @@ pub trait SumcheckPIOP<F: Field> {
         claim: &mut SumcheckClaim<F>,
         randomness: &[F],
         lagrange_kernel: Option<&LagrangeKernel<F>>,
-    ) -> Self::ProverState;
+    ) -> Option<Self::ProverState>;
 
     /// Verify the subclaim for the batched sumcheck protocol.
     fn verifier_compute_subclaim(
+        info: &Self::Info,
         proof: &Self::Proof,
         subclaim: &mut SumcheckSubclaim<F>,
         randomness: &[F],
-        lagrange_kernel: Option<&LagrangeKernel<F>>,
+        kernel_at_r: Option<F>,
     );
 }
 
@@ -89,19 +128,5 @@ impl<F: Field> SumcheckClaim<F> {
 
     pub fn sum_ref(&self) -> &F {
         &self.sum
-    }
-}
-
-impl<F: Field> LagrangeKernel<F> {
-    pub fn new(&self, num_vars: usize, trans: &mut Transcript<F>)-> Self {
-        let point = trans.get_vec_challenge(
-            b"Sample random point for a batch of sumchecks over products",
-            num_vars,
-        );
-        let eq_at_point = Rc::new(gen_identity_evaluations(&point));
-        Self {
-            point,
-            eq_at_point,
-        }
     }
 }

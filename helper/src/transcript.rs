@@ -7,6 +7,8 @@ use algebra::Field;
 
 use algebra::utils::{Block, Prg};
 
+use crate::FiatShamirTranscript;
+
 /// A transcript consists of a Merlin transcript and a `sampler``
 /// to sample uniform field elements.
 pub struct Transcript<F: Field> {
@@ -25,9 +27,9 @@ impl<F: Field> Transcript<F> {
     }
 }
 
-impl<F: Field> Transcript<F> {
+impl<F: Field> FiatShamirTranscript<F> for Transcript<F> {
     /// Append the message to the transcript.
-    pub fn append_message<M: Serialize>(&mut self, label: &'static [u8], msg: &M) {
+    fn append_message<M: Serialize>(&mut self, label: &'static [u8], msg: &M) {
         self.transcript.append_message(
             label,
             &bincode::serde::encode_to_vec(msg, bincode::config::standard()).unwrap(),
@@ -36,12 +38,12 @@ impl<F: Field> Transcript<F> {
 
     /// Generate the challenge bytes from the current transcript
     #[inline]
-    pub fn get_challenge_bytes(&mut self, label: &'static [u8], bytes: &mut [u8]) {
+    fn get_challenge_bytes(&mut self, label: &'static [u8], bytes: &mut [u8]) {
         self.transcript.challenge_bytes(label, bytes);
     }
 
     /// Generate the challenge from the current transcript
-    pub fn get_challenge(&mut self, label: &'static [u8]) -> F {
+    fn get_challenge(&mut self, label: &'static [u8]) -> F {
         let mut seed = [0u8; 16];
         self.transcript.challenge_bytes(label, &mut seed);
         let mut prg = Prg::from_seed(Block::from(seed));
@@ -49,7 +51,7 @@ impl<F: Field> Transcript<F> {
     }
 
     /// Generate the challenge vector from the current transcript
-    pub fn get_vec_challenge(&mut self, label: &'static [u8], num: usize) -> Vec<F> {
+    fn get_vec_challenge(&mut self, label: &'static [u8], num: usize) -> Vec<F> {
         let mut seed = [0u8; 16];
         self.transcript.challenge_bytes(label, &mut seed);
         let mut prg = Prg::from_seed(Block::from(seed));

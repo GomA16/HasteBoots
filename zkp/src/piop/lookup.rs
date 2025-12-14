@@ -38,7 +38,7 @@ use algebra::{
 };
 use bincode::config::standard;
 use bincode::error::{DecodeError, EncodeError};
-use helper::Transcript;
+use helper::{Transcript, FiatShamirTranscript};
 use pcs::PolynomialCommitmentScheme;
 use rayon::{iter::ParallelIterator, slice::ParallelSlice};
 use serde::{Deserialize, Serialize};

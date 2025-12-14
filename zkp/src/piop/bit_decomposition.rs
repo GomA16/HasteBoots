@@ -30,7 +30,7 @@ use algebra::{
     ListOfProductsOfPolynomials,
 };
 use bincode::config::standard;
-use helper::Transcript;
+use helper::{Transcript, FiatShamirTranscript};
 use itertools::izip;
 use pcs::{
     PolynomialCommitmentScheme,

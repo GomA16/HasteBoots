@@ -11,7 +11,7 @@ use algebra::{
     AbstractExtensionField, DenseMultilinearExtension, Field,
     utils::{Block, Prg},
 };
-use helper::Transcript;
+use helper::{Transcript, FiatShamirTranscript};
 use itertools::{Itertools, izip};
 use rand::SeedableRng;
 use rayon::prelude::*;

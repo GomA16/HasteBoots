@@ -1,8 +1,8 @@
 use crate::EvalOracle;
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
-use helper::Transcript;
+use helper::{Transcript, FiatShamirTranscript};
 use pcs::PolynomialCommitmentScheme;
-use piop::SumcheckPIOP;
+use piop::{SumcheckPIOP, SumcheckInstance};
 use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance, NTTMatrixEvalProof};
 use serde::Serialize;
 use std::rc::Rc;
@@ -110,6 +110,7 @@ where
         let point_v = trans.get_vec_challenge(b"random point", statement.log_num_ntt);
 
         let ntt_eval_statement = NTTMatrixEvalInfo {
+            log_coeff_count: statement.log_coeff_count,
             ntt_table: Rc::clone(&statement.ntt_table),
             point_u,
             point_v: point_v.clone(),

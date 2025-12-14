@@ -1,5 +1,5 @@
 use algebra::{DenseMultilinearExtension, Field, PolynomialInfo};
-use helper::Transcript;
+use helper::{FiatShamirTranscript, Transcript};
 use serde::Serialize;
 use std::rc::Rc;
 use sumcheck::{MLSumcheck, Proof, verifier::SubClaim};
@@ -7,6 +7,8 @@ use trace::NTTTraceMLE;
 
 use crate::LagrangeKernel;
 use crate::SumcheckClaim;
+use crate::SumcheckInfo;
+use crate::SumcheckInstance;
 use crate::SumcheckPIOP;
 use crate::ntt::fourier_eval::NTTFourierProof;
 use crate::ntt::{NTTFourierEvalIOP, NTTFourierEvalInfo};
@@ -25,6 +27,7 @@ pub struct NTTEvalInstance<F: Field> {
 
 #[derive(Serialize)]
 pub struct NTTEvalInfo<F: Field> {
+    pub log_coeff_count: usize,
     #[serde(skip)]
     pub ntt_table: Rc<Vec<F>>,
     #[serde(skip)]
@@ -70,13 +73,28 @@ impl<F: Field> NTTEvalInstance<F> {
             evaluations_at_u: trace.evaluations.evaluate(point_u),
         }
     }
+}
 
-    pub fn info(&self) -> NTTEvalInfo<F> {
+impl<F: Field> SumcheckInstance<F> for NTTEvalInstance<F> {
+    type Info = NTTEvalInfo<F>;
+
+    fn info(&self) -> Self::Info {
         NTTEvalInfo {
+            log_coeff_count: self.log_coeff_count,
             ntt_table: Rc::clone(&self.ntt_table),
             point_u: self.point_u.clone(),
             evaluations_at_u: self.evaluations_at_u,
         }
+    }
+}
+
+impl<F: Field> SumcheckInfo<F> for NTTEvalInfo<F> {
+    fn num_sumchecks(&self) -> usize {
+        1
+    }
+
+    fn sumcheck_num_vars(&self) -> usize {
+        self.log_coeff_count
     }
 }
 
@@ -92,11 +110,13 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTEvalIOP<F> {
         trans: &mut Self::FSTranscript,
         instance: &Self::Instance,
     ) -> (Self::Proof, Self::ProverState) {
-        let statement = instance.info();
-        trans.append_message(b"[NTT Evaluation Statement]", &statement);
+        // let statement = instance.info();
+        let info = instance.info();
+        trans.append_message(b"[NTT Evaluation Statement]", &info);
 
         let mut sumcheck_claim = SumcheckClaim::new(instance.log_coeff_count);
-        let prover_state = Self::prover_batch_sumcheck(instance, &mut sumcheck_claim, &[F::one()], None);
+        let prover_state =
+            Self::prover_batch_sumcheck(instance, &mut sumcheck_claim, &[F::one()], None).unwrap();
         let (sumcheck_proof, sumcheck_state) =
             MLSumcheck::<F>::prove(trans, sumcheck_claim.poly_ref())
                 .expect("[NTTPolyIOP - Prover] Fail to generate sumcheck proof");
@@ -144,7 +164,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTEvalIOP<F> {
         )
         .expect("[NTTEvalIOP - Verifier] Fail to verify the sumcheck");
 
-        Self::verifier_compute_subclaim(proof, &mut sumcheck_subclaim, &[F::one()], None);
+        Self::verifier_compute_subclaim(&info, proof, &mut sumcheck_subclaim, &[F::one()], None);
         res &= sumcheck_subclaim.expected_evaluations.is_zero();
 
         let ntt_fourier_eval_info = NTTFourierEvalInfo {
@@ -171,29 +191,36 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTEvalIOP<F> {
         claim: &mut SumcheckClaim<F>,
         randomness: &[F],
         lagrange_kernel: Option<&LagrangeKernel<F>>,
-    ) -> Self::ProverState {
-        assert!(lagrange_kernel.is_none(), "Lagrange kernel is not supported in NTTEvalIOP");
+    ) -> Option<Self::ProverState> {
+        assert!(
+            lagrange_kernel.is_none(),
+            "Lagrange kernel is not supported in NTTEvalIOP"
+        );
 
-        assert_eq!(randomness.len(), 1);
         let fourier_at_u = Rc::new(init_fourier_table(&instance.point_u, &instance.ntt_table));
         claim.poly_mut().add_product(
             [Rc::clone(&fourier_at_u), Rc::clone(&instance.coefficients)],
             randomness[0],
         );
         *claim.sum_mut() += instance.evaluations_at_u * randomness[0];
-        Self::ProverState {
+        Some(Self::ProverState {
             fourier_at_u,
             point_v: Vec::with_capacity(instance.log_coeff_count),
-        }
+        })
     }
 
     fn verifier_compute_subclaim(
+        _info: &Self::Info,
         proof: &Self::Proof,
         subclaim: &mut SubClaim<F>,
         randomness: &[F],
-        lagrange_kernel: Option<&LagrangeKernel<F>>
+        kernel_at_r: Option<F>,
     ) {
-        assert_eq!(lagrange_kernel.is_none(), true, "Lagrange kernel is not supported in NTTEvalIOP");
+        assert_eq!(
+            kernel_at_r.is_none(),
+            true,
+            "Lagrange kernel is not supported in NTTEvalIOP"
+        );
 
         assert_eq!(randomness.len(), 1);
         subclaim.expected_evaluations -=
@@ -279,7 +306,7 @@ mod test {
     use crate::ntt::{NTTEvalInstance, ntt_eval::init_fourier_table};
 
     use super::NTTEvalIOP;
-    use crate::SumcheckPIOP;
+    use crate::{SumcheckInstance, SumcheckPIOP};
     use algebra::{
         FieldUniformSampler, NTTField,
         derive::{DecomposableField, FheField, Field, NTT, Prime},

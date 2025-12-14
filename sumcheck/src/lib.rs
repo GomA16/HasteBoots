@@ -7,7 +7,7 @@
 use std::marker::PhantomData;
 use log::info;
 use algebra::{Field, ListOfProductsOfPolynomials, PolynomialInfo};
-use helper::Transcript;
+use helper::{Transcript, FiatShamirTranscript};
 use prover::{ProverMsg, ProverState};
 use serde::Serialize;
 use verifier::SubClaim;

@@ -54,7 +54,7 @@ use std::time::Instant;
 use sumcheck::{MLSumcheck, Proof, prover::ProverState, verifier::SubClaim};
 use sumcheck::{ProofWrapper, SumcheckKit};
 
-use helper::Transcript;
+use helper::{Transcript, FiatShamirTranscript};
 use ntt_bare::NTTBareIOP;
 
 pub mod ntt_bare;

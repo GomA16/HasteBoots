@@ -2,7 +2,7 @@ use algebra::{
     BabyBear, DenseMultilinearExtension, Field, FieldUniformSampler, ListOfProductsOfPolynomials,
     MultilinearExtension,
 };
-use helper::Transcript;
+use helper::{Transcript, FiatShamirTranscript};
 use rand::prelude::*;
 use rand_distr::Distribution;
 use serde::Serialize;

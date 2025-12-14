@@ -1,12 +1,16 @@
 use algebra::{DenseMultilinearExtension, Field, ListOfProductsOfPolynomials, PolynomialInfo};
-use helper::Transcript;
+use helper::{FiatShamirTranscript, Transcript, transcript};
 use serde::Serialize;
 use std::{iter::Sum, rc::Rc};
-use sumcheck::Proof;
+use sumcheck::{MLSumcheck, Proof};
 use sumcheck::{prover::ProverState, verifier::SubClaim};
 use trace::{LookupTraceMLE, LookupWitness, LookupWitnessHelper};
 
-use crate::{LagrangeKernel, SumcheckClaim, SumcheckPIOP};
+use crate::{LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance, SumcheckPIOP};
+
+pub struct LogUpIOP<F: Field> {
+    _marker: std::marker::PhantomData<F>,
+}
 
 pub struct LogUpInstance<F: Field> {
     pub num_vars: usize,
@@ -16,17 +20,21 @@ pub struct LogUpInstance<F: Field> {
 }
 
 #[derive(Serialize)]
-pub struct LogUpInstanceEvalInfo {
+pub struct LogUpInstanceEvalInfo<F: Field> {
     pub num_vars: usize,
     pub block_size: usize,
     pub num_blocks: usize,
     pub num_columns: usize,
+    #[serde(skip)]
+    // random value used before sumcheck protocol
+    pub random_value: F,
+    _marker: std::marker::PhantomData<F>,
 }
 
 pub struct LogUpProof<F: Field> {
     pub poly_info: PolynomialInfo,
     pub sumcheck_proof: Proof<F>,
-    pub lookup_input_at_r: Vec<F>,
+    pub phi_at_r: Vec<F>,
     // evaluations of (table(r), multiplicity(r))
     pub witness_at_r: (F, F),
     pub helper_at_r: Vec<F>,
@@ -39,9 +47,12 @@ pub struct LogUpProverState<F: Field> {
 }
 
 pub struct LogUpVerifierSubclaim<F: Field> {
-    pub random_value: F,
-    pub random_sumcheck: Vec<F>,
+    // pub random_value: F,
+    // pub random_sumcheck: Vec<F>,
     pub point_r: Vec<F>,
+    pub lookup_input_at_r: Vec<F>,
+    pub witness_at_r: (F, F),
+    pub helper_at_r: Vec<F>,
 }
 
 impl<F: Field> LogUpInstance<F> {
@@ -58,21 +69,8 @@ impl<F: Field> LogUpInstance<F> {
         }
     }
 
-    pub fn sumcheck_num_vars(&self) -> usize {
-        self.num_vars
-    }
-
-    pub fn info(&self) -> LogUpInstanceEvalInfo {
-        LogUpInstanceEvalInfo {
-            num_vars: self.num_vars,
-            block_size: self.helper.block_size,
-            num_blocks: self.helper.num_blocks,
-            num_columns: self.lookup_trace.vec_input.len(),
-        }
-    }
-
     // \sum h_1 + ... + h_k = 0
-    pub fn add_helper_into_sumcheck(&self, claim: &mut SumcheckClaim<F>, randomness: F) {
+    pub fn add_helper_sum_into_sumcheck(&self, claim: &mut SumcheckClaim<F>, random_lambda: F) {
         let add_assign = |acc: &mut [F], vec: &[F]| {
             for (a, b) in acc.iter_mut().zip(vec.iter()) {
                 *a += *b;
@@ -91,17 +89,21 @@ impl<F: Field> LogUpInstance<F> {
             h_sum,
         ));
 
-        claim.poly_mut().add_product(vec![h_sum], randomness);
+        {
+            let sum = h_sum.iter().fold(F::zero(), |acc, x| acc + *x);
+            println!("[Debug] Helper sum: {:?}", sum);
+        }
+
+        claim.poly_mut().add_product(vec![h_sum], random_lambda);
     }
 
     pub fn add_helper_identity_into_sumcheck(
         &self,
         idx: usize,
         claim: &mut SumcheckClaim<F>,
-        randomness: F,
+        random_lambda: F,
         kernel: &LagrangeKernel<F>,
     ) {
-        assert_eq!(idx, 0);
         assert!(self.helper.block_size >= 1);
 
         let idx_start = idx * self.helper.block_size;
@@ -114,13 +116,12 @@ impl<F: Field> LogUpInstance<F> {
             .map(|phi| Rc::clone(phi))
             .collect::<Vec<_>>();
 
-
         // randomness * h * L * \prod phi_i
         let mut prod: Vec<Rc<DenseMultilinearExtension<F>>> = Vec::with_capacity(blk_len + 2);
         prod.extend_from_slice(&phi_block);
         prod.push(Rc::clone(&kernel.eq_at_point));
         prod.push(Rc::clone(&self.helper.helper_functions[idx]));
-        claim.poly_mut().add_product(prod, randomness);
+        claim.poly_mut().add_product(prod, random_lambda);
 
         for off_idx in 0..blk_len {
             match idx {
@@ -129,29 +130,49 @@ impl<F: Field> LogUpInstance<F> {
                     let mut prod_i = Vec::with_capacity(blk_len + 1);
                     prod_i.extend_from_slice(&phi_block);
                     prod_i[off_idx] = Rc::clone(&self.witness.multiplicity);
-                    claim.poly_mut().add_product(prod_i, -randomness);
+                    prod_i.push(Rc::clone(&kernel.eq_at_point));
+                    claim.poly_mut().add_product(prod_i, -random_lambda);
                 }
                 _ => {
                     // randomness * L * \prod phi_i / phi_{off_idx}
                     let mut prod_i = Vec::with_capacity(blk_len);
                     prod_i.extend_from_slice(&phi_block);
                     prod_i[off_idx] = Rc::clone(&kernel.eq_at_point);
-                    claim.poly_mut().add_product(prod_i, randomness);
+                    claim.poly_mut().add_product(prod_i, random_lambda);
                 }
             }
         }
     }
 }
 
-impl<F: Field> LogUpInstance<F> {
-    pub fn num_sumchecks(&self) -> usize {
-        self.helper.num_blocks + 1
+impl<F: Field> SumcheckInstance<F> for LogUpInstance<F> {
+    type Info = LogUpInstanceEvalInfo<F>;
+
+    fn info(&self) -> Self::Info {
+        LogUpInstanceEvalInfo::<F> {
+            num_vars: self.num_vars,
+            block_size: self.helper.block_size,
+            num_blocks: self.helper.num_blocks,
+            num_columns: self.lookup_trace.vec_input.len(),
+            random_value: self.helper.randomness,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<F: Field> SumcheckInfo<F> for LogUpInstanceEvalInfo<F> {
+    fn sumcheck_num_vars(&self) -> usize {
+        self.num_vars
+    }
+
+    fn num_sumchecks(&self) -> usize {
+        self.num_blocks + 1
     }
 }
 
 impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
     type Instance = LogUpInstance<F>;
-    type Info = LogUpInstanceEvalInfo;
+    type Info = LogUpInstanceEvalInfo<F>;
     type Proof = LogUpProof<F>;
     type ProverState = LogUpProverState<F>;
     type VerifierSubclaim = LogUpVerifierSubclaim<F>;
@@ -161,10 +182,52 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
         trans: &mut Self::FSTranscript,
         instance: &Self::Instance,
     ) -> (Self::Proof, Self::ProverState) {
-        let statement = instance.info();
-        trans.append_message(b"[Lookup Statement]", &statement);
+        let info = instance.info();
+        trans.append_message(b"[Lookup Statement]", &info);
 
-        let mut sumcheck_claim = SumcheckClaim::new(instance.sumcheck_num_vars());
+        let mut sumcheck_claim = SumcheckClaim::new(info.sumcheck_num_vars());
+        // let mut prover_state = ProverState::new(info.sumcheck_num_vars());
+
+        let lagrange_kernel = Some(&LagrangeKernel::random(trans, instance.num_vars));
+        let randomness_batch = Self::sample_randomness_for_sumcheck(&info, trans);
+        Self::prover_batch_sumcheck(
+            instance,
+            &mut sumcheck_claim,
+            &randomness_batch,
+            lagrange_kernel,
+        );
+        let (sumcheck_proof, prover_state) = MLSumcheck::prove(trans, sumcheck_claim.poly_ref())
+            .expect("[LogUpIOP] Fail to generate sumcheck proof");
+
+        let mle_eval = |mle: &[Rc<DenseMultilinearExtension<F>>]| {
+            mle.iter()
+                .map(|m| m.evaluate(&prover_state.randomness))
+                .collect::<Vec<_>>()
+        };
+
+        let phi_at_r = mle_eval(&instance.helper.phi_functions);
+        let witness_at_r = (
+            instance.witness.table.evaluate(&prover_state.randomness),
+            instance
+                .witness
+                .multiplicity
+                .evaluate(&prover_state.randomness),
+        );
+        let helper_at_r = mle_eval(&instance.helper.helper_functions);
+
+        let proof = LogUpProof {
+            poly_info: sumcheck_claim.poly_ref().info(),
+            sumcheck_proof,
+            phi_at_r,
+            witness_at_r,
+            helper_at_r,
+        };
+        let state = LogUpProverState {
+            random_value: instance.helper.randomness,
+            random_sumcheck: randomness_batch,
+            point_r: prover_state.randomness.to_vec(),
+        };
+        (proof, state)
     }
 
     fn verifier(
@@ -172,7 +235,39 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
         info: &Self::Info,
         proof: &Self::Proof,
     ) -> (bool, Self::VerifierSubclaim) {
-        unimplemented!()
+        trans.append_message(b"[Lookup Statement]", &info);
+
+        let mut res = true;
+        let lagrange_kernel = LagrangeKernel::random(trans, info.num_vars);
+        let randomness_batch = Self::sample_randomness_for_sumcheck(info, trans);
+        let mut sumcheck_subclaim = MLSumcheck::verify(
+            trans,
+            &proof.poly_info,
+            MLSumcheck::extract_sum(&proof.sumcheck_proof),
+            &proof.sumcheck_proof,
+        )
+        .expect("[LogUpIOP - Verifier] Fail to verify the sumcheck");
+
+        let kernel_at_r = lagrange_kernel.evaluate(&sumcheck_subclaim.point);
+        Self::verifier_compute_subclaim(
+            info,
+            proof,
+            &mut sumcheck_subclaim,
+            &randomness_batch,
+            Some(kernel_at_r),
+        );
+        res &= sumcheck_subclaim.expected_evaluations.is_zero();
+
+        let subclaim = LogUpVerifierSubclaim {
+            point_r: sumcheck_subclaim.point.to_vec(),
+            lookup_input_at_r: proof.phi_at_r[1..]
+                .iter()
+                .map(|x| *x - info.random_value)
+                .collect::<Vec<_>>(),
+            witness_at_r: proof.witness_at_r,
+            helper_at_r: proof.helper_at_r.clone(),
+        };
+        (res, subclaim)
     }
 
     fn prover_batch_sumcheck(
@@ -180,16 +275,113 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
         claim: &mut crate::SumcheckClaim<F>,
         randomness: &[F],
         kernel: Option<&LagrangeKernel<F>>,
-    ) -> Self::ProverState {
-        
+    ) -> Option<Self::ProverState> {
+        assert_eq!(kernel.is_some(), true);
+        let kernel = kernel.unwrap();
+
+        instance.add_helper_sum_into_sumcheck(claim, randomness[0]);
+        randomness[1..].iter().enumerate().for_each(|(idx, &r)| {
+            instance.add_helper_identity_into_sumcheck(idx , claim, r, kernel);
+        });
+
+        None
     }
 
     fn verifier_compute_subclaim(
+        info: &Self::Info,
         proof: &Self::Proof,
         subclaim: &mut SubClaim<F>,
         randomness: &[F],
-        kernel: Option<&LagrangeKernel<F>>,
+        kernel_at_r: Option<F>,
     ) {
-        unimplemented!()
+        subclaim.expected_evaluations -= proof.compute_helper_subclaim(randomness[0]);
+        randomness[1..].iter().enumerate().for_each(|(idx, &r)| {
+            subclaim.expected_evaluations -=
+                proof.compute_helper_identity_subcliam(info, idx, r, kernel_at_r.unwrap())
+        });
+    }
+}
+
+impl<F: Field> LogUpProof<F> {
+    pub fn compute_helper_subclaim(&self, random_lambda: F) -> F {
+        random_lambda * self.helper_at_r.iter().fold(F::zero(), |acc, &x| acc + x)
+    }
+
+    pub fn compute_helper_identity_subcliam(
+        &self,
+        info: &LogUpInstanceEvalInfo<F>,
+        idx: usize,
+        random_lambda: F,
+        kernel_at_r: F,
+    ) -> F {
+        assert!(info.block_size >= 1);
+        let idx_start = idx * info.block_size;
+        let idx_end = ((idx + 1) * info.block_size).min(self.phi_at_r.len());
+
+        let blk_len = idx_end - idx_start;
+        let phi_block = &self.phi_at_r[idx_start..idx_end];
+
+        let grand_prod = phi_block.iter().fold(F::one(), |acc, &x| acc * x);
+        let mut sum = F::zero();
+        sum += random_lambda * self.helper_at_r[idx] * kernel_at_r * grand_prod;
+
+        for off_idx in 0..blk_len {
+            match idx {
+                0 => {
+                    sum -= random_lambda * kernel_at_r * self.witness_at_r.1 * grand_prod
+                        / self.phi_at_r[off_idx];
+                }
+                _ => sum += random_lambda * kernel_at_r,
+            }
+        }
+
+        sum
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::{SumcheckInstance, SumcheckPIOP, lookup};
+    use algebra::{
+        FieldUniformSampler,
+        derive::{DecomposableField, FheField, Field, NTT, Prime},
+    };
+    use helper::Transcript;
+    use rand::Rng;
+    use rand_distr::Distribution;
+    use trace::LookupTrace;
+
+    #[derive(Field, DecomposableField, FheField, Prime, NTT)]
+    #[modulus = 132120577]
+    pub struct Fp32(u32);
+    // field type
+    type FF = Fp32;
+
+    #[test]
+    fn test_logup_iop() {
+        let mut rng = rand::rng();
+        let num_vars = 3;
+        let num_vec = 2;
+        let range = 8;
+        let blk_size = 2;
+
+        let lookup_trace = LookupTrace::<FF>::random(&mut rng, num_vars, num_vec, range);
+        let lookup_mle: LookupTraceMLE<FF> = lookup_trace.into();
+        let lookup_witness = lookup_mle.compute_multiplicity();
+
+        let uniform = FieldUniformSampler::<FF>::new();
+        let random_value = uniform.sample(&mut rng);
+        let lookup_helper =
+            lookup_mle.compute_helper_functions(&lookup_witness, blk_size, random_value);
+
+        let instance = LogUpInstance::<FF>::from(&lookup_mle, &lookup_witness, &lookup_helper);
+        let info = instance.info();
+
+        let mut prover_transcript = Transcript::<FF>::new();
+        let (proof, _) = LogUpIOP::<FF>::prover(&mut prover_transcript, &instance);
+        let mut verifier_transcript = Transcript::<FF>::new();
+        let (res, _) = LogUpIOP::<FF>::verifier(&mut verifier_transcript, &info, &proof);
+        assert!(res);
     }
 }

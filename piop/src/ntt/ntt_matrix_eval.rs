@@ -1,16 +1,15 @@
 use algebra::{DenseMultilinearExtension, Field, MultilinearExtension, PolynomialInfo};
-use helper::Transcript;
+use helper::{Transcript, FiatShamirTranscript};
 use serde::Serialize;
 use std::rc::Rc;
 use sumcheck::{MLSumcheck, Proof, verifier::SubClaim};
 use trace::NTTTraceMLE;
 
 use crate::{
-    LagrangeKernel, SumcheckClaim, SumcheckPIOP,
-    ntt::{
+    LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance, SumcheckPIOP, ntt::{
         NTTFourierEvalIOP, NTTFourierEvalInfo, fourier_eval::NTTFourierProof,
         ntt_eval::init_fourier_table,
-    },
+    }
 };
 
 pub struct NTTMatrixEvalIOP<F: Field> {
@@ -51,6 +50,7 @@ pub struct NTTMatrixEvalInstance<F: Field> {
 
 #[derive(Serialize)]
 pub struct NTTMatrixEvalInfo<F: Field> {
+    pub log_coeff_count: usize,
     #[serde(skip)]
     pub ntt_table: Rc<Vec<F>>,
     #[serde(skip)]
@@ -94,19 +94,30 @@ impl<F: Field> NTTMatrixEvalInstance<F> {
             evaluations_at_u_v: trace.evaluations.evaluate(&point_u_v),
         }
     }
+}
 
-    pub fn sumcheck_num_vars(&self) -> usize {
-        self.log_coeff_count
-    }
+impl<F: Field> SumcheckInstance<F> for NTTMatrixEvalInstance<F> {
+    type Info = NTTMatrixEvalInfo<F>;
 
-    pub fn info(&self) -> NTTMatrixEvalInfo<F> {
+    fn info(&self) -> Self::Info {
         NTTMatrixEvalInfo {
+            log_coeff_count: self.log_coeff_count,
             ntt_table: Rc::clone(&self.ntt_table),
             point_u: self.point_u.clone(),
             point_v: self.point_v.clone(),
             evaluations_at_u_v: self.evaluations_at_u_v,
         }
+    }   
+}
+
+impl<F: Field> SumcheckInfo<F> for NTTMatrixEvalInfo<F> {
+    fn sumcheck_num_vars(&self) -> usize {
+        self.log_coeff_count
     }
+
+    fn num_sumchecks(&self) -> usize {
+        1
+    } 
 }
 
 impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
@@ -121,12 +132,12 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
         trans: &mut Self::FSTranscript,
         instance: &Self::Instance,
     ) -> (Self::Proof, Self::ProverState) {
-        let statement = instance.info();
-        trans.append_message(b"[NTT Matrix Evaluation Statement", &statement);
+        let info = instance.info();
+        trans.append_message(b"[NTT Matrix Evaluation Statement", &info);
 
-        let mut sumcheck_claim = SumcheckClaim::new(instance.sumcheck_num_vars());
+        let mut sumcheck_claim = SumcheckClaim::new(info.sumcheck_num_vars());
         let mut prover_state =
-            Self::prover_batch_sumcheck(instance, &mut sumcheck_claim, &[F::one()], None);
+            Self::prover_batch_sumcheck(instance, &mut sumcheck_claim, &[F::one()], None).unwrap();
         let (sumcheck_proof, sumcheck_state) = MLSumcheck::prove(trans, sumcheck_claim.poly_ref())
             .expect("[NTTMatrixEvalIOP] Fail to generate sumcheck proof");
         prover_state.point_r = sumcheck_state.randomness.clone();
@@ -177,7 +188,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
         )
         .expect("[NTTEvalIOP - Verifier] Fail to verify the sumcheck");
 
-        Self::verifier_compute_subclaim(&proof, &mut sumcheck_subclaim, &[F::one()], None);
+        Self::verifier_compute_subclaim(&info, &proof, &mut sumcheck_subclaim, &[F::one()], None);
         res &= sumcheck_subclaim.expected_evaluations.is_zero();
 
         let ntt_fourier_eval_info = NTTFourierEvalInfo {
@@ -204,12 +215,12 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
         claim: &mut SumcheckClaim<F>,
         randomness: &[F],
         lagrange_kernel: Option<&LagrangeKernel<F>>,
-    ) -> Self::ProverState {
+    ) -> Option<Self::ProverState> {
         assert!(
             lagrange_kernel.is_none(),
             "Lagrange kernel is not supported in NTTMatrixEvalIOP"
         );
-        assert_eq!(randomness.len(), 1);
+
         // TODO optimize the init_fourier_table with intermediate storage
         let fourier_at_u = Rc::new(init_fourier_table(&instance.point_u, &instance.ntt_table));
         let coeffs_at_v_back = Rc::new(instance.coefficients.fix_variables_back(&instance.point_v));
@@ -218,21 +229,22 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
             randomness[0],
         );
         *claim.sum_mut() += instance.evaluations_at_u_v * randomness[0];
-        Self::ProverState {
+        Some(Self::ProverState {
             fourier_at_u,
             coeffs_at_v_back,
             point_r: Vec::with_capacity(instance.log_coeff_count),
-        }
+        })
     }
 
     fn verifier_compute_subclaim(
+        info: &Self::Info,
         proof: &Self::Proof,
         subclaim: &mut SubClaim<F>,
         randomness: &[F],
-        lagrange_kernel: Option<&LagrangeKernel<F>>,
+        kernel_at_r: Option<F>,
     ) {
         assert!(
-            lagrange_kernel.is_none(),
+            kernel_at_r.is_none(),
             "Lagrange kernel is not supported in NTTMatrixEvalIOP"
         );
         assert_eq!(randomness.len(), 1);

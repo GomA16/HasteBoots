@@ -1,7 +1,7 @@
 use algebra::{AsInto, FieldUniformSampler};
 use fhe_core::utils::*;
 use helper::Transcript;
-use piop::SumcheckPIOP;
+use piop::{SumcheckPIOP, SumcheckInstance};
 use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInstance};
 use rand::Rng;
 use rand_distr::Distribution;

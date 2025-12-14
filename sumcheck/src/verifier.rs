@@ -4,7 +4,7 @@
 use std::vec;
 
 use algebra::{Field, PolynomialInfo};
-use helper::Transcript;
+use helper::{Transcript, FiatShamirTranscript};
 
 use crate::error::Error;
 

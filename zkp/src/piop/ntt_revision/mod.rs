@@ -41,7 +41,7 @@ use algebra::{
 };
 use bincode::config::standard;
 use core::fmt;
-use helper::Transcript;
+use helper::{Transcript, FiatShamirTranscript};
 use itertools::izip;
 use pcs::{
     PolynomialCommitmentScheme,
