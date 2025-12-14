@@ -21,7 +21,7 @@ use algebra::{
     ListOfProductsOfPolynomials,
 };
 use bincode::config::standard;
-use helper::{Transcript, FiatShamirTranscript};
+use helper::{FiatShamirTranscript, Transcript};
 use pcs::{
     PolynomialCommitmentScheme,
     multilinear::brakedown::BrakedownPCS,

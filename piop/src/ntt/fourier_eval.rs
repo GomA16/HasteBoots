@@ -1,7 +1,7 @@
 use algebra::DenseMultilinearExtension;
 use algebra::{Field, ListOfProductsOfPolynomials, PolynomialInfo};
-use helper::{Transcript, FiatShamirTranscript};
 use helper::utils::{eval_identity_function, gen_identity_evaluations};
+use helper::{FiatShamirTranscript, Transcript};
 use serde::Serialize;
 use std::{marker::PhantomData, rc::Rc};
 use sumcheck::MLSumcheck;

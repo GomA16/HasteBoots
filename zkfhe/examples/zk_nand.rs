@@ -1,8 +1,8 @@
 use algebra::{AsInto, FieldUniformSampler};
 use fhe_core::utils::*;
 use helper::Transcript;
-use piop::{SumcheckPIOP, SumcheckInstance};
 use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInstance};
+use piop::{SumcheckInstance, SumcheckPIOP};
 use rand::Rng;
 use rand_distr::Distribution;
 // use trace::HadamardProdTraceMLE;
@@ -37,8 +37,8 @@ fn main() {
     let dec = Decryptor::new(sk);
     println!("Evaluation Key Generation done!\n");
 
-    let a:bool = rng.random();
-    let b:bool = rng.random();
+    let a: bool = rng.random();
+    let b: bool = rng.random();
     // let mut c = rng.random();
 
     let mut a = a.as_into();

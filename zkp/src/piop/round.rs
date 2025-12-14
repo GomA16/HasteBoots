@@ -10,7 +10,7 @@ use algebra::{
     ListOfProductsOfPolynomials,
 };
 use bincode::config::standard;
-use helper::{Transcript, FiatShamirTranscript};
+use helper::{FiatShamirTranscript, Transcript};
 use itertools::izip;
 use pcs::{
     PolynomialCommitmentScheme,

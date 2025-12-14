@@ -6,7 +6,7 @@ use algebra::{
 };
 use algebra::{DenseMultilinearExtension, Field, FieldUniformSampler};
 use bincode::config::standard;
-use helper::{Transcript, FiatShamirTranscript};
+use helper::{FiatShamirTranscript, Transcript};
 use itertools::izip;
 use pcs::{
     PolynomialCommitmentScheme,

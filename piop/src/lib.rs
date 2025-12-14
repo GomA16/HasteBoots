@@ -10,7 +10,7 @@ pub struct SumcheckClaim<F: Field> {
     sum: F,
 }
 
-/// When proving the \sum a(x)b(x) = c(x) on a hypercube, it can be reduced 
+/// When proving the \sum a(x)b(x) = c(x) on a hypercube, it can be reduced
 /// to a sumchek by applying a Lagrange kernel eq( , r) for a random point r.
 pub struct LagrangeKernel<F: Field> {
     pub point: Vec<F>,
@@ -24,10 +24,7 @@ impl<F: Field> LagrangeKernel<F> {
             num_vars,
         );
         let eq_at_point = Rc::new(gen_identity_evaluations(&point));
-        Self {
-            point,
-            eq_at_point,
-        }
+        Self { point, eq_at_point }
     }
 
     pub fn evaluate(&self, x: &[F]) -> F {
@@ -129,4 +126,25 @@ impl<F: Field> SumcheckClaim<F> {
     pub fn sum_ref(&self) -> &F {
         &self.sum
     }
+}
+
+// A counterpart trait of `PackableTrace` in `trace/src/lib.rs`
+pub trait PackableProof<F: Field> {
+    // These functions are used to pack these evaluations on oracles,
+    // only containing Base Field elements.
+    fn num_evals(&self) -> usize;
+    fn log_num_evals(&self) -> usize {
+        self.num_evals().next_power_of_two().trailing_zeros() as usize
+    }
+    fn pack_to_vec(&self) -> Vec<F>;
+}
+
+pub trait PackableEFProof<F: Field> {
+    // These functions are used to pack these evaluations on oracles,
+    // only containing Base Field elements.
+    fn num_evals_ef(&self) -> usize;
+    fn log_num_evals_ef(&self) -> usize {
+        self.num_evals_ef().next_power_of_two().trailing_zeros() as usize
+    }
+    fn pack_to_vec_ef(&self) -> Vec<F>;
 }

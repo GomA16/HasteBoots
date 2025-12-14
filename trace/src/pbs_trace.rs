@@ -1,7 +1,7 @@
 use crate::{AccTrace, AccTraceMLE, BatchedHadamardTrace, BatchedHadamardTraceMLE, HadamardTrace};
+use crate::{LookupTraceMLE, LookupWitnessHelper};
 use algebra::{Field, NTTField};
 use std::{iter::chain, rc::Rc};
-use crate::{LookupTraceMLE, LookupWitnessHelper};
 
 pub struct PBSParameters {
     // log of polynomial coefficient count, denoted as N=2^{log_coeff_count}

@@ -1,8 +1,8 @@
 use crate::EvalOracle;
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
-use helper::{Transcript, FiatShamirTranscript};
+use helper::{FiatShamirTranscript, Transcript};
 use pcs::PolynomialCommitmentScheme;
-use piop::{SumcheckPIOP, SumcheckInstance};
+use piop::SumcheckPIOP;
 use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance, NTTMatrixEvalProof};
 use serde::Serialize;
 use std::rc::Rc;
@@ -31,7 +31,7 @@ where
     pub comm_coefficients: PCS::Commitment,
     pub piop_proof: NTTMatrixEvalProof<EF>,
     pub evaluations_at_u_v: EF,
-    pub coefficients_at_r_v: EF,
+    // pub coefficients_at_r_v: EF,
     pub eval_proof: PCS::Proof,
 }
 
@@ -73,8 +73,8 @@ where
         let (commitment, comm_state) = oracle.commit();
         trans.append_message(b"[Commit Phase]", &commitment);
 
-        let point_u = trans.get_vec_challenge(b"random point", statement.log_coeff_count);
-        let point_v = trans.get_vec_challenge(b"random point", statement.log_num_ntt);
+        let point_u = trans.get_vec_challenge(b"random point", trace.log_coeff_count);
+        let point_v = trans.get_vec_challenge(b"random point", trace.log_num_ntt);
         let trace_ef: NTTTrace<EF> = trace.into_ef();
         let ntt_eval_instance = &NTTMatrixEvalInstance::from(&trace_ef.into(), &point_u, &point_v);
 
@@ -89,7 +89,7 @@ where
             comm_coefficients: commitment,
             piop_proof,
             evaluations_at_u_v: ntt_eval_instance.evaluations_at_u_v,
-            coefficients_at_r_v: piop_state.coeffs_at_v_back.evaluate(&piop_state.point_r),
+            // coefficients_at_r_v: piop_proof.coeff_eval_at_r_v,
             eval_proof,
         }
     }
@@ -129,7 +129,7 @@ where
             &self.pcs_params,
             &proof.comm_coefficients,
             &point_r_v,
-            proof.coefficients_at_r_v,
+            proof.piop_proof.coeff_eval_at_r_v,
             &proof.eval_proof,
             trans,
         );

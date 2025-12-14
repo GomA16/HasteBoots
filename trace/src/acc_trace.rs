@@ -1,11 +1,4 @@
-use std::rc::Rc;
-
-use algebra::{
-    AbstractExtensionField, DenseMultilinearExtension, Field, FieldUniformSampler, NTTField,
-    transformation::AbstractNTT,
-};
-
-use crate::{ConvertToEF, NTTTraceMLE};
+use algebra::{DenseMultilinearExtension, NTTField, transformation::AbstractNTT};
 
 pub struct AccTrace<F: NTTField> {
     pub log_coeff_count: usize,

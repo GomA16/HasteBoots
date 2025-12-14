@@ -11,7 +11,7 @@ use algebra::{
     AbstractExtensionField, DenseMultilinearExtension, Field,
     utils::{Block, Prg},
 };
-use helper::{Transcript, FiatShamirTranscript};
+use helper::{FiatShamirTranscript, Transcript};
 use itertools::{Itertools, izip};
 use rand::SeedableRng;
 use rayon::prelude::*;
@@ -92,21 +92,48 @@ where
         let num_cols = pp.code().message_len();
         let codeword_len = pp.code().codeword_len();
 
-        // Compute the answer as a linear combination.
-        let mut answer = vec![EF::zero(); num_cols];
+        // optimized version
         state
             .matrix
-            .chunks_exact(codeword_len)
-            .zip(challenge)
-            .for_each(|(row, coeff)| {
-                row.iter()
-                    .take(num_cols)
-                    .enumerate()
-                    .for_each(|(idx, item)| {
-                        answer[idx] += *coeff * *item;
-                    })
-            });
-        answer
+            .par_chunks_exact(codeword_len)
+            .zip(challenge.par_iter())
+            .map(|(row, coeff)| {
+                let mut part = vec![EF::zero(); num_cols];
+                for i in 0..num_cols {
+                    part[i] = *coeff * row[i];
+                }
+                part
+            })
+            .reduce(
+                || vec![EF::zero(); num_cols],
+                |mut a, b| {
+                    for i in 0..num_cols {
+                        a[i] += b[i];
+                    }
+                    a
+                },
+            )
+
+        // original version
+        // assert_eq!(challenge.len(), pp.num_rows());
+        // let num_cols = pp.code().message_len();
+        // let codeword_len = pp.code().codeword_len();
+
+        // // Compute the answer as a linear combination.
+        // let mut answer = vec![EF::zero(); num_cols];
+        // state
+        //     .matrix
+        //     .chunks_exact(codeword_len)
+        //     .zip(challenge)
+        //     .for_each(|(row, coeff)| {
+        //         row.iter()
+        //             .take(num_cols)
+        //             .enumerate()
+        //             .for_each(|(idx, item)| {
+        //                 answer[idx] += *coeff * *item;
+        //             })
+        //     });
+        // answer
     }
 
     /// Prover answers the query of columns of given indices
@@ -559,18 +586,20 @@ where
 
         // Compute the tensor from the random point, see [DP23](https://eprint.iacr.org/2023/630.pdf).
         let tensor = Self::tensor_from_points(pp, points);
-
+        let time = std::time::Instant::now();
+        // Most cost time is used here.
         let rlc_msgs = Self::answer_challenge_ext(pp, &tensor, state);
-
+        println!("rlc generation time used: {:?}", time.elapsed());
         // Hash rlc to transcript.
         trans.append_message(b"rlc", &rlc_msgs);
 
         // Sample random queries.
         let queries = Self::random_queries(pp, trans);
 
+        let time = std::time::Instant::now();
         // Generate the proofs for random queries.
         let (merkle_paths, opening_columns) = Self::answer_queries_ext(pp, &queries, state);
-
+        println!("merkel path generation time used: {:?}", time.elapsed());
         BrakedownOpenProofGeneral {
             rlc_msgs,
             merkle_paths,

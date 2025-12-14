@@ -16,8 +16,8 @@ type Hash = Sha256;
 const BASE_FIELD_BITS: usize = 31;
 
 fn main() {
-    let num_vars = 24;
-    let evaluations: Vec<FF> = rand::rng()
+    let num_vars = 20;
+    let evaluations: Vec<EF> = rand::rng()
         .sample_iter(FieldUniformSampler::new())
         .take(1 << num_vars)
         .collect();
@@ -37,26 +37,35 @@ fn main() {
 
     let start = Instant::now();
     let (comm, state) =
-        BrakedownPCS::<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>::commit(&pp, &poly);
+        BrakedownPCS::<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>::commit_ef(&pp, &poly);
     println!("commit time: {:?} ms", start.elapsed().as_millis());
 
     let point: Vec<EF> = rand::rng()
         .sample_iter(FieldUniformSampler::new())
         .take(num_vars)
         .collect();
+    let point2: Vec<EF> = rand::rng()
+        .sample_iter(FieldUniformSampler::new())
+        .take(num_vars)
+        .collect();
+    let points = vec![point.clone(), point2.clone()];
 
     let start = Instant::now();
-    let proof = BrakedownPCS::<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>::open(
+    // let proof = BrakedownPCS::<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>::open(
+    //     &pp, &comm, &state, &point, &mut trans,
+    // );
+    let proof = BrakedownPCS::<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>::open_ef(
         &pp, &comm, &state, &point, &mut trans,
     );
     println!("open time: {:?} ms", start.elapsed().as_millis());
 
-    let eval = poly.evaluate_ext(&point);
+    let eval = poly.evaluate(&point);
+    // let eval2 = poly.evaluate_ext(&point2);
 
     let mut trans = Transcript::<EF>::new();
 
     let start = Instant::now();
-    let check = BrakedownPCS::<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>::verify(
+    let check = BrakedownPCS::<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>::verify_ef(
         &pp, &comm, &point, eval, &proof, &mut trans,
     );
     println!("verify time: {:?} ms", start.elapsed().as_millis());

@@ -1,15 +1,16 @@
 use algebra::{DenseMultilinearExtension, Field, MultilinearExtension, PolynomialInfo};
-use helper::{Transcript, FiatShamirTranscript};
+use helper::{FiatShamirTranscript, Transcript};
 use serde::Serialize;
 use std::rc::Rc;
 use sumcheck::{MLSumcheck, Proof, verifier::SubClaim};
 use trace::NTTTraceMLE;
 
 use crate::{
-    LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance, SumcheckPIOP, ntt::{
+    LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance, SumcheckPIOP,
+    ntt::{
         NTTFourierEvalIOP, NTTFourierEvalInfo, fourier_eval::NTTFourierProof,
         ntt_eval::init_fourier_table,
-    }
+    },
 };
 
 pub struct NTTMatrixEvalIOP<F: Field> {
@@ -107,7 +108,7 @@ impl<F: Field> SumcheckInstance<F> for NTTMatrixEvalInstance<F> {
             point_v: self.point_v.clone(),
             evaluations_at_u_v: self.evaluations_at_u_v,
         }
-    }   
+    }
 }
 
 impl<F: Field> SumcheckInfo<F> for NTTMatrixEvalInfo<F> {
@@ -117,7 +118,7 @@ impl<F: Field> SumcheckInfo<F> for NTTMatrixEvalInfo<F> {
 
     fn num_sumchecks(&self) -> usize {
         1
-    } 
+    }
 }
 
 impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
@@ -188,7 +189,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
         )
         .expect("[NTTEvalIOP - Verifier] Fail to verify the sumcheck");
 
-        Self::verifier_compute_subclaim(&info, &proof, &mut sumcheck_subclaim, &[F::one()], None);
+        Self::verifier_compute_subclaim(info, proof, &mut sumcheck_subclaim, &[F::one()], None);
         res &= sumcheck_subclaim.expected_evaluations.is_zero();
 
         let ntt_fourier_eval_info = NTTFourierEvalInfo {

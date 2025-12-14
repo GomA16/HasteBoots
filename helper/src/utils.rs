@@ -86,6 +86,16 @@ pub fn add_assign_ef<F: Field, EF: AbstractExtensionField<F>>(
         .for_each(|(x, y)| *x += *r * *y);
 }
 
+/// Compute the random linear combination of the evaluations of small oracles at the random point
+#[inline]
+pub fn compute_oracle_evals<F: Field>(evals: &[F], random_point: &[F]) -> F {
+    let eq_at_r = gen_identity_evaluations(random_point);
+    evals
+        .iter()
+        .zip(eq_at_r.iter())
+        .fold(F::zero(), |acc, (eval, coeff)| acc + *eval * *coeff)
+}
+
 /// Verify the relationship between the evaluations of these small oracles and the requested evaluation of the committed oracle
 ///
 /// # Arguments:

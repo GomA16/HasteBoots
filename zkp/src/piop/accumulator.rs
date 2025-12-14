@@ -12,7 +12,7 @@ use algebra::{
     AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
 };
 use bincode::config::standard;
-use helper::{Transcript, FiatShamirTranscript};
+use helper::{FiatShamirTranscript, Transcript};
 use itertools::{Itertools, izip};
 use pcs::{
     PolynomialCommitmentScheme,

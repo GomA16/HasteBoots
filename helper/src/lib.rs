@@ -6,7 +6,6 @@ pub mod transcript;
 /// Utilities for zk-proof systems.
 pub mod utils;
 
-use num_traits::ops::bytes;
 pub use transcript::Transcript;
 
 use algebra::Field;

@@ -164,7 +164,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTEvalIOP<F> {
         )
         .expect("[NTTEvalIOP - Verifier] Fail to verify the sumcheck");
 
-        Self::verifier_compute_subclaim(&info, proof, &mut sumcheck_subclaim, &[F::one()], None);
+        Self::verifier_compute_subclaim(info, proof, &mut sumcheck_subclaim, &[F::one()], None);
         res &= sumcheck_subclaim.expected_evaluations.is_zero();
 
         let ntt_fourier_eval_info = NTTFourierEvalInfo {
@@ -216,9 +216,8 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTEvalIOP<F> {
         randomness: &[F],
         kernel_at_r: Option<F>,
     ) {
-        assert_eq!(
+        assert!(
             kernel_at_r.is_none(),
-            true,
             "Lagrange kernel is not supported in NTTEvalIOP"
         );
 

@@ -13,14 +13,8 @@ pub use acc_trace::{AccTrace, AccTraceMLE};
 pub use hadamard_prod_trace::{
     BatchedHadamardTrace, BatchedHadamardTraceMLE, HadamardTrace, HadamardTraceMLE,
 };
-pub use ntt_trace::{NTTTrace, NTTTraceInfo, NTTTraceMLE};
 pub use lookup_trace::{LookupTrace, LookupTraceMLE, LookupWitness, LookupWitnessHelper};
-
-pub trait FieldTrace<F: Field> {
-    type EFInfo;
-    fn get_commit_poly(&self) -> DenseMultilinearExtension<F>;
-    fn info_ef<EF: AbstractExtensionField<F>>(&self) -> Self::EFInfo;
-}
+pub use ntt_trace::{NTTTrace, NTTTraceInfo, NTTTraceMLE};
 
 pub trait ConvertToEF<F: Field, EF: AbstractExtensionField<F>> {
     type Output;
@@ -52,14 +46,20 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for DenseMultil
     }
 }
 
-pub trait PackTrace<F: Field> {
-    type TraceType;
-
+pub trait PackableTrace<F: Field> {
     fn num_vars(&self) -> usize;
     fn num_oracles(&self) -> usize;
     fn log_num_oracles(&self) -> usize {
         self.num_oracles().next_power_of_two().trailing_zeros() as usize
     }
     fn pack_to_vec(&self) -> Vec<F>;
-    fn generate_oracle(&self) -> DenseMultilinearExtension<F>;
+    fn generate_oracle(&self) -> DenseMultilinearExtension<F> {
+        let new_nvs = self.num_vars() + self.log_num_oracles();
+        let num_zeros = (1 << new_nvs) - (self.num_oracles() << self.num_vars());
+
+        let mut packed_values = Vec::with_capacity(1 << new_nvs);
+        packed_values.extend(self.pack_to_vec());
+        packed_values.extend(vec![F::zero(); num_zeros]);
+        DenseMultilinearExtension::from_evaluations_vec(new_nvs, packed_values)
+    }
 }

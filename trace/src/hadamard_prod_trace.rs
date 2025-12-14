@@ -1,9 +1,6 @@
 use std::rc::Rc;
 
-use algebra::{
-    AbstractExtensionField, DenseMultilinearExtension, Field, FieldUniformSampler, NTTField,
-    transformation::AbstractNTT,
-};
+use algebra::{DenseMultilinearExtension, Field, NTTField, transformation::AbstractNTT};
 
 use crate::NTTTraceMLE;
 

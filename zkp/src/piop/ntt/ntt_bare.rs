@@ -24,7 +24,7 @@ use sumcheck::verifier::SubClaim;
 use sumcheck::{MLSumcheck, ProofWrapper, SumcheckKit};
 
 use super::{NTTInstance, NTTInstanceInfo};
-use helper::{Transcript, FiatShamirTranscript};
+use helper::{FiatShamirTranscript, Transcript};
 
 /// IOP for NTT, i.e. $$a(u) = \sum_{x\in \{0, 1\}^{\log N} c(x)\cdot F(u, x) }$$
 pub struct NTTBareIOP<F: Field>(PhantomData<F>);

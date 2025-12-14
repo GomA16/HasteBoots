@@ -203,10 +203,8 @@ impl<F: Field> BatchedNTTTraceMLE<F> {
                 rand_evals,
             )),
         }
-        .into()
     }
 }
-
 
 impl<F: Field> From<NTTTrace<F>> for NTTTraceMLE<F> {
     /// Convert NTT trace to NTT instance
@@ -232,7 +230,6 @@ impl<F: Field> From<NTTTrace<F>> for NTTTraceMLE<F> {
 }
 
 impl<F: Field> NTTTraceMLE<F> {
-
     pub fn num_vars(&self) -> usize {
         assert_eq!(self.coefficients.num_vars(), self.evaluations.num_vars());
         self.coefficients.num_vars()

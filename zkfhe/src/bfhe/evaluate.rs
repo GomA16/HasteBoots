@@ -40,7 +40,11 @@ impl<Q: NTTField> EvaluationKey<Q> {
     }
 
     /// Complete the bootstrapping operation with LWE Ciphertext *`c`* and lookup table `lut`.
-    pub fn bootstrap(&self, c: LWECiphertext<Q>, lut: Polynomial<Q>) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
+    pub fn bootstrap(
+        &self,
+        c: LWECiphertext<Q>,
+        lut: Polynomial<Q>,
+    ) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
         let parameters = self.parameters();
         let pre = parameters.process_before_blind_rotation();
 
@@ -108,7 +112,11 @@ impl<Q: NTTField> Evaluator<Q> {
 
     /// Complete the bootstrapping operation with LWE Ciphertext *`c`* and lookup table `lut`.
     #[inline]
-    pub fn bootstrap(&self, c: LWECiphertext<Q>, lut: Polynomial<Q>) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
+    pub fn bootstrap(
+        &self,
+        c: LWECiphertext<Q>,
+        lut: Polynomial<Q>,
+    ) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
         self.ek.bootstrap(c, lut)
     }
 
@@ -135,7 +143,11 @@ impl<Q: NTTField> Evaluator<Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `not(a and b)`.
-    pub fn nand(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
+    pub fn nand(
+        &self,
+        c0: &LWECiphertext<Q>,
+        c1: &LWECiphertext<Q>,
+    ) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
         let parameters = self.parameters();
 
         let add = c0.add_component_wise_ref(c1);
@@ -152,7 +164,11 @@ impl<Q: NTTField> Evaluator<Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `a and b`.
-    pub fn and(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
+    pub fn and(
+        &self,
+        c0: &LWECiphertext<Q>,
+        c1: &LWECiphertext<Q>,
+    ) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
         let parameters = self.parameters();
 
         let add = c0.add_component_wise_ref(c1);
@@ -170,7 +186,11 @@ impl<Q: NTTField> Evaluator<Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `a or b`.
-    pub fn or(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
+    pub fn or(
+        &self,
+        c0: &LWECiphertext<Q>,
+        c1: &LWECiphertext<Q>,
+    ) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
         let parameters = self.parameters();
 
         let add = c0.add_component_wise_ref(c1);
@@ -187,7 +207,11 @@ impl<Q: NTTField> Evaluator<Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `not(a or b)`.
-    pub fn nor(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
+    pub fn nor(
+        &self,
+        c0: &LWECiphertext<Q>,
+        c1: &LWECiphertext<Q>,
+    ) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
         let parameters = self.parameters();
 
         let add = c0.add_component_wise_ref(c1);
@@ -204,7 +228,11 @@ impl<Q: NTTField> Evaluator<Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `a xor b`.
-    pub fn xor(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
+    pub fn xor(
+        &self,
+        c0: &LWECiphertext<Q>,
+        c1: &LWECiphertext<Q>,
+    ) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
         let parameters = self.parameters();
 
         let mut sub = c0.sub_component_wise_ref(c1);
@@ -222,7 +250,11 @@ impl<Q: NTTField> Evaluator<Q> {
     /// * Input: ciphertext `c0`, with message `a`.
     /// * Input: ciphertext `c1`, with message `b`.
     /// * Output: ciphertext with message `not(a xor b)`.
-    pub fn xnor(&self, c0: &LWECiphertext<Q>, c1: &LWECiphertext<Q>) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
+    pub fn xnor(
+        &self,
+        c0: &LWECiphertext<Q>,
+        c1: &LWECiphertext<Q>,
+    ) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
         let parameters = self.parameters();
 
         let mut sub = c0.sub_component_wise_ref(c1);

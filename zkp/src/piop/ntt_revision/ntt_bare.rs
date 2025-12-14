@@ -17,7 +17,7 @@
 //! The remaining thing is to prove $$a(u) = \sum_{x\in \{0, 1\}^{\log N} c(x)\cdot F(u, x) }$$ with the sumcheck protocol
 //! where u is the random challenge from the verifier.
 use algebra::{DenseMultilinearExtension, Field, ListOfProductsOfPolynomials};
-use helper::{Transcript, FiatShamirTranscript};
+use helper::{FiatShamirTranscript, Transcript};
 use serde::Serialize;
 use std::marker::PhantomData;
 use std::rc::Rc;

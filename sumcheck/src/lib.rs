@@ -4,12 +4,12 @@
 //! Interactive Proof Protocol used for Multilinear Sumcheck
 // It is derived from https://github.com/arkworks-rs/sumcheck/blob/master/src/ml_sumcheck/protocol/mod.rs.
 
-use std::marker::PhantomData;
-use log::info;
 use algebra::{Field, ListOfProductsOfPolynomials, PolynomialInfo};
-use helper::{Transcript, FiatShamirTranscript};
+use helper::{FiatShamirTranscript, Transcript};
+use log::info;
 use prover::{ProverMsg, ProverState};
 use serde::Serialize;
+use std::marker::PhantomData;
 use verifier::SubClaim;
 
 pub mod error;
@@ -85,11 +85,13 @@ impl<F: Field + Serialize> MLSumcheck<F> {
         polynomial: &ListOfProductsOfPolynomials<F>,
     ) -> Result<(Proof<F>, ProverState<F>), crate::error::Error> {
         trans.append_message(b"polynomial info", &polynomial.info());
-        info!("[sumcheck] The polynomial (degree = {}) to be proved consists of {} MLEs (#vars = {}) in the form of {} products.",
+        info!(
+            "[sumcheck] The polynomial (degree = {}) to be proved consists of {} MLEs (#vars = {}) in the form of {} products.",
             polynomial.max_multiplicands,
             polynomial.flattened_ml_extensions.len(),
             polynomial.num_variables,
-            polynomial.products.len());
+            polynomial.products.len()
+        );
         // println!(
         //     "[sumcheck] The polynomial (degree = {}) to be proved consists of {} MLEs (#vars = {}) in the form of {} products.",
         //     polynomial.max_multiplicands,

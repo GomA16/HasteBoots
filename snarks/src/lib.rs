@@ -2,6 +2,7 @@ use algebra::{AbstractExtensionField, Field};
 use helper::Transcript;
 use pcs::PolynomialCommitmentScheme;
 
+pub mod lookup;
 pub mod ntt;
 
 /// Oracle used in the NTT matrix evaluation PIOP
