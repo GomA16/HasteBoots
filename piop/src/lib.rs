@@ -1,8 +1,12 @@
 pub mod lookup;
 pub mod ntt;
+// pub mod hadamard;
 
 use algebra::{DenseMultilinearExtension, Field, ListOfProductsOfPolynomials};
-use helper::{FiatShamirTranscript, Transcript, utils::{eval_identity_function, gen_identity_evaluations}};
+use helper::{
+    FiatShamirTranscript, Transcript,
+    utils::{eval_identity_function, gen_identity_evaluations},
+};
 use std::rc::Rc;
 
 pub struct SumcheckClaim<F: Field> {

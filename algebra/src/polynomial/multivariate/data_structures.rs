@@ -133,22 +133,28 @@ impl<F: Field> ListOfProductsOfPolynomials<F> {
     }
 
     /// Evaluate the polynomial at point `point`
-    /// TODO : optimize the mle_buff to avoid evaluate the same mle multiple times
     pub fn evaluate(&self, point: &[F]) -> F {
         let mle_buff: Vec<_> = self
             .flattened_ml_extensions
             .iter()
             .map(|m| m.as_ref().clone())
             .collect();
+
+        let mle_evals = mle_buff
+            .par_iter()
+            .map(|m| m.evaluate(point))
+            .collect::<Vec<_>>();
+
         self.products
             .par_iter()
             .zip(self.linear_ops.par_iter())
             .fold(
                 || F::zero(),
                 |res, ((c, p), ops)| {
-                    res + p.iter().zip(ops.iter()).fold(*c, |acc, (&i, &(a, b))| {
-                        acc * (mle_buff[i].evaluate(point) * a + b)
-                    })
+                    res + p
+                        .iter()
+                        .zip(ops.iter())
+                        .fold(*c, |acc, (&i, &(a, b))| acc * (mle_evals[i] * a + b))
                 },
             )
             .reduce(|| F::zero(), |acc, v| acc + v)

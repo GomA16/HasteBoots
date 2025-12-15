@@ -1,11 +1,14 @@
-use algebra::{AsInto, FieldUniformSampler};
-use fhe_core::utils::*;
+use core::time;
+
+use algebra::{AsInto, Field, FieldUniformSampler};
+use fhe_core::{DefaultFieldU32, utils::*};
 use helper::Transcript;
+use piop::lookup::{LogUpIOP, LogUpInstance};
 use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInstance};
 use piop::{SumcheckInstance, SumcheckPIOP};
 use rand::Rng;
 use rand_distr::Distribution;
-use trace::BatchedHadamardTraceMLE;
+use trace::{BatchedHadamardTraceMLE, LookupWitness};
 // use trace::HadamardProdTraceMLE;
 use zkfhe::bfhe::{CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
@@ -60,38 +63,38 @@ fn main() {
 
     // Generate SNARKs for nand
     println!("Starting verification of nand.\n");
-    let uniform = FieldUniformSampler::new();
-    let randomness = uniform
-        .sample_iter(&mut rng)
-        .take(trace.vec_trace.len())
-        .collect::<Vec<_>>();
+    let blk_size = 3;
+    let randomness = DefaultFieldU32::random(&mut rng);
 
     let trace_mle: BatchedHadamardTraceMLE<_> = trace.into();
-    let ntt_trace = trace_mle.extract_random_ntt_trace_mle(&randomness);
+    let range = 1 << params.blind_rotation_basis().bits() as usize;
+    let lookup_trace_mle = trace_mle.extract_lookup_trace_mle(range);
+    let lookup_witness: LookupWitness<_> = lookup_trace_mle.into();
+    let lookup_helper = lookup_witness.compute_helper_functions(blk_size, randomness);
 
-    let log_coeff_count = trace_mle.log_coeff_count;
-    let log_num_ntt = trace_mle.log_num_round;
+    let instance = LogUpInstance::from(&lookup_witness, &lookup_helper);
+    let info = instance.info();
 
-    let point_u = uniform
-        .sample_iter(&mut rng)
-        .take(log_coeff_count)
-        .collect::<Vec<_>>();
-    let point_v = uniform
-        .sample_iter(&mut rng)
-        .take(log_num_ntt)
-        .collect::<Vec<_>>();
-    let ntt_matrix_eval_instance = NTTMatrixEvalInstance::from(&ntt_trace, &point_u, &point_v);
-
-    let ntt_eval_info = ntt_matrix_eval_instance.info();
-
-    let mut prover_trans = Transcript::default();
-    let (proof, _) = NTTMatrixEvalIOP::prover(&mut prover_trans, &ntt_matrix_eval_instance);
-    println!("Proofs generation done!\n");
-
-    let mut verifier_trans = Transcript::default();
-    let (res, _) = NTTMatrixEvalIOP::verifier(&mut verifier_trans, &ntt_eval_info, &proof);
-    println!("Proofs verification done!\n");
+    let mut prover_trans = Transcript::new();
+    let time = std::time::Instant::now();
+    let (proof, _) = LogUpIOP::prover(&mut prover_trans, &instance);
+    println!("Prover time: {:?}", time.elapsed());
+    let mut verifier_trans = Transcript::new();
+    let time = std::time::Instant::now();
+    let (res, _) = LogUpIOP::verifier(&mut verifier_trans, &info, &proof);
+    println!("Verifier time: {:?}", time.elapsed());
     assert!(res);
+    println!("Verification of nand done!\n");
+    println!(
+        "Lookup Info: num_vars = {}, block_size = {}, num_blks = {}\n",
+        info.num_vars, info.block_size, info.num_blocks
+    );
+    println!("Lookup num columns: {}\n", info.num_columns);
+    println!("range is {}\n", range);
+    println!(
+        "num_vars is {} and num_round is {}",
+        trace_mle.log_coeff_count, trace_mle.log_num_round
+    );
 }
 
 // fn main() {}

@@ -13,7 +13,9 @@ pub use acc_trace::{AccTrace, AccTraceMLE};
 pub use hadamard_prod_trace::{
     BatchedHadamardTrace, BatchedHadamardTraceMLE, HadamardTrace, HadamardTraceMLE,
 };
-pub use lookup_trace::{LookupTrace, LookupTraceMLE, LookupWitness, LookupWitnessHelper};
+pub use lookup_trace::normal_table::{
+    LookupTrace, LookupTraceMLE, LookupWitness, LookupWitnessHelper,
+};
 pub use ntt_trace::{NTTTrace, NTTTraceInfo, NTTTraceMLE};
 
 pub trait ConvertToEF<F: Field, EF: AbstractExtensionField<F>> {

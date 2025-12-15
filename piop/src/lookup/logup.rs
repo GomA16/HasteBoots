@@ -1,11 +1,11 @@
 use algebra::{DenseMultilinearExtension, Field, ListOfProductsOfPolynomials, PolynomialInfo};
+use helper::utils::eval_identity_function;
 use helper::{FiatShamirTranscript, Transcript, transcript};
 use serde::Serialize;
 use std::{iter::Sum, rc::Rc};
 use sumcheck::{MLSumcheck, Proof, prover};
 use sumcheck::{prover::ProverState, verifier::SubClaim};
 use trace::{LookupTraceMLE, LookupWitness, LookupWitnessHelper};
-use helper::utils::eval_identity_function;
 
 use crate::{
     LagrangeKernel, PackableEFProof, PackableProof, SumcheckClaim, SumcheckInfo, SumcheckInstance,
@@ -35,7 +35,7 @@ pub struct LogUpInstanceInfo<F: Field> {
     #[serde(skip)]
     // random value used before sumcheck protocol
     pub random_value: F,
-    _marker: std::marker::PhantomData<F>,
+    // _marker: std::marker::PhantomData<F>,
 }
 
 #[derive(Serialize)]
@@ -189,7 +189,7 @@ impl<F: Field> SumcheckInstance<F> for LogUpInstance<F> {
             num_blocks: self.helper.num_blocks,
             num_columns: self.trace.vec_input.len(),
             random_value: self.helper.randomness,
-            _marker: std::marker::PhantomData,
+            // _marker: std::marker::PhantomData,
         }
     }
 }

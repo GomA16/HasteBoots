@@ -40,7 +40,6 @@ fn main() {
     let proof = snarks.prove(prover_trans, lookup_trace, params);
     println!("Prove time: {:?}", start.elapsed());
 
-    
     let verifier_trans = &mut Transcript::<EF>::default();
     let start = Instant::now();
     let res = snarks.verifier(verifier_trans, &proof);

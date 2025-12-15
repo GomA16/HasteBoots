@@ -187,6 +187,7 @@ pub(crate) fn interpolate_uni_poly<F: Field>(p_i: &[F], eval_at: F) -> F {
     // - for len > 33 with BigInt
 
     // TODO: We cannot implement the above optimization for now since we don't have the `from` trait, enabling us to directly convert a u64/u128 value to a field element.
+    // TODO Optimize it with 64-bit prime
     // Below is the plain implementation to compute
     // \sum_{i=0}^{len p_i - 1} p_i[i] * (\prod_{j!=i} (eval_at - j)/(i-j))
     // = \sum_{i=0}^{len p_i - 1} * (prod / evals[i]) / denom[i]

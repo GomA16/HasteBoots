@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use algebra::{DenseMultilinearExtension, Field, NTTField, transformation::AbstractNTT};
 
-use crate::NTTTraceMLE;
+use crate::{LookupTraceMLE, NTTTraceMLE};
 
 /// Store the traces of each round of Hadamard product during blind rotation.
 #[derive(Debug, Clone)]
@@ -19,6 +19,8 @@ pub struct BatchedHadamardTrace<F: NTTField> {
     pub log_num_round: usize,
     pub num_trace: usize,
     pub vec_trace: Vec<HadamardTrace<F>>,
+    // sum_prod_ntt = \sum bit_ntt * key_ntt
+    pub sum_prod_ntt: (Vec<F>, Vec<F>),
 }
 
 #[derive(Clone)]
@@ -149,6 +151,10 @@ impl<F: NTTField> BatchedHadamardTrace<F> {
             log_num_round: log_num_poly,
             num_trace,
             vec_trace: vec![HadamardTrace::new(log_coeff_count, log_num_poly); num_trace],
+            sum_prod_ntt: (
+                Vec::with_capacity(1 << (log_coeff_count + log_num_poly)),
+                Vec::with_capacity(1 << (log_coeff_count + log_num_poly)),
+            ),
         }
     }
 
@@ -156,6 +162,13 @@ impl<F: NTTField> BatchedHadamardTrace<F> {
         &mut self.vec_trace[trace_idx]
     }
 
+    pub fn add_sum_prod(&mut self, sum_prod: (&[F], &[F])) {
+        self.sum_prod_ntt.0.extend_from_slice(sum_prod.0);
+        self.sum_prod_ntt.1.extend_from_slice(sum_prod.1);
+    }
+}
+
+impl<F: NTTField> BatchedHadamardTraceMLE<F> {
     pub fn extract_random_ntt_trace_mle(&self, randomness: &[F]) -> NTTTraceMLE<F> {
         let size = 1 << (self.log_coeff_count + self.log_num_round);
         let mut rand_coeffs = vec![F::zero(); size];
@@ -171,8 +184,8 @@ impl<F: NTTField> BatchedHadamardTrace<F> {
             .iter()
             .zip(randomness)
             .for_each(|(trace, r)| {
-                add_assign(&mut rand_coeffs, &trace.bit_ntt, *r);
-                add_assign(&mut rand_evals, &trace.bit_poly, *r);
+                add_assign(&mut rand_coeffs, trace.bit_ntt.as_slice(), *r);
+                add_assign(&mut rand_evals, trace.bit_poly.as_slice(), *r);
             });
 
         NTTTraceMLE {
@@ -191,6 +204,20 @@ impl<F: NTTField> BatchedHadamardTrace<F> {
                 self.log_coeff_count + self.log_num_round,
                 rand_evals,
             )),
+        }
+    }
+
+    pub fn extract_lookup_trace_mle(&self, range: usize) -> LookupTraceMLE<F> {
+        let vec_input = self
+            .vec_trace
+            .iter()
+            .map(|trace| trace.bit_poly.clone())
+            .collect::<Vec<_>>();
+        let num_vars = self.log_coeff_count + self.log_num_round;
+        LookupTraceMLE {
+            num_vars,
+            range,
+            vec_input,
         }
     }
 }
