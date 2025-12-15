@@ -2,7 +2,7 @@ use algebra::{DenseMultilinearExtension, Field, ListOfProductsOfPolynomials, Pol
 use helper::{FiatShamirTranscript, Transcript, transcript};
 use serde::Serialize;
 use std::{iter::Sum, rc::Rc};
-use sumcheck::{MLSumcheck, Proof};
+use sumcheck::{MLSumcheck, Proof, prover};
 use sumcheck::{prover::ProverState, verifier::SubClaim};
 use trace::{LookupTraceMLE, LookupWitness, LookupWitnessHelper};
 
@@ -100,8 +100,16 @@ impl<F: Field> LogUpInstance<F> {
             h_sum,
         ));
 
+        #[cfg(test)]
+        {
+            let sum = h_sum.iter().fold(F::zero(), |acc, &x| acc + x);
+            debug_assert_eq!(sum, F::zero());
+            println!("Sanity check passed for helper sum function: h_sum");
+        }
+
         claim.poly_mut().add_product(vec![h_sum], random_lambda);
     }
+
 
     pub fn add_helper_identity_into_sumcheck(
         &self,
@@ -115,6 +123,27 @@ impl<F: Field> LogUpInstance<F> {
         let idx_start = idx * self.helper.block_size;
         let idx_end = ((idx + 1) * self.helper.block_size).min(self.helper.phi_functions.len());
 
+        // check h = \sum m_i / phi_i
+        #[cfg(test)]
+        {
+            self.helper
+            .helper_functions[idx]
+            .iter().enumerate()
+            .for_each(|(x, h)| {
+                let mut sum = F::zero();
+                for i in idx_start..idx_end {
+                    let m = match (idx, i) {
+                        (0, 0) => self.multiplicity.evaluations[x],
+                        _ => -F::one(),
+                    };
+                    sum += m / self.helper.phi_functions[i].evaluations[x];
+                }
+                assert_eq!(*h, sum);
+            });
+            println!("Sanity check passed for helper identity function: h{}", idx);
+        }
+        
+
         let blk_len = idx_end - idx_start;
 
         let phi_block = self.helper.phi_functions[idx_start..idx_end]
@@ -122,7 +151,7 @@ impl<F: Field> LogUpInstance<F> {
             .map(|phi| Rc::clone(phi))
             .collect::<Vec<_>>();
 
-        // randomness * h * L * \prod phi_i
+        // randomness * L * h * \prod phi_i
         let mut prod: Vec<Rc<DenseMultilinearExtension<F>>> = Vec::with_capacity(blk_len + 2);
         prod.extend_from_slice(&phi_block);
         prod.push(Rc::clone(&kernel.eq_at_point));
@@ -130,8 +159,8 @@ impl<F: Field> LogUpInstance<F> {
         claim.poly_mut().add_product(prod, random_lambda);
 
         for off_idx in 0..blk_len {
-            match idx {
-                0 => {
+            match (idx, off_idx) {
+                (0, 0) => {
                     // - randomness * L * m * \prod phi_i / phi_{off_idx}
                     let mut prod_i = Vec::with_capacity(blk_len + 1);
                     prod_i.extend_from_slice(&phi_block);
@@ -192,7 +221,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
         trans.append_message(b"[Lookup Statement]", &info);
 
         let mut sumcheck_claim = SumcheckClaim::new(info.sumcheck_num_vars());
-        // let mut prover_state = ProverState::new(info.sumcheck_num_vars());
+
 
         let lagrange_kernel = Some(&LagrangeKernel::random(trans, instance.num_vars));
         let randomness_batch = Self::sample_randomness_for_sumcheck(&info, trans);
@@ -204,7 +233,6 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
         );
         let (sumcheck_proof, prover_state) = MLSumcheck::prove(trans, sumcheck_claim.poly_ref())
             .expect("[LogUpIOP] Fail to generate sumcheck proof");
-
         let mle_eval = |mle: &[Rc<DenseMultilinearExtension<F>>]| {
             mle.iter()
                 .map(|m| m.evaluate(&prover_state.randomness))
@@ -230,8 +258,10 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
             witness_at_r,
             helper_at_r,
         };
+
+
         let state = LogUpProverState {
-            random_value: instance.helper.randomness,
+            random_value: info.random_value,
             random_sumcheck: randomness_batch,
             point_r: prover_state.randomness.to_vec(),
         };
@@ -255,7 +285,6 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
             &proof.sumcheck_proof,
         )
         .expect("[LogUpIOP - Verifier] Fail to verify the sumcheck");
-
         let kernel_at_r = lagrange_kernel.evaluate(&sumcheck_subclaim.point);
         Self::verifier_compute_subclaim(
             info,
@@ -268,12 +297,6 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
 
         let subclaim = LogUpVerifierSubclaim {
             point_r: sumcheck_subclaim.point.to_vec(),
-            // lookup_input_at_r: proof.phi_at_r[1..]
-            // .iter()
-            // .map(|x| *x - info.random_value)
-            // .collect::<Vec<_>>(),
-            // witness_at_r: proof.witness_at_r,
-            // helper_at_r: proof.helper_at_r.clone(),
         };
         (res, subclaim)
     }
@@ -312,7 +335,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
 
 impl<F: Field> LogUpProof<F> {
     pub fn compute_helper_subclaim(&self, random_lambda: F) -> F {
-        random_lambda * self.helper_at_r.iter().fold(F::zero(), |acc, &x| acc + x)
+        random_lambda * (self.helper_at_r.iter().fold(F::zero(), |acc, &x| acc + x))
     }
 
     pub fn compute_helper_identity_subcliam(
@@ -331,19 +354,19 @@ impl<F: Field> LogUpProof<F> {
 
         let grand_prod = phi_block.iter().fold(F::one(), |acc, &x| acc * x);
         let mut sum = F::zero();
-        sum += random_lambda * self.helper_at_r[idx] * kernel_at_r * grand_prod;
+        sum += self.helper_at_r[idx] * grand_prod;
 
         for off_idx in 0..blk_len {
-            match idx {
-                0 => {
-                    sum -= random_lambda * kernel_at_r * self.witness_at_r.1 * grand_prod
-                        / self.phi_at_r[off_idx];
+            match (idx, off_idx) {
+                (0, 0) => {
+                    sum -= self.witness_at_r.1 * grand_prod
+                        / phi_block[off_idx];
                 }
-                _ => sum += random_lambda * kernel_at_r,
+                _ => sum += grand_prod / phi_block[off_idx],
             }
         }
 
-        sum
+        sum * random_lambda * kernel_at_r
     }
 }
 

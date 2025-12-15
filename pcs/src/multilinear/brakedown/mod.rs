@@ -586,20 +586,16 @@ where
 
         // Compute the tensor from the random point, see [DP23](https://eprint.iacr.org/2023/630.pdf).
         let tensor = Self::tensor_from_points(pp, points);
-        let time = std::time::Instant::now();
-        // Most cost time is used here.
+        // TODO: optimize here - Most cost time is used here.
         let rlc_msgs = Self::answer_challenge_ext(pp, &tensor, state);
-        println!("rlc generation time used: {:?}", time.elapsed());
         // Hash rlc to transcript.
         trans.append_message(b"rlc", &rlc_msgs);
 
         // Sample random queries.
         let queries = Self::random_queries(pp, trans);
 
-        let time = std::time::Instant::now();
         // Generate the proofs for random queries.
         let (merkle_paths, opening_columns) = Self::answer_queries_ext(pp, &queries, state);
-        println!("merkel path generation time used: {:?}", time.elapsed());
         BrakedownOpenProofGeneral {
             rlc_msgs,
             merkle_paths,

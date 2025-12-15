@@ -133,6 +133,7 @@ impl<F: Field> ListOfProductsOfPolynomials<F> {
     }
 
     /// Evaluate the polynomial at point `point`
+    /// TODO : optimize the mle_buff to avoid evaluate the same mle multiple times
     pub fn evaluate(&self, point: &[F]) -> F {
         let mle_buff: Vec<_> = self
             .flattened_ml_extensions

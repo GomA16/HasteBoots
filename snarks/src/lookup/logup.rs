@@ -214,7 +214,7 @@ where
         }
     }
 
-    fn verifier(
+    pub fn verifier(
         &self,
         trans: &mut Transcript<EF>,
         proof: &LogUpSnarksProof<F, EF, S, PCS>,
@@ -301,10 +301,10 @@ mod test {
     #[test]
     fn test_logup_snarks() {
         let mut rng = rand::rng();
-        let num_vars = 3;
+        let num_vars = 10;
         let num_vec = 2;
         let range = 8;
-        let blk_size = 1;
+        let blk_size = 2;
 
         let lookup_trace = LookupTrace::<FF>::random(&mut rng, num_vars, num_vec, range);
         let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);

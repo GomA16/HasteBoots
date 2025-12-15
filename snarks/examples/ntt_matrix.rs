@@ -7,7 +7,6 @@ use pcs::{
     multilinear::BrakedownPCS,
     utils::code::{ExpanderCode, ExpanderCodeSpec},
 };
-use piop::SumcheckPIOP;
 use snarks::ntt::NTTMatrixEvalSnarks;
 use trace::NTTTrace;
 

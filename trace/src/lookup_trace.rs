@@ -4,6 +4,7 @@ use helper::utils::batch_inverse;
 use itertools::Itertools;
 use rayon::iter::ParallelIterator;
 use rayon::slice::ParallelSlice;
+use core::num;
 use std::{collections::HashMap, rc::Rc};
 
 use crate::{ConvertToEF, PackableTrace};
@@ -222,7 +223,8 @@ impl<F: Field> LookupWitness<F> {
         randomness: F,
     ) -> LookupWitnessHelper<F> {
         // divide vec_input || table into blocks of size block_size
-        let num_blocks = (self.trace.vec_input.len() + block_size) / block_size;
+        let total = 1 + self.trace.vec_input.len();
+        let num_blocks = (total + block_size - 1) / block_size;
 
         // t(x) + r and f(x) + r
         let table_and_inputs = self
@@ -232,9 +234,11 @@ impl<F: Field> LookupWitness<F> {
             .map(|&x| x + randomness)
             .collect::<Vec<F>>();
 
+
+
         let num_threads = rayon::current_num_threads();
         info!("Computing helper functions using {} threads", num_threads);
-        let chunk_size = table_and_inputs.len() / num_threads;
+        let chunk_size = std::cmp::max(1, (table_and_inputs.len() + num_threads - 1) / num_threads);
 
         // 1 / (t(x) + r) and 1 / (f(x) + r)
         let mut inversed_values = table_and_inputs
