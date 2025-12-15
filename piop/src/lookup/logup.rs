@@ -110,7 +110,6 @@ impl<F: Field> LogUpInstance<F> {
         claim.poly_mut().add_product(vec![h_sum], random_lambda);
     }
 
-
     pub fn add_helper_identity_into_sumcheck(
         &self,
         idx: usize,
@@ -126,23 +125,22 @@ impl<F: Field> LogUpInstance<F> {
         // check h = \sum m_i / phi_i
         #[cfg(test)]
         {
-            self.helper
-            .helper_functions[idx]
-            .iter().enumerate()
-            .for_each(|(x, h)| {
-                let mut sum = F::zero();
-                for i in idx_start..idx_end {
-                    let m = match (idx, i) {
-                        (0, 0) => self.multiplicity.evaluations[x],
-                        _ => -F::one(),
-                    };
-                    sum += m / self.helper.phi_functions[i].evaluations[x];
-                }
-                assert_eq!(*h, sum);
-            });
+            self.helper.helper_functions[idx]
+                .iter()
+                .enumerate()
+                .for_each(|(x, h)| {
+                    let mut sum = F::zero();
+                    for i in idx_start..idx_end {
+                        let m = match (idx, i) {
+                            (0, 0) => self.multiplicity.evaluations[x],
+                            _ => -F::one(),
+                        };
+                        sum += m / self.helper.phi_functions[i].evaluations[x];
+                    }
+                    assert_eq!(*h, sum);
+                });
             println!("Sanity check passed for helper identity function: h{}", idx);
         }
-        
 
         let blk_len = idx_end - idx_start;
 
@@ -222,7 +220,6 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
 
         let mut sumcheck_claim = SumcheckClaim::new(info.sumcheck_num_vars());
 
-
         let lagrange_kernel = Some(&LagrangeKernel::random(trans, instance.num_vars));
         let randomness_batch = Self::sample_randomness_for_sumcheck(&info, trans);
         Self::prover_batch_sumcheck(
@@ -258,7 +255,6 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
             witness_at_r,
             helper_at_r,
         };
-
 
         let state = LogUpProverState {
             random_value: info.random_value,
@@ -359,8 +355,7 @@ impl<F: Field> LogUpProof<F> {
         for off_idx in 0..blk_len {
             match (idx, off_idx) {
                 (0, 0) => {
-                    sum -= self.witness_at_r.1 * grand_prod
-                        / phi_block[off_idx];
+                    sum -= self.witness_at_r.1 * grand_prod / phi_block[off_idx];
                 }
                 _ => sum += grand_prod / phi_block[off_idx],
             }

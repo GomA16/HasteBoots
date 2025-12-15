@@ -1,3 +1,3 @@
 pub mod logup;
 
-pub use logup::{LogUpSnarks, LogUpParams};
+pub use logup::{LogUpParams, LogUpSnarks};

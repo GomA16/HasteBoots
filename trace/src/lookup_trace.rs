@@ -1,10 +1,10 @@
 use algebra::{AbstractExtensionField, AsInto};
 use algebra::{DenseMultilinearExtension, Field};
+use core::num;
 use helper::utils::batch_inverse;
 use itertools::Itertools;
 use rayon::iter::ParallelIterator;
 use rayon::slice::ParallelSlice;
-use core::num;
 use std::{collections::HashMap, rc::Rc};
 
 use crate::{ConvertToEF, PackableTrace};
@@ -233,8 +233,6 @@ impl<F: Field> LookupWitness<F> {
             .chain(self.trace.vec_input.iter().flat_map(|input| input.iter()))
             .map(|&x| x + randomness)
             .collect::<Vec<F>>();
-
-
 
         let num_threads = rayon::current_num_threads();
         info!("Computing helper functions using {} threads", num_threads);
