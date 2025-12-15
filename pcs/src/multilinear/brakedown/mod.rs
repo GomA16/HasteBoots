@@ -7,6 +7,7 @@ pub use data_structure::{
     BrakedownPolyCommitment,
 };
 
+use algebra::AsInto;
 use algebra::{
     AbstractExtensionField, DenseMultilinearExtension, Field,
     utils::{Block, Prg},
@@ -17,6 +18,7 @@ use rand::SeedableRng;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
+use std::mem::transmute;
 
 use crate::{
     PolynomialCommitmentScheme,
@@ -280,9 +282,10 @@ where
             .map(|((column, hashes), column_idx)| {
                 let mut hasher = H::new();
                 // Check the hash of column is the same as the merkle leave.
-                column
-                    .iter()
-                    .for_each(|item| hasher.update_string(item.to_string()));
+                column.iter().for_each(|item| {
+                    let bytes = AsInto::<u64>::as_into(item.value()).to_le_bytes();
+                    hasher.update_hash_value(&bytes);
+                });
                 let leaf = hasher.output_reset();
 
                 // Check the merkle path is consistent with the merkle root
@@ -312,9 +315,12 @@ where
             .map(|((column, hashes), column_idx)| {
                 let mut hasher = H::new();
                 // Check the hash of column is the same as the merkle leave.
-                column
-                    .iter()
-                    .for_each(|item| hasher.update_string(item.to_string()));
+                column.iter().for_each(|item| {
+                    item.as_base_slice().iter().for_each(|x| {
+                        let bytes = AsInto::<u64>::as_into(x.value()).to_le_bytes();
+                        hasher.update_hash_value(&bytes);
+                    });
+                });
                 let leaf = hasher.output_reset();
 
                 // Check the merkle path is consistent with the merkle root
@@ -439,14 +445,11 @@ where
     ) -> (Self::Commitment, Self::CommitmentState) {
         // Check consistency of num_vars.
         assert!(poly.num_vars == pp.num_vars());
-
         // Prepare the matrix to commit.
         let num_cols = pp.code().message_len();
         let num_rows = pp.num_rows();
         let codeword_len = pp.code().codeword_len();
-
         let mut matrix = vec![F::zero(); num_rows * codeword_len];
-
         // Fill each row of the matrix with a message and
         // encode the message into a codeword.
         matrix
@@ -467,7 +470,10 @@ where
                 .iter()
                 .skip(index)
                 .step_by(codeword_len)
-                .for_each(|item| hasher.update_string(item.to_string()));
+                .for_each(|item| {
+                    let bytes = AsInto::<u64>::as_into(item.value()).to_le_bytes();
+                    hasher.update_hash_value(&bytes);
+                });
             *hash = hasher.output_reset();
         });
 
@@ -520,7 +526,12 @@ where
                 .iter()
                 .skip(index)
                 .step_by(codeword_len)
-                .for_each(|item| hasher.update_string(item.to_string()));
+                .for_each(|item| {
+                    item.as_base_slice().iter().for_each(|x| {
+                        let bytes = AsInto::<u64>::as_into(x.value()).to_le_bytes();
+                        hasher.update_hash_value(&bytes);
+                    });
+                });
             *hash = hasher.output_reset();
         });
 

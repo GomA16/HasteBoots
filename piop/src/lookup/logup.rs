@@ -5,6 +5,7 @@ use std::{iter::Sum, rc::Rc};
 use sumcheck::{MLSumcheck, Proof, prover};
 use sumcheck::{prover::ProverState, verifier::SubClaim};
 use trace::{LookupTraceMLE, LookupWitness, LookupWitnessHelper};
+use helper::utils::eval_identity_function;
 
 use crate::{
     LagrangeKernel, PackableEFProof, PackableProof, SumcheckClaim, SumcheckInfo, SumcheckInstance,
@@ -159,19 +160,19 @@ impl<F: Field> LogUpInstance<F> {
         for off_idx in 0..blk_len {
             match (idx, off_idx) {
                 (0, 0) => {
-                    // - randomness * L * m * \prod phi_i / phi_{off_idx}
+                    // randomness * L * m * \prod phi_i / phi_{off_idx}
                     let mut prod_i = Vec::with_capacity(blk_len + 1);
                     prod_i.extend_from_slice(&phi_block);
                     prod_i[off_idx] = Rc::clone(&self.multiplicity);
                     prod_i.push(Rc::clone(&kernel.eq_at_point));
-                    claim.poly_mut().add_product(prod_i, -random_lambda);
+                    claim.poly_mut().add_product(prod_i, random_lambda);
                 }
                 _ => {
-                    // randomness * L * \prod phi_i / phi_{off_idx}
+                    // - randomness * L * \prod phi_i / phi_{off_idx}
                     let mut prod_i = Vec::with_capacity(blk_len);
                     prod_i.extend_from_slice(&phi_block);
                     prod_i[off_idx] = Rc::clone(&kernel.eq_at_point);
-                    claim.poly_mut().add_product(prod_i, random_lambda);
+                    claim.poly_mut().add_product(prod_i, -random_lambda);
                 }
             }
         }
@@ -272,8 +273,9 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
         trans.append_message(b"[Lookup Statement]", &info);
 
         let mut res = true;
-        let lagrange_kernel = LagrangeKernel::random(trans, info.num_vars);
+        let kernel_point = LagrangeKernel::random_point(trans, info.num_vars);
         let randomness_batch = Self::sample_randomness_for_sumcheck(info, trans);
+
         let mut sumcheck_subclaim = MLSumcheck::verify(
             trans,
             &proof.poly_info,
@@ -281,7 +283,9 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
             &proof.sumcheck_proof,
         )
         .expect("[LogUpIOP - Verifier] Fail to verify the sumcheck");
-        let kernel_at_r = lagrange_kernel.evaluate(&sumcheck_subclaim.point);
+
+        let kernel_at_r = eval_identity_function(&kernel_point, &sumcheck_subclaim.point);
+
         Self::verifier_compute_subclaim(
             info,
             proof,
@@ -355,9 +359,9 @@ impl<F: Field> LogUpProof<F> {
         for off_idx in 0..blk_len {
             match (idx, off_idx) {
                 (0, 0) => {
-                    sum -= self.witness_at_r.1 * grand_prod / phi_block[off_idx];
+                    sum += self.witness_at_r.1 * grand_prod / phi_block[off_idx];
                 }
-                _ => sum += grand_prod / phi_block[off_idx],
+                _ => sum -= grand_prod / phi_block[off_idx],
             }
         }
 

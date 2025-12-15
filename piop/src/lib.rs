@@ -2,7 +2,7 @@ pub mod lookup;
 pub mod ntt;
 
 use algebra::{DenseMultilinearExtension, Field, ListOfProductsOfPolynomials};
-use helper::{FiatShamirTranscript, Transcript, utils::gen_identity_evaluations};
+use helper::{FiatShamirTranscript, Transcript, utils::{eval_identity_function, gen_identity_evaluations}};
 use std::rc::Rc;
 
 pub struct SumcheckClaim<F: Field> {
@@ -18,6 +18,7 @@ pub struct LagrangeKernel<F: Field> {
 }
 
 impl<F: Field> LagrangeKernel<F> {
+    // generate a random Lagrange kernel
     pub fn random(trans: &mut Transcript<F>, num_vars: usize) -> Self {
         let point = trans.get_vec_challenge(
             b"Sample random point for a batch of sumchecks over products",
@@ -25,6 +26,15 @@ impl<F: Field> LagrangeKernel<F> {
         );
         let eq_at_point = Rc::new(gen_identity_evaluations(&point));
         Self { point, eq_at_point }
+    }
+
+    // generate a random Lagrange kernel but only return the point
+    pub fn random_point(trans: &mut Transcript<F>, num_vars: usize) -> Vec<F> {
+        let point = trans.get_vec_challenge(
+            b"Sample random point for a batch of sumchecks over products",
+            num_vars,
+        );
+        point
     }
 
     pub fn evaluate(&self, x: &[F]) -> F {

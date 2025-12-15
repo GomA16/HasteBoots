@@ -57,9 +57,11 @@ pub trait PackableTrace<F: Field> {
         let new_nvs = self.num_vars() + self.log_num_oracles();
         let num_zeros = (1 << new_nvs) - (self.num_oracles() << self.num_vars());
 
-        let mut packed_values = Vec::with_capacity(1 << new_nvs);
-        packed_values.extend(self.pack_to_vec());
+        let mut packed_values = self.pack_to_vec();
         packed_values.extend(vec![F::zero(); num_zeros]);
+        // let mut packed_values = Vec::with_capacity(1 << new_nvs);
+        // packed_values.extend(self.pack_to_vec());
+        // packed_values.extend(vec![F::zero(); num_zeros]);
         DenseMultilinearExtension::from_evaluations_vec(new_nvs, packed_values)
     }
 }

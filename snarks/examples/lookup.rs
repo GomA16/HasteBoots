@@ -1,3 +1,4 @@
+use core::time;
 use std::time::Instant;
 
 use algebra::{BabyBear, BabyBearExetension};
@@ -17,8 +18,8 @@ const BASE_FIELD_BITS: usize = 31;
 
 fn main() {
     let mut rng = rand::rng();
-    let num_vars = 20;
-    let num_vec = 10;
+    let num_vars = 10;
+    let num_vec = 10240;
     let range = 1 << 7;
     let blk_size = 3;
 
@@ -30,12 +31,19 @@ fn main() {
         ExpanderCodeSpec,
         BrakedownPCS<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>,
     >::default();
-    let params = &mut LogUpParams::new(code_spec, blk_size);
+    let time = Instant::now();
+    let params = &mut LogUpParams::new(code_spec, blk_size, &lookup_trace);
+    println!("Setup time: {:?}", time.elapsed());
 
     let prover_trans = &mut Transcript::<EF>::default();
+    let start = Instant::now();
     let proof = snarks.prove(prover_trans, lookup_trace, params);
+    println!("Prove time: {:?}", start.elapsed());
 
+    
     let verifier_trans = &mut Transcript::<EF>::default();
+    let start = Instant::now();
     let res = snarks.verifier(verifier_trans, &proof);
+    println!("Verify time: {:?}", start.elapsed());
     assert!(res);
 }

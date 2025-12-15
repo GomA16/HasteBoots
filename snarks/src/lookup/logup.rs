@@ -1,7 +1,10 @@
+use core::time;
+
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 use helper::utils::compute_oracle_evals;
 use helper::{FiatShamirTranscript, Transcript};
 use pcs::PolynomialCommitmentScheme;
+use pcs::utils::code;
 use piop::lookup::logup::LogUpInstanceInfo;
 use piop::lookup::{LogUpIOP, LogUpInstance, LogUpProof};
 use piop::{PackableEFProof, PackableProof, SumcheckInstance, SumcheckPIOP};
@@ -31,7 +34,7 @@ where
     S: Clone,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
-    pub code_spec: S,
+    // pub code_spec: S,
     pub blk_size: usize,
     pub pcs_params: PCS::Parameters,
     pub pcs_params_ef: PCS::Parameters,
@@ -44,12 +47,12 @@ where
     S: Clone,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
-    pub fn new(code_spec: S, blk_size: usize) -> Self {
+    pub fn new(code_spec: S, blk_size: usize, trace: &LookupTrace<F>) -> Self {
         Self {
-            code_spec,
+            // code_spec,
             blk_size,
-            pcs_params: PCS::Parameters::default(),
-            pcs_params_ef: PCS::Parameters::default(),
+            pcs_params: PCS::setup(trace.witness_num_vars(), Some(code_spec.clone())),
+            pcs_params_ef: PCS::setup(trace.helper_num_vars(blk_size), Some(code_spec.clone())),
         }
     }
 }
@@ -64,7 +67,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            code_spec: self.code_spec.clone(),
+            // code_spec: self.code_spec.clone(),
             blk_size: self.blk_size,
             pcs_params: self.pcs_params.clone(),
             pcs_params_ef: self.pcs_params_ef.clone(),
@@ -108,9 +111,7 @@ where
         witness: &LookupWitness<F>,
     ) -> (PCS::Commitment, PCS::CommitmentState) {
         let witness_poly = witness.generate_oracle();
-        let pcs_params = PCS::setup(witness_poly.num_vars, Some(params.code_spec.clone()));
-        params.pcs_params = pcs_params.clone();
-        PCS::commit(&pcs_params, &witness_poly)
+        PCS::commit(&params.pcs_params, &witness_poly)
     }
 
     pub fn commit_witness_ef(
@@ -119,9 +120,7 @@ where
         witness: &LookupWitnessHelper<EF>,
     ) -> (PCS::Commitment, PCS::CommitmentStateEF) {
         let witness_poly = witness.generate_oracle();
-        let pcs_params = PCS::setup(witness_poly.num_vars, Some(params.code_spec.clone()));
-        params.pcs_params_ef = pcs_params.clone();
-        PCS::commit_ef(&pcs_params, &witness_poly)
+        PCS::commit_ef(&params.pcs_params_ef, &witness_poly)
     }
 
     pub fn compute_oracle_evaluation(&self, proof: &LogUpProof<EF>, point: &[EF]) -> EF {
@@ -285,7 +284,6 @@ where
 mod test {
     use super::*;
     use algebra::{BabyBear, BabyBearExetension};
-    use bincode::config::standard;
     use helper::Transcript;
     use pcs::{
         multilinear::BrakedownPCS,
@@ -314,7 +312,7 @@ mod test {
             ExpanderCodeSpec,
             BrakedownPCS<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>,
         >::default();
-        let params = &mut LogUpParams::new(code_spec, blk_size);
+        let params = &mut LogUpParams::new(code_spec, blk_size, &lookup_trace);
 
         let prover_trans = &mut Transcript::<EF>::default();
         let proof = snarks.prove(prover_trans, lookup_trace, params);
