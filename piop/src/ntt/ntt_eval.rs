@@ -147,6 +147,13 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTEvalIOP<F> {
         )
     }
 
+    fn prover_without_evals(
+        trans: &mut Self::FSTranscript,
+        instance: &Self::Instance,
+    ) -> (Self::Proof, Self::ProverState) {
+        unimplemented!("prover_wo_evals is not implemented for NTTEvalIOP");
+    }
+
     fn verifier(
         trans: &mut Self::FSTranscript,
         info: &Self::Info,

@@ -1,7 +1,11 @@
-use algebra::{DenseMultilinearExtension, Field, ListOfProductsOfPolynomials, PolynomialInfo};
+use algebra::{
+    AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
+    PolynomialInfo,
+};
 use helper::utils::eval_identity_function;
 use helper::{FiatShamirTranscript, Transcript, transcript};
 use serde::Serialize;
+use std::os::macos::raw::stat;
 use std::{iter::Sum, rc::Rc};
 use sumcheck::{MLSumcheck, Proof, prover};
 use sumcheck::{prover::ProverState, verifier::SubClaim};
@@ -11,6 +15,7 @@ use crate::{
     LagrangeKernel, PackableEFProof, PackableProof, SumcheckClaim, SumcheckInfo, SumcheckInstance,
     SumcheckPIOP,
 };
+use rayon::prelude::*;
 
 pub struct LogUpIOP<F: Field> {
     _marker: std::marker::PhantomData<F>,
@@ -59,9 +64,6 @@ pub struct LogUpProverState<F: Field> {
 
 pub struct LogUpVerifierSubclaim<F: Field> {
     pub point_r: Vec<F>,
-    // pub lookup_input_at_r: Vec<F>,
-    // pub witness_at_r: (F, F),
-    // pub helper_at_r: Vec<F>,
 }
 
 impl<F: Field> LogUpInstance<F> {
@@ -231,6 +233,8 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
         );
         let (sumcheck_proof, prover_state) = MLSumcheck::prove(trans, sumcheck_claim.poly_ref())
             .expect("[LogUpIOP] Fail to generate sumcheck proof");
+
+        // TODO optimize evaluation using base field mle
         let mle_eval = |mle: &[Rc<DenseMultilinearExtension<F>>]| {
             mle.iter()
                 .map(|m| m.evaluate(&prover_state.randomness))
@@ -255,6 +259,43 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
             phi_at_r,
             witness_at_r,
             helper_at_r,
+        };
+
+        let state = LogUpProverState {
+            random_value: info.random_value,
+            random_sumcheck: randomness_batch,
+            point_r: prover_state.randomness.to_vec(),
+        };
+        (proof, state)
+    }
+
+    fn prover_without_evals(
+        trans: &mut Self::FSTranscript,
+        instance: &Self::Instance,
+    ) -> (Self::Proof, Self::ProverState) {
+        let info = instance.info();
+        trans.append_message(b"[Lookup Statement]", &info);
+
+        let mut sumcheck_claim = SumcheckClaim::new(info.sumcheck_num_vars());
+
+        let lagrange_kernel = Some(&LagrangeKernel::random(trans, instance.num_vars));
+        let randomness_batch = Self::sample_randomness_for_sumcheck(&info, trans);
+        Self::prover_batch_sumcheck(
+            instance,
+            &mut sumcheck_claim,
+            &randomness_batch,
+            lagrange_kernel,
+        );
+        let (sumcheck_proof, prover_state) = MLSumcheck::prove(trans, sumcheck_claim.poly_ref())
+            .expect("[LogUpIOP] Fail to generate sumcheck proof");
+
+        let proof = LogUpProof {
+            poly_info: sumcheck_claim.poly_ref().info(),
+            sumcheck_proof,
+            input_at_r: Vec::new(),
+            phi_at_r: Vec::new(),
+            witness_at_r: (F::zero(), F::zero()),
+            helper_at_r: Vec::new(),
         };
 
         let state = LogUpProverState {
@@ -325,10 +366,11 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
         randomness: &[F],
         kernel_at_r: Option<F>,
     ) {
+        let kernerl_at_r = kernel_at_r.unwrap();
         subclaim.expected_evaluations -= proof.compute_helper_subclaim(randomness[0]);
         randomness[1..].iter().enumerate().for_each(|(idx, &r)| {
             subclaim.expected_evaluations -=
-                proof.compute_helper_identity_subcliam(info, idx, r, kernel_at_r.unwrap())
+                proof.compute_helper_identity_subcliam(info, idx, r, kernerl_at_r)
         });
     }
 }
@@ -366,6 +408,45 @@ impl<F: Field> LogUpProof<F> {
         }
 
         sum * random_lambda * kernel_at_r
+    }
+}
+
+impl<EF: Field> LogUpProof<EF> {
+    pub fn append_eval_ef<F: Field>(
+        &mut self,
+        state: &LogUpProverState<EF>,
+        witness: &LookupWitness<F>,
+        helper: &LookupWitnessHelper<EF>,
+    ) where
+        EF: AbstractExtensionField<F>,
+    {
+        let mle_eval = |mle: &[Rc<DenseMultilinearExtension<F>>]| {
+            mle.iter()
+                .map(|m| m.evaluate_ext(&state.point_r))
+                .collect::<Vec<_>>()
+        };
+
+        let ef_mle_eval = |mle: &[Rc<DenseMultilinearExtension<EF>>]| {
+            mle.iter()
+                .map(|m| m.evaluate(&state.point_r))
+                .collect::<Vec<_>>()
+        };
+
+        let input_at_r = mle_eval(witness.trace.vec_input.as_slice());
+        let witness_at_r = (
+            witness.table.evaluate_ext(&state.point_r),
+            witness.multiplicity.evaluate_ext(&state.point_r),
+        );
+        let phi_at_r = std::iter::once(&witness_at_r.0)
+            .chain(input_at_r.iter())
+            .map(|&x| x + state.random_value)
+            .collect::<Vec<_>>();
+        let helper_at_r = ef_mle_eval(&helper.helper_functions);
+
+        self.input_at_r = input_at_r;
+        self.phi_at_r = phi_at_r;
+        self.witness_at_r = witness_at_r;
+        self.helper_at_r = helper_at_r;
     }
 }
 

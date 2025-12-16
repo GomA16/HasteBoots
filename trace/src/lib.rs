@@ -1,7 +1,7 @@
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 
 mod acc_trace;
-mod hadamard_prod_trace;
+mod hadamard_trace;
 mod lookup_trace;
 mod ntt_trace;
 mod pbs_trace;
@@ -10,7 +10,7 @@ mod pbs_trace;
 //     HadamardProdTrace, HadamardProdTraceMLE, HadamardProdsTrace,
 // };
 pub use acc_trace::{AccTrace, AccTraceMLE};
-pub use hadamard_prod_trace::{
+pub use hadamard_trace::{
     BatchedHadamardTrace, BatchedHadamardTraceMLE, HadamardTrace, HadamardTraceMLE,
 };
 pub use lookup_trace::normal_table::{

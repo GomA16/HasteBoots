@@ -86,6 +86,14 @@ pub trait SumcheckPIOP<F: Field> {
         proof: &Self::Proof,
     ) -> (bool, Self::VerifierSubclaim);
 
+    /// Generate the PIOP proof (with transcript) for given instance
+    /// but without generating the evaluations.
+    /// This is useful when we only need to generate the proof from the base field instance.
+    fn prover_without_evals(
+        trans: &mut Self::FSTranscript,
+        instance: &Self::Instance,
+    ) -> (Self::Proof, Self::ProverState);
+
     fn sample_randomness_for_sumcheck(info: &Self::Info, trans: &mut Self::FSTranscript) -> Vec<F> {
         trans.get_vec_challenge(
             b"Sample random coefficients for a batch of sumchecks",
