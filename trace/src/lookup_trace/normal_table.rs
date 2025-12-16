@@ -43,7 +43,7 @@ pub struct LookupWitness<F: Field> {
 pub struct LookupWitnessHelper<F: Field> {
     pub block_size: usize,
     pub num_blocks: usize,
-    pub randomness: F,
+    pub random_value: F,
     pub helper_functions: Vec<Rc<DenseMultilinearExtension<F>>>,
     // only for efficiency of prover
     pub phi_functions: Vec<Rc<DenseMultilinearExtension<F>>>,
@@ -273,7 +273,7 @@ impl<F: Field> LookupWitness<F> {
         LookupWitnessHelper {
             block_size,
             num_blocks,
-            randomness,
+            random_value: randomness,
             helper_functions: helper_functions
                 .into_iter()
                 .map(|hf| {

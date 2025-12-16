@@ -1,8 +1,9 @@
 use std::rc::Rc;
 
 use algebra::{DenseMultilinearExtension, Field, NTTField, transformation::AbstractNTT};
+use rayon::iter::IntoParallelRefIterator;
 
-use crate::{LookupTraceMLE, NTTTraceMLE};
+use crate::{EvaluableTrace, LookupTraceMLE, NTTTraceMLE};
 
 /// Store the traces of each round of Hadamard product during blind rotation.
 #[derive(Debug, Clone)]
@@ -35,11 +36,26 @@ pub struct HadamardTraceMLE<F: Field> {
     ),
 }
 
+pub struct HadamardTraceEval<F: Field> {
+    pub bit_poly: F,
+    pub bit_ntt: F,
+    pub key_ntt: (F, F),
+}
+
 pub struct BatchedHadamardTraceMLE<F: Field> {
     pub log_coeff_count: usize,
     pub log_num_round: usize,
     pub num_trace: usize,
     pub vec_trace: Vec<HadamardTraceMLE<F>>,
+    pub sum_prod_ntt: (
+        Rc<DenseMultilinearExtension<F>>,
+        Rc<DenseMultilinearExtension<F>>,
+    ),
+}
+
+pub struct BatchedHadamardTraceEval<F: Field> {
+    pub vec_trace: Vec<HadamardTraceEval<F>>,
+    pub sum_prod_ntt: (F, F),
 }
 
 impl<F: NTTField> From<HadamardTrace<F>> for HadamardTraceMLE<F> {
@@ -74,13 +90,57 @@ impl<F: NTTField> From<BatchedHadamardTrace<F>> for BatchedHadamardTraceMLE<F> {
                 .into_iter()
                 .map(HadamardTraceMLE::from)
                 .collect(),
+            sum_prod_ntt: (
+                Rc::new(DenseMultilinearExtension::from_evaluations_vec(
+                    trace.log_coeff_count + trace.log_num_round,
+                    trace.sum_prod_ntt.0,
+                )),
+                Rc::new(DenseMultilinearExtension::from_evaluations_vec(
+                    trace.log_coeff_count + trace.log_num_round,
+                    trace.sum_prod_ntt.1,
+                )),
+            ),
         }
     }
 }
 
-impl<F: NTTField> BatchedHadamardTraceMLE<F> {
+impl<F: Field> BatchedHadamardTraceMLE<F> {
     pub fn iter(&self) -> impl Iterator<Item = &HadamardTraceMLE<F>> {
         self.vec_trace.iter()
+    }
+}
+
+impl<F: Field> EvaluableTrace<F> for HadamardTraceMLE<F> {
+    type TraceEval = HadamardTraceEval<F>;
+    #[inline]
+    fn evaluate(&self, point: &[F]) -> Self::TraceEval {
+        Self::TraceEval {
+            bit_poly: self.bit_poly.evaluate(point),
+            bit_ntt: self.bit_ntt.evaluate(point),
+            key_ntt: (
+                self.key_ntt.0.evaluate(point),
+                self.key_ntt.1.evaluate(point),
+            ),
+        }
+    }
+}
+
+impl<F: Field> EvaluableTrace<F> for BatchedHadamardTraceMLE<F> {
+    type TraceEval = BatchedHadamardTraceEval<F>;
+
+    #[inline]
+    fn evaluate(&self, point: &[F]) -> Self::TraceEval {
+        Self::TraceEval {
+            vec_trace: self
+                .vec_trace
+                .iter()
+                .map(|trace| trace.evaluate(point))
+                .collect(),
+            sum_prod_ntt: (
+                self.sum_prod_ntt.0.evaluate(point),
+                self.sum_prod_ntt.1.evaluate(point),
+            ),
+        }
     }
 }
 

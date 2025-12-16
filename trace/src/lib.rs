@@ -67,3 +67,8 @@ pub trait PackableTrace<F: Field> {
         DenseMultilinearExtension::from_evaluations_vec(new_nvs, packed_values)
     }
 }
+
+pub trait EvaluableTrace<F: Field> {
+    type TraceEval;
+    fn evaluate(&self, point: &[F]) -> Self::TraceEval;
+}

@@ -157,9 +157,10 @@ where
 
         // PIOP Phase
         let instance = LogUpInstance::from(&witness_ef, &helper);
-        let (piop_proof, piop_state) = LogUpIOP::prover(trans, &instance);
-        // let (mut piop_proof, piop_state) = LogUpIOP::prover_without_evals(trans, &instance);
-        // piop_proof.append_eval_ef(&piop_state, &witness, &helper);
+        // let (piop_proof, piop_state) = LogUpIOP::prover(trans, &instance);
+        // Prover can also use the following line to separate the sumcheck proof generation from the evaluation phase.
+        let (mut piop_proof, piop_state) = LogUpIOP::prover_without_evals(trans, &instance);
+        piop_proof.append_eval_ef(&piop_state, &witness, &helper);
         trans.append_message(b"[PIOP Phase]", &piop_proof);
 
         // Reduce the evaluations to one evaluation on the oracle

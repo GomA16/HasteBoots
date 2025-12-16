@@ -4,22 +4,31 @@ use algebra::PolynomialInfo;
 use bincode::de;
 use helper::FiatShamirTranscript;
 use helper::Transcript;
+use helper::utils::eval_identity_function;
 use rayon::vec;
 use serde::Serialize;
 use std::rc::Rc;
+use sumcheck::MLSumcheck;
 use sumcheck::Proof;
+use sumcheck::prover;
+use sumcheck::verifier::SubClaim;
+use trace::BatchedHadamardTraceMLE;
 
 use crate::LagrangeKernel;
 use crate::SumcheckClaim;
 use crate::SumcheckInfo;
 use crate::SumcheckInstance;
 use crate::SumcheckPIOP;
+use crate::SumcheckPureProof;
+use crate::SumcheckPureProverState;
+use crate::SumcheckPureSubclaim;
+use crate::lookup::LogUpProof;
 
 pub struct HadamardPIOP<F: Field> {
     _marker: std::marker::PhantomData<F>,
 }
 
-pub struct HadamardInstance<F: Field> {
+pub struct SumOfHadamardInstance<F: Field> {
     pub num_vars: usize,
     pub num_products: usize,
     pub products: Vec<(
@@ -30,20 +39,22 @@ pub struct HadamardInstance<F: Field> {
     pub result: Rc<DenseMultilinearExtension<F>>,
 }
 
-pub struct BatchedHadamardInstance<F: Field> {
+pub struct BatchedSumOfHadamardInstance<F: Field> {
     pub num_vars: usize,
-    pub num_batch: usize,
-    pub vec_batch: Vec<HadamardInstance<F>>,
+    pub num_sum: usize,
+    pub vec_sum: Vec<SumOfHadamardInstance<F>>,
 }
 
 pub struct HadamardProverState<F: Field> {
     pub point_r: Vec<F>,
 }
 
-use HadamardProverState as HadamardVerifierSubclaim;
+pub struct HadamardVerifierSubclaim<F: Field> {
+    pub point_r: Vec<F>,
+}
 
 #[derive(Serialize)]
-pub struct BatchedHadamardInfo<F: Field> {
+pub struct BatchedSumOfHadamardInfo<F: Field> {
     pub num_vars: usize,
     pub num_batch: usize,
     pub num_products_each: usize,
@@ -61,7 +72,7 @@ pub struct BatchedHadamardProof<F: Field> {
     pub hadamard_at_r: Vec<HadamardProof<F>>,
 }
 
-impl<F: Field> HadamardInstance<F> {
+impl<F: Field> SumOfHadamardInstance<F> {
     pub fn add_into_sumcheck(
         &self,
         claim: &mut SumcheckClaim<F>,
@@ -88,6 +99,47 @@ impl<F: Field> HadamardInstance<F> {
     }
 }
 
+impl<F: Field> BatchedSumOfHadamardInstance<F> {
+    pub fn from(batches: &[BatchedHadamardTraceMLE<F>]) -> Self {
+        assert!(!batches.is_empty());
+        let num_vars = batches[0].log_coeff_count + batches[0].log_coeff_count;
+        let num_sum = batches.len() * 2;
+        let mut vec_sum = Vec::with_capacity(num_sum);
+        for batch in batches.iter() {
+            debug_assert_eq!(batch.log_coeff_count + batch.log_coeff_count, num_vars);
+            let products = batch
+                .vec_trace
+                .iter()
+                .map(|trace| (trace.bit_poly.clone(), trace.key_ntt.0.clone()))
+                .collect::<Vec<_>>();
+            vec_sum.push(SumOfHadamardInstance {
+                num_vars,
+                num_products: products.len(),
+                products,
+                result: batch.sum_prod_ntt.0.clone(),
+            });
+
+            let products = batch
+                .vec_trace
+                .iter()
+                .map(|trace| (trace.bit_poly.clone(), trace.key_ntt.1.clone()))
+                .collect::<Vec<_>>();
+            vec_sum.push(SumOfHadamardInstance {
+                num_vars,
+                num_products: products.len(),
+                products,
+                result: batch.sum_prod_ntt.1.clone(),
+            });
+        }
+
+        BatchedSumOfHadamardInstance {
+            num_vars,
+            num_sum,
+            vec_sum,
+        }
+    }
+}
+
 impl<F: Field> HadamardProof<F> {
     pub fn compute_subclaim(&self, random_lambda: F, kernel_at_r: F) -> F {
         let mut sum = self
@@ -99,55 +151,172 @@ impl<F: Field> HadamardProof<F> {
     }
 }
 
-impl<F: Field> SumcheckInstance<F> for BatchedHadamardInstance<F> {
-    type Info = BatchedHadamardInfo<F>;
+impl<F: Field + Serialize> SumcheckInstance<F> for BatchedSumOfHadamardInstance<F> {
+    type Info = BatchedSumOfHadamardInfo<F>;
 
     fn info(&self) -> Self::Info {
-        BatchedHadamardInfo {
+        BatchedSumOfHadamardInfo {
             num_vars: self.num_vars,
-            num_batch: self.num_batch,
-            num_products_each: self.vec_batch[0].num_products,
+            num_batch: self.num_sum,
+            num_products_each: self.vec_sum[0].num_products,
             _marker: Default::default(),
         }
     }
+
+    fn num_vars(&self) -> usize {
+        self.num_vars
+    }
 }
 
-impl<F: Field> SumcheckInfo<F> for BatchedHadamardInfo<F> {
+impl<F: Field> SumcheckInfo<F> for BatchedSumOfHadamardInfo<F> {
     fn num_sumchecks(&self) -> usize {
         self.num_batch
     }
     fn sumcheck_num_vars(&self) -> usize {
         self.num_vars
     }
+    fn num_vars(&self) -> usize {
+        self.num_vars
+    }
+}
+
+impl<F: Field> SumcheckPureProof<F> for BatchedHadamardProof<F> {
+    fn from_sumcheck(sumcheck_claim: &SumcheckClaim<F>, proof: Proof<F>) -> Self {
+        BatchedHadamardProof {
+            poly_info: sumcheck_claim.poly_ref().info(),
+            sumcheck_proof: proof,
+            hadamard_at_r: Vec::new(),
+        }
+    }
+
+    fn poly_info(&self) -> &PolynomialInfo {
+        &self.poly_info
+    }
+
+    fn sumcheck_proof(&self) -> &Proof<F> {
+        &self.sumcheck_proof
+    }
+}
+
+impl<F: Field> SumcheckPureProverState<F> for HadamardProverState<F> {
+    fn from_sumcheck(sumcheck_prover_state: prover::ProverState<F>) -> Self {
+        HadamardProverState {
+            point_r: sumcheck_prover_state.randomness,
+        }
+    }
+}
+
+impl<F: Field> SumcheckPureSubclaim<F> for HadamardVerifierSubclaim<F> {
+    fn from_sumcheck(sumcheck_subclaim: SubClaim<F>) -> Self {
+        HadamardVerifierSubclaim {
+            point_r: sumcheck_subclaim.point,
+        }
+    }
 }
 
 impl<F: Field + Serialize> SumcheckPIOP<F> for HadamardPIOP<F> {
-    type Instance = BatchedHadamardInstance<F>;
-    type Info = BatchedHadamardInfo<F>;
+    type Instance = BatchedSumOfHadamardInstance<F>;
+    type Info = BatchedSumOfHadamardInfo<F>;
     type Proof = BatchedHadamardProof<F>;
     type ProverState = HadamardProverState<F>;
     type VerifierSubclaim = HadamardVerifierSubclaim<F>;
-    type FSTranscript = Transcript<F>;
+    // type FSTranscript = Transcript<F>;
 
     fn prover(
-        trans: &mut Self::FSTranscript,
+        trans: &mut Transcript<F>,
         instance: &Self::Instance,
     ) -> (Self::Proof, Self::ProverState) {
         let info = instance.info();
         trans.append_message(b"[Hadamard Statement]", &info);
 
-        let sumcheck_claim = SumcheckClaim::new(info.num_sumchecks());
+        let mut sumcheck_claim = SumcheckClaim::new(info.num_sumchecks());
 
         let lagrange_kernel = Some(&LagrangeKernel::random(trans, instance.num_vars));
-        let randomness_batch = Self::sample_randomness_for_sumcheck(&info, trans);
+        let randomness_batch = info.sample_randomness_for_sumcheck(trans);
         Self::prover_batch_sumcheck(
             instance,
             &mut sumcheck_claim,
             &randomness_batch,
             lagrange_kernel,
         );
+        let (sumcheck_proof, prover_state) = MLSumcheck::prove(trans, sumcheck_claim.poly_ref())
+            .expect("[HadamardIOP] Fail to generate sumcheck proof");
 
-        // let 
+        let hadamard_at_r = instance
+            .vec_sum
+            .iter()
+            .map(|instance| instance.eval_at_point(&prover_state.randomness))
+            .collect::<Vec<_>>();
+
+        let proof = BatchedHadamardProof {
+            poly_info: sumcheck_claim.poly_ref().info(),
+            sumcheck_proof,
+            hadamard_at_r,
+        };
+        let state = HadamardProverState {
+            point_r: prover_state.randomness.clone(),
+        };
+        (proof, state)
+    }
+
+    fn verifier(
+        trans: &mut Transcript<F>,
+        info: &Self::Info,
+        proof: &Self::Proof,
+    ) -> (bool, Self::VerifierSubclaim) {
+        trans.append_message(b"[Hadamard Statement]", &info);
+
+        let mut res = true;
+        let kernel_point = LagrangeKernel::random_point(trans, info.num_vars);
+        let randomness_batch = info.sample_randomness_for_sumcheck(trans);
+
+        let mut sumcheck_subclaim = MLSumcheck::verify(
+            trans,
+            &proof.poly_info,
+            MLSumcheck::extract_sum(&proof.sumcheck_proof),
+            &proof.sumcheck_proof,
+        )
+        .expect("[HadamardIOP - Verifier] Fail to verify the sumcheck");
+
+        let kernel_at_r = eval_identity_function(&kernel_point, &sumcheck_subclaim.point);
+
+        Self::verifier_compute_subclaim(
+            info,
+            proof,
+            &mut sumcheck_subclaim,
+            &randomness_batch,
+            Some(kernel_at_r),
+        );
+
+        res &= sumcheck_subclaim.expected_evaluations.is_zero();
+
+        let subclaim = Self::VerifierSubclaim::from_sumcheck(sumcheck_subclaim);
+        (res, subclaim)
+    }
+
+    fn prover_without_evals(
+        trans: &mut Transcript<F>,
+        instance: &Self::Instance,
+    ) -> (Self::Proof, Self::ProverState) {
+        let info = instance.info();
+        trans.append_message(b"[Hadamard Statement]", &info);
+
+        let mut sumcheck_claim = SumcheckClaim::new(info.num_sumchecks());
+
+        let lagrange_kernel = Some(&LagrangeKernel::random(trans, instance.num_vars));
+        let randomness_batch = info.sample_randomness_for_sumcheck(trans);
+        Self::prover_batch_sumcheck(
+            instance,
+            &mut sumcheck_claim,
+            &randomness_batch,
+            lagrange_kernel,
+        );
+        let (sumcheck_proof, prover_state) = MLSumcheck::prove(trans, sumcheck_claim.poly_ref())
+            .expect("[HadamardIOP] Fail to generate sumcheck proof");
+
+        let proof = Self::Proof::from_sumcheck(&sumcheck_claim, sumcheck_proof);
+        let state = Self::ProverState::from_sumcheck(prover_state);
+        (proof, state)
     }
 
     fn prover_batch_sumcheck(
@@ -159,7 +328,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for HadamardPIOP<F> {
         assert!(lagrange_kernel.is_some());
         let kernel = lagrange_kernel.unwrap();
 
-        for (instance, &r) in instance.vec_batch.iter().zip(randomness.iter()) {
+        for (instance, &r) in instance.vec_sum.iter().zip(randomness.iter()) {
             instance.add_into_sumcheck(claim, r, kernel);
         }
         None
@@ -168,7 +337,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for HadamardPIOP<F> {
     fn verifier_compute_subclaim(
         info: &Self::Info,
         proof: &Self::Proof,
-        subclaim: &mut sumcheck::verifier::SubClaim<F>,
+        subclaim: &mut SubClaim<F>,
         randomness: &[F],
         kernel_at_r: Option<F>,
     ) {

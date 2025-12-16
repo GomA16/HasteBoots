@@ -6,7 +6,8 @@ use sumcheck::{MLSumcheck, Proof, verifier::SubClaim};
 use trace::NTTTraceMLE;
 
 use crate::{
-    LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance, SumcheckPIOP,
+    LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance, SumcheckPIOP, SumcheckPureProof,
+    SumcheckPureProverState, SumcheckPureSubclaim,
     ntt::{
         NTTFourierEvalIOP, NTTFourierEvalInfo, fourier_eval::NTTFourierProof,
         ntt_eval::init_fourier_table,
@@ -97,7 +98,7 @@ impl<F: Field> NTTMatrixEvalInstance<F> {
     }
 }
 
-impl<F: Field> SumcheckInstance<F> for NTTMatrixEvalInstance<F> {
+impl<F: Field + Serialize> SumcheckInstance<F> for NTTMatrixEvalInstance<F> {
     type Info = NTTMatrixEvalInfo<F>;
 
     fn info(&self) -> Self::Info {
@@ -109,6 +110,10 @@ impl<F: Field> SumcheckInstance<F> for NTTMatrixEvalInstance<F> {
             evaluations_at_u_v: self.evaluations_at_u_v,
         }
     }
+
+    fn num_vars(&self) -> usize {
+        self.log_coeff_count
+    }
 }
 
 impl<F: Field> SumcheckInfo<F> for NTTMatrixEvalInfo<F> {
@@ -119,6 +124,36 @@ impl<F: Field> SumcheckInfo<F> for NTTMatrixEvalInfo<F> {
     fn num_sumchecks(&self) -> usize {
         1
     }
+
+    fn num_vars(&self) -> usize {
+        self.log_coeff_count
+    }
+}
+
+impl<F: Field> SumcheckPureProof<F> for NTTMatrixEvalProof<F> {
+    fn from_sumcheck(_sumcheck_claim: &SumcheckClaim<F>, _proof: Proof<F>) -> Self {
+        unimplemented!("from_sumcheck is not implemented for NTTMatrixEvalProof");
+    }
+
+    fn poly_info(&self) -> &PolynomialInfo {
+        &self.poly_info
+    }
+
+    fn sumcheck_proof(&self) -> &Proof<F> {
+        &self.sumcheck_proof
+    }
+}
+
+impl<F: Field> SumcheckPureProverState<F> for NTTMatrixEvalProverState<F> {
+    fn from_sumcheck(_sumcheck_prover_state: sumcheck::prover::ProverState<F>) -> Self {
+        unimplemented!("from_sumcheck is not implemented for NTTMatrixEvalProverState");
+    }
+}
+
+impl<F: Field> SumcheckPureSubclaim<F> for NTTMatrixEvalVerifierSubclaim<F> {
+    fn from_sumcheck(_sumcheck_subclaim: SubClaim<F>) -> Self {
+        unimplemented!("from_sumcheck is not implemented for NTTMatrixEvalVerifierSubclaim");
+    }
 }
 
 impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
@@ -127,10 +162,10 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
     type Proof = NTTMatrixEvalProof<F>;
     type ProverState = NTTMatrixEvalProverState<F>;
     type VerifierSubclaim = NTTMatrixEvalVerifierSubclaim<F>;
-    type FSTranscript = Transcript<F>;
+    // type FSTranscript = Transcript<F>;
 
     fn prover(
-        trans: &mut Self::FSTranscript,
+        trans: &mut Transcript<F>,
         instance: &Self::Instance,
     ) -> (Self::Proof, Self::ProverState) {
         let info = instance.info();
@@ -173,14 +208,14 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
     }
 
     fn prover_without_evals(
-        trans: &mut Self::FSTranscript,
-        instance: &Self::Instance,
+        _trans: &mut Transcript<F>,
+        _instance: &Self::Instance,
     ) -> (Self::Proof, Self::ProverState) {
         unimplemented!("prover_wo_evals is not implemented for NTTMatrixEvalIOP");
     }
 
     fn verifier(
-        trans: &mut Self::FSTranscript,
+        trans: &mut Transcript<F>,
         info: &Self::Info,
         proof: &Self::Proof,
     ) -> (bool, Self::VerifierSubclaim) {
@@ -245,7 +280,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
     }
 
     fn verifier_compute_subclaim(
-        info: &Self::Info,
+        _info: &Self::Info,
         proof: &Self::Proof,
         subclaim: &mut SubClaim<F>,
         randomness: &[F],

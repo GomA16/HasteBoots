@@ -1,6 +1,7 @@
 use algebra::{DenseMultilinearExtension, Field, PolynomialInfo};
 use helper::{FiatShamirTranscript, Transcript};
 use serde::Serialize;
+use serde::Serializer;
 use std::rc::Rc;
 use sumcheck::{MLSumcheck, Proof, verifier::SubClaim};
 use trace::NTTTraceMLE;
@@ -10,6 +11,9 @@ use crate::SumcheckClaim;
 use crate::SumcheckInfo;
 use crate::SumcheckInstance;
 use crate::SumcheckPIOP;
+use crate::SumcheckPureProof;
+use crate::SumcheckPureProverState;
+use crate::SumcheckPureSubclaim;
 use crate::ntt::fourier_eval::NTTFourierProof;
 use crate::ntt::{NTTFourierEvalIOP, NTTFourierEvalInfo};
 
@@ -75,7 +79,7 @@ impl<F: Field> NTTEvalInstance<F> {
     }
 }
 
-impl<F: Field> SumcheckInstance<F> for NTTEvalInstance<F> {
+impl<F: Field + Serialize> SumcheckInstance<F> for NTTEvalInstance<F> {
     type Info = NTTEvalInfo<F>;
 
     fn info(&self) -> Self::Info {
@@ -85,6 +89,10 @@ impl<F: Field> SumcheckInstance<F> for NTTEvalInstance<F> {
             point_u: self.point_u.clone(),
             evaluations_at_u: self.evaluations_at_u,
         }
+    }
+
+    fn num_vars(&self) -> usize {
+        self.log_coeff_count
     }
 }
 
@@ -96,6 +104,36 @@ impl<F: Field> SumcheckInfo<F> for NTTEvalInfo<F> {
     fn sumcheck_num_vars(&self) -> usize {
         self.log_coeff_count
     }
+
+    fn num_vars(&self) -> usize {
+        self.log_coeff_count
+    }
+}
+
+impl<F: Field> SumcheckPureProof<F> for NTTEvalProof<F> {
+    fn from_sumcheck(_sumcheck_claim: &SumcheckClaim<F>, _proof: Proof<F>) -> Self {
+        unimplemented!("from_sumcheck is not implemented for NTTEvalProof");
+    }
+
+    fn poly_info(&self) -> &PolynomialInfo {
+        &self.poly_info
+    }
+
+    fn sumcheck_proof(&self) -> &Proof<F> {
+        &self.sumcheck_proof
+    }
+}
+
+impl<F: Field> SumcheckPureProverState<F> for NTTEvalProverState<F> {
+    fn from_sumcheck(_sumcheck_prover_state: sumcheck::prover::ProverState<F>) -> Self {
+        unimplemented!("from_sumcheck is not implemented for NTTEvalProverState");
+    }
+}
+
+impl<F: Field> SumcheckPureSubclaim<F> for NTTEvalVerifierSubclaim<F> {
+    fn from_sumcheck(_sumcheck_subclaim: SubClaim<F>) -> Self {
+        unimplemented!("from_sumcheck is not implemented for NTTEvalVerifierSubclaim");
+    }
 }
 
 impl<F: Field + Serialize> SumcheckPIOP<F> for NTTEvalIOP<F> {
@@ -104,10 +142,10 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTEvalIOP<F> {
     type Proof = NTTEvalProof<F>;
     type ProverState = NTTEvalProverState<F>;
     type VerifierSubclaim = NTTEvalVerifierSubclaim<F>;
-    type FSTranscript = Transcript<F>;
+    // type FSTranscript = Transcript<F>;
 
     fn prover(
-        trans: &mut Self::FSTranscript,
+        trans: &mut Transcript<F>,
         instance: &Self::Instance,
     ) -> (Self::Proof, Self::ProverState) {
         // let statement = instance.info();
@@ -148,14 +186,14 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTEvalIOP<F> {
     }
 
     fn prover_without_evals(
-        trans: &mut Self::FSTranscript,
-        instance: &Self::Instance,
+        _trans: &mut Transcript<F>,
+        _instance: &Self::Instance,
     ) -> (Self::Proof, Self::ProverState) {
         unimplemented!("prover_wo_evals is not implemented for NTTEvalIOP");
     }
 
     fn verifier(
-        trans: &mut Self::FSTranscript,
+        trans: &mut Transcript<F>,
         info: &Self::Info,
         proof: &Self::Proof,
     ) -> (bool, Self::VerifierSubclaim) {
