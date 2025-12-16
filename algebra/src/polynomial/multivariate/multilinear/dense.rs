@@ -43,6 +43,18 @@ impl<F: Field> DenseMultilinearExtension<F> {
         Self::from_evaluations_vec(num_vars, vec![F::zero(); 1 << num_vars])
     }
 
+    /// Construct a random mle
+    #[inline]
+    pub fn random<R: rand::Rng + rand::CryptoRng>(num_vars: usize, rng: &mut R) -> Self {
+        Self {
+            num_vars,
+            evaluations: FieldUniformSampler::new()
+                .sample_iter(rng)
+                .take(1 << num_vars)
+                .collect(),
+        }
+    }
+
     /// Returns the number of variables
     #[inline]
     pub fn num_vars(&self) -> usize {

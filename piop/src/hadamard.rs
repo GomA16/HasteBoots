@@ -2,6 +2,7 @@ use algebra::DenseMultilinearExtension;
 use algebra::Field;
 use algebra::PolynomialInfo;
 use bincode::de;
+use core::num;
 use helper::FiatShamirTranscript;
 use helper::Transcript;
 use helper::utils::eval_identity_function;
@@ -80,7 +81,8 @@ impl<F: Field> SumOfHadamardInstance<F> {
         kernel: &LagrangeKernel<F>,
     ) {
         for (a, b) in &self.products {
-            let prod = vec![a.clone(), b.clone(), kernel.eq_at_point.clone()];
+            let prod: Vec<Rc<DenseMultilinearExtension<F>>> =
+                vec![a.clone(), b.clone(), kernel.eq_at_point.clone()];
             claim.poly_mut().add_product(prod, random_lambda);
         }
         let prod = vec![self.result.clone(), kernel.eq_at_point.clone()];
@@ -95,6 +97,39 @@ impl<F: Field> SumOfHadamardInstance<F> {
         HadamardProof {
             products_at_r,
             result_at_r: self.result.evaluate(point_r),
+        }
+    }
+
+    pub fn random<R: rand::Rng + rand::CryptoRng>(
+        num_vars: usize,
+        num_prods: usize,
+        rng: &mut R,
+    ) -> Self {
+        let mut result = vec![F::zero(); 1 << num_vars];
+        let mut add_assign_ab = |a: &DenseMultilinearExtension<F>,
+                                 b: &DenseMultilinearExtension<F>| {
+            result
+                .iter_mut()
+                .zip(a.iter().zip(b.iter()))
+                .for_each(|(res, (a, b))| {
+                    *res += *a * *b;
+                });
+        };
+        let products = (0..num_prods)
+            .map(|_| {
+                let a = DenseMultilinearExtension::random(num_vars, rng);
+                let b = DenseMultilinearExtension::random(num_vars, rng);
+                add_assign_ab(&a, &b);
+                (Rc::new(a), Rc::new(b))
+            })
+            .collect::<Vec<_>>();
+        SumOfHadamardInstance {
+            num_vars,
+            num_products: num_prods,
+            products,
+            result: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
+                num_vars, result,
+            )),
         }
     }
 }
@@ -132,6 +167,23 @@ impl<F: Field> BatchedSumOfHadamardInstance<F> {
             });
         }
 
+        BatchedSumOfHadamardInstance {
+            num_vars,
+            num_sum,
+            vec_sum,
+        }
+    }
+
+    fn random<R: rand::Rng + rand::CryptoRng>(
+        num_sum: usize,
+        num_vars: usize,
+        num_prods: usize,
+        rng: &mut R,
+    ) -> Self {
+        let mut vec_sum = Vec::with_capacity(num_sum);
+        for _ in 0..num_sum {
+            vec_sum.push(SumOfHadamardInstance::random(num_vars, num_prods, rng));
+        }
         BatchedSumOfHadamardInstance {
             num_vars,
             num_sum,
@@ -189,11 +241,11 @@ impl<F: Field> SumcheckPureProof<F> for BatchedHadamardProof<F> {
         }
     }
 
-    fn poly_info(&self) -> &PolynomialInfo {
+    fn get_poly_info(&self) -> &PolynomialInfo {
         &self.poly_info
     }
 
-    fn sumcheck_proof(&self) -> &Proof<F> {
+    fn get_sumcheck_proof(&self) -> &Proof<F> {
         &self.sumcheck_proof
     }
 }
@@ -227,9 +279,9 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for HadamardPIOP<F> {
         instance: &Self::Instance,
     ) -> (Self::Proof, Self::ProverState) {
         let info = instance.info();
-        trans.append_message(b"[Hadamard Statement]", &info);
+        trans.append_message(b"[Statement]", &info);
 
-        let mut sumcheck_claim = SumcheckClaim::new(info.num_sumchecks());
+        let mut sumcheck_claim = SumcheckClaim::new(info.num_vars());
 
         let lagrange_kernel = Some(&LagrangeKernel::random(trans, instance.num_vars));
         let randomness_batch = info.sample_randomness_for_sumcheck(trans);
@@ -256,66 +308,6 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for HadamardPIOP<F> {
         let state = HadamardProverState {
             point_r: prover_state.randomness.clone(),
         };
-        (proof, state)
-    }
-
-    fn verifier(
-        trans: &mut Transcript<F>,
-        info: &Self::Info,
-        proof: &Self::Proof,
-    ) -> (bool, Self::VerifierSubclaim) {
-        trans.append_message(b"[Hadamard Statement]", &info);
-
-        let mut res = true;
-        let kernel_point = LagrangeKernel::random_point(trans, info.num_vars);
-        let randomness_batch = info.sample_randomness_for_sumcheck(trans);
-
-        let mut sumcheck_subclaim = MLSumcheck::verify(
-            trans,
-            &proof.poly_info,
-            MLSumcheck::extract_sum(&proof.sumcheck_proof),
-            &proof.sumcheck_proof,
-        )
-        .expect("[HadamardIOP - Verifier] Fail to verify the sumcheck");
-
-        let kernel_at_r = eval_identity_function(&kernel_point, &sumcheck_subclaim.point);
-
-        Self::verifier_compute_subclaim(
-            info,
-            proof,
-            &mut sumcheck_subclaim,
-            &randomness_batch,
-            Some(kernel_at_r),
-        );
-
-        res &= sumcheck_subclaim.expected_evaluations.is_zero();
-
-        let subclaim = Self::VerifierSubclaim::from_sumcheck(sumcheck_subclaim);
-        (res, subclaim)
-    }
-
-    fn prover_without_evals(
-        trans: &mut Transcript<F>,
-        instance: &Self::Instance,
-    ) -> (Self::Proof, Self::ProverState) {
-        let info = instance.info();
-        trans.append_message(b"[Hadamard Statement]", &info);
-
-        let mut sumcheck_claim = SumcheckClaim::new(info.num_sumchecks());
-
-        let lagrange_kernel = Some(&LagrangeKernel::random(trans, instance.num_vars));
-        let randomness_batch = info.sample_randomness_for_sumcheck(trans);
-        Self::prover_batch_sumcheck(
-            instance,
-            &mut sumcheck_claim,
-            &randomness_batch,
-            lagrange_kernel,
-        );
-        let (sumcheck_proof, prover_state) = MLSumcheck::prove(trans, sumcheck_claim.poly_ref())
-            .expect("[HadamardIOP] Fail to generate sumcheck proof");
-
-        let proof = Self::Proof::from_sumcheck(&sumcheck_claim, sumcheck_proof);
-        let state = Self::ProverState::from_sumcheck(prover_state);
         (proof, state)
     }
 
@@ -346,5 +338,37 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for HadamardPIOP<F> {
         for (proof, &r) in proof.hadamard_at_r.iter().zip(randomness.iter()) {
             subclaim.expected_evaluations -= proof.compute_subclaim(r, kernel_at_r);
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::{SumcheckInstance, SumcheckPIOP};
+    use algebra::derive::{DecomposableField, FheField, Field, NTT, Prime};
+    use helper::Transcript;
+
+    #[derive(Field, DecomposableField, FheField, Prime, NTT)]
+    #[modulus = 132120577]
+    pub struct Fp32(u32);
+    // field type
+    type FF = Fp32;
+
+    #[test]
+    fn test_hadamard_piop() {
+        let mut rng = &mut rand::rng();
+        let num_vars = 10;
+        let num_products = 4;
+        let num_sum = 2;
+
+        let instance =
+            BatchedSumOfHadamardInstance::<FF>::random(num_sum, num_vars, num_products, &mut rng);
+        let info = instance.info();
+
+        let mut prover_transcript = Transcript::<FF>::new();
+        let (proof, _) = HadamardPIOP::<FF>::prover(&mut prover_transcript, &instance);
+        let mut verifier_transcript = Transcript::<FF>::new();
+        let (res, _) = HadamardPIOP::<FF>::verifier(&mut verifier_transcript, &info, &proof);
+        assert!(res);
     }
 }

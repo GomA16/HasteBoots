@@ -70,8 +70,8 @@ pub trait SumcheckInfo<F: Field> {
 
 pub trait SumcheckPureProof<F: Field> {
     fn from_sumcheck(sumcheck_claim: &SumcheckClaim<F>, proof: Proof<F>) -> Self;
-    fn poly_info(&self) -> &PolynomialInfo;
-    fn sumcheck_proof(&self) -> &Proof<F>;
+    fn get_poly_info(&self) -> &PolynomialInfo;
+    fn get_sumcheck_proof(&self) -> &Proof<F>;
 }
 
 pub trait SumcheckPureSubclaim<F: Field> {
@@ -113,9 +113,9 @@ pub trait SumcheckPIOP<F: Field + Serialize> {
 
         let mut sumcheck_subclaim = MLSumcheck::verify(
             trans,
-            proof.poly_info(),
-            MLSumcheck::extract_sum(&proof.sumcheck_proof()),
-            &proof.sumcheck_proof(),
+            proof.get_poly_info(),
+            MLSumcheck::extract_sum(&proof.get_sumcheck_proof()),
+            &proof.get_sumcheck_proof(),
         )
         .expect("[SumcheckIOP - Verifier] Fail to verify the sumcheck");
 

@@ -221,11 +221,11 @@ impl<F: Field> SumcheckPureProof<F> for LogUpProof<F> {
         }
     }
 
-    fn poly_info(&self) -> &PolynomialInfo {
+    fn get_poly_info(&self) -> &PolynomialInfo {
         &self.poly_info
     }
 
-    fn sumcheck_proof(&self) -> &Proof<F> {
+    fn get_sumcheck_proof(&self) -> &Proof<F> {
         &self.sumcheck_proof
     }
 }
