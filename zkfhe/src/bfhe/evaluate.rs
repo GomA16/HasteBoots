@@ -56,13 +56,8 @@ impl<Q: NTTField> EvaluationKey<Q> {
             .next_power_of_two()
             .trailing_zeros() as usize;
         let mut acc_trace = AccTrace::<Q>::new(log_coeff_count, log_num_round);
-        let mut hadmard_trace_a = BatchedHadamardTrace::<Q>::new(
-            parameters.blind_rotation_basis().decompose_len(),
-            log_coeff_count,
-            log_num_round,
-        );
-        let mut hadmard_trace_b = BatchedHadamardTrace::<Q>::new(
-            parameters.blind_rotation_basis().decompose_len(),
+        let mut hadmard_trace = BatchedHadamardTrace::<Q>::new(
+            parameters.blind_rotation_basis().decompose_len() << 1,
             log_coeff_count,
             log_num_round,
         );
@@ -72,8 +67,7 @@ impl<Q: NTTField> EvaluationKey<Q> {
             &c_prime,
             parameters.blind_rotation_basis(),
             &mut acc_trace,
-            &mut hadmard_trace_a,
-            &mut hadmard_trace_b,
+            &mut hadmard_trace,
         );
 
         acc.b_mut()[0] += Q::new(Q::MODULUS_VALUE >> 3u32);
@@ -85,7 +79,7 @@ impl<Q: NTTField> EvaluationKey<Q> {
 
         let output_lwe = ksk.key_switch_for_rlwe(acc);
 
-        (output_lwe, hadmard_trace_a)
+        (output_lwe, hadmard_trace)
     }
 }
 

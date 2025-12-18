@@ -34,7 +34,6 @@ where
     S: Clone,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
-    // pub code_spec: S,
     pub blk_size: usize,
     pub pcs_params: PCS::Parameters,
     pub pcs_params_ef: PCS::Parameters,
@@ -47,7 +46,7 @@ where
     S: Clone,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
-    pub fn new(code_spec: S, blk_size: usize, trace: &LookupTrace<F>) -> Self {
+    pub fn new(code_spec: S, blk_size: usize, trace: &LookupTraceMLE<F>) -> Self {
         Self {
             // code_spec,
             blk_size,
@@ -136,11 +135,11 @@ where
     pub fn prove(
         &self,
         trans: &mut Transcript<EF>,
-        trace: LookupTrace<F>,
+        trace_mle: LookupTraceMLE<F>,
         params: &mut LogUpParams<F, EF, S, PCS>,
         // oracle: &EvalOracle<F, EF, S, PCS>,
     ) -> LogUpSnarksProof<F, EF, S, PCS> {
-        let trace_mle: LookupTraceMLE<F> = trace.into();
+        // let trace_mle: LookupTraceMLE<F> = trace.into();
         let witness: LookupWitness<F> = trace_mle.into();
 
         // Commit to the trace polynomial
@@ -308,6 +307,7 @@ mod test {
         let blk_size = 2;
 
         let lookup_trace = LookupTrace::<FF>::random(&mut rng, num_vars, num_vec, range);
+        let trace: LookupTraceMLE<_> = lookup_trace.into();
         let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
         let snarks = LogUpSnarks::<
             FF,
@@ -315,10 +315,10 @@ mod test {
             ExpanderCodeSpec,
             BrakedownPCS<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>,
         >::default();
-        let params = &mut LogUpParams::new(code_spec, blk_size, &lookup_trace);
+        let params = &mut LogUpParams::new(code_spec, blk_size, &trace);
 
         let prover_trans = &mut Transcript::<EF>::default();
-        let proof = snarks.prove(prover_trans, lookup_trace, params);
+        let proof = snarks.prove(prover_trans, trace, params);
 
         let verifier_trans = &mut Transcript::<EF>::default();
         let res = snarks.verifier(verifier_trans, &proof);

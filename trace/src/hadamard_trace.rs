@@ -13,6 +13,7 @@ pub struct HadamardTrace<F: NTTField> {
     pub bit_poly: Vec<F>,
     pub bit_ntt: Vec<F>,
     pub key_ntt: (Vec<F>, Vec<F>),
+    pub key_poly: (Vec<F>, Vec<F>),
 }
 
 pub struct BatchedHadamardTrace<F: NTTField> {
@@ -22,6 +23,7 @@ pub struct BatchedHadamardTrace<F: NTTField> {
     pub vec_trace: Vec<HadamardTrace<F>>,
     // sum_prod_ntt = \sum bit_ntt * key_ntt
     pub sum_prod_ntt: (Vec<F>, Vec<F>),
+    pub sum_prod_poly: (Vec<F>, Vec<F>),
 }
 
 #[derive(Clone)]
@@ -156,6 +158,10 @@ impl<F: NTTField> HadamardTrace<F> {
                 Vec::with_capacity(1 << (log_coeff_count + log_num_poly)),
                 Vec::with_capacity(1 << (log_coeff_count + log_num_poly)),
             ),
+            key_poly: (
+                Vec::with_capacity(1 << (log_coeff_count + log_num_poly)),
+                Vec::with_capacity(1 << (log_coeff_count + log_num_poly)),
+            ),
         }
     }
 
@@ -167,9 +173,15 @@ impl<F: NTTField> HadamardTrace<F> {
         self.bit_ntt.extend_from_slice(bit_ntt);
     }
 
-    pub fn append_key_ntt(&mut self, key_poly: (&[F], &[F])) {
-        self.key_ntt.0.extend_from_slice(key_poly.0);
-        self.key_ntt.1.extend_from_slice(key_poly.1);
+    pub fn append_key_ntt(&mut self, key_ntt: (&[F], &[F])) {
+        self.key_ntt.0.extend_from_slice(key_ntt.0);
+        self.key_ntt.1.extend_from_slice(key_ntt.1);
+        let ntt_table = F::get_ntt_table(self.log_coeff_count as u32).unwrap();
+        let mut key_poly = self.key_poly.clone();
+        ntt_table.inverse_transform_slice(key_poly.0.as_mut_slice());
+        ntt_table.inverse_transform_slice(key_poly.1.as_mut_slice());
+        self.key_poly.0.extend_from_slice(key_poly.0.as_slice());
+        self.key_poly.1.extend_from_slice(key_poly.1.as_slice());
     }
 
     pub fn export_mles(
@@ -215,6 +227,10 @@ impl<F: NTTField> BatchedHadamardTrace<F> {
                 Vec::with_capacity(1 << (log_coeff_count + log_num_poly)),
                 Vec::with_capacity(1 << (log_coeff_count + log_num_poly)),
             ),
+            sum_prod_poly: (
+                Vec::with_capacity(1 << (log_coeff_count + log_num_poly)),
+                Vec::with_capacity(1 << (log_coeff_count + log_num_poly)),
+            ),
         }
     }
 
@@ -222,9 +238,14 @@ impl<F: NTTField> BatchedHadamardTrace<F> {
         &mut self.vec_trace[trace_idx]
     }
 
-    pub fn add_sum_prod(&mut self, sum_prod: (&[F], &[F])) {
+    pub fn add_sum_prod_ntt(&mut self, sum_prod: (&[F], &[F])) {
         self.sum_prod_ntt.0.extend_from_slice(sum_prod.0);
         self.sum_prod_ntt.1.extend_from_slice(sum_prod.1);
+    }
+
+    pub fn add_sum_prod_poly(&mut self, sum_prod: (&[F], &[F])) {
+        self.sum_prod_poly.0.extend_from_slice(sum_prod.0);
+        self.sum_prod_poly.1.extend_from_slice(sum_prod.1);
     }
 }
 

@@ -576,7 +576,6 @@ impl<F: NTTField> RLWE<F> {
         median: &mut NTTRLWESpace<F>,
         // Trace
         trace_a: &mut BatchedHadamardTrace<F>,
-        trace_b: &mut BatchedHadamardTrace<F>,
     ) {
         ntt_rgsw.c_neg_s_m().mul_polynomial_inplace_fast_w_traces(
             self.a(),
@@ -591,9 +590,10 @@ impl<F: NTTField> RLWE<F> {
             self.b(),
             decompose_space,
             polynomial_space,
-            trace_b,
+            trace_a,
         );
 
+        trace_a.add_sum_prod_ntt(median.a_b_slice());
         median.inverse_transform_inplace(self)
     }
 
@@ -1042,10 +1042,12 @@ impl<F: NTTField> NTTRLWE<F> {
 
         polynomial_space.copy_from(polynomial);
 
+        let key_len = basis.decompose_len();
+
         gadget_rlwe.iter().enumerate().for_each(|(i, g)| {
             polynomial_space.decompose_lsb_bits_inplace(basis, decompose_space.as_mut_slice());
 
-            let trace = trace.get_trace_mul(i);
+            let trace = trace.get_trace_mul(i + key_len);
             trace.append_bit_poly(decompose_space.as_slice());
 
             ntt_table.transform_slice(decompose_space.as_mut_slice());

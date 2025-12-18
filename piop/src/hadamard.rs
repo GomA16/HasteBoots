@@ -1,7 +1,10 @@
 use algebra::DenseMultilinearExtension;
 use algebra::Field;
+use algebra::NTTField;
 use algebra::PolynomialInfo;
 use bincode::de;
+use trace::PBSTrace;
+use trace::PBSTraceMLE;
 use core::num;
 use helper::FiatShamirTranscript;
 use helper::Transcript;
@@ -134,18 +137,17 @@ impl<F: Field> SumOfHadamardInstance<F> {
     }
 }
 
-impl<F: Field> BatchedSumOfHadamardInstance<F> {
-    pub fn from(batches: &[BatchedHadamardTraceMLE<F>]) -> Self {
-        assert!(!batches.is_empty());
-        let num_vars = batches[0].log_coeff_count + batches[0].log_coeff_count;
-        let num_sum = batches.len() * 2;
+impl<F: NTTField> BatchedSumOfHadamardInstance<F> {
+    pub fn from(pbs_trace: PBSTraceMLE<F>) -> Self {
+        let num_vars = pbs_trace.params.log_coeff_count + pbs_trace.params.log_num_round;
+        let num_sum = 4;
         let mut vec_sum = Vec::with_capacity(num_sum);
-        for batch in batches.iter() {
-            debug_assert_eq!(batch.log_coeff_count + batch.log_coeff_count, num_vars);
+
+        let mut add_into_batch = |batch: &BatchedHadamardTraceMLE<F>| {
             let products = batch
                 .vec_trace
                 .iter()
-                .map(|trace| (trace.bit_poly.clone(), trace.key_ntt.0.clone()))
+                .map(|trace| (trace.bit_ntt.clone(), trace.key_ntt.0.clone()))
                 .collect::<Vec<_>>();
             vec_sum.push(SumOfHadamardInstance {
                 num_vars,
@@ -157,7 +159,7 @@ impl<F: Field> BatchedSumOfHadamardInstance<F> {
             let products = batch
                 .vec_trace
                 .iter()
-                .map(|trace| (trace.bit_poly.clone(), trace.key_ntt.1.clone()))
+                .map(|trace| (trace.bit_ntt.clone(), trace.key_ntt.1.clone()))
                 .collect::<Vec<_>>();
             vec_sum.push(SumOfHadamardInstance {
                 num_vars,
@@ -165,7 +167,10 @@ impl<F: Field> BatchedSumOfHadamardInstance<F> {
                 products,
                 result: batch.sum_prod_ntt.1.clone(),
             });
-        }
+        };
+
+        add_into_batch(&pbs_trace.hadamard_trace_a);
+        add_into_batch(&pbs_trace.hadamard_trace_b);
 
         BatchedSumOfHadamardInstance {
             num_vars,

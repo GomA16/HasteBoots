@@ -75,8 +75,7 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
         lwe: &LWE<<F as Field>::Value>,
         // Trace
         acc_trace: &mut AccTrace<F>,
-        hadmard_trace_a: &mut BatchedHadamardTrace<F>,
-        hadmard_trace_b: &mut BatchedHadamardTrace<F>,
+        hadmard_trace: &mut BatchedHadamardTrace<F>,
     ) -> RLWE<F> {
         println!("Binary Blind Rotation with Trace");
         let rlwe_dimension = lut.coeff_count();
@@ -124,9 +123,9 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
                     decompose_space,
                     polynomial_space,
                     ntt_rlwe_space,
-                    hadmard_trace_a,
-                    hadmard_trace_b,
+                    hadmard_trace,
                 );
+                hadmard_trace.add_sum_prod_poly(external_product.a_b_slice());
 
                 // ACC = ACC + (X^{a_i} - 1) * ACC * RGSW(s_i)
                 acc.add_assign_element_wise(external_product);

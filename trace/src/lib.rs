@@ -6,9 +6,6 @@ mod lookup_trace;
 mod ntt_trace;
 mod pbs_trace;
 
-// pub use hadamard_prod_trace::{
-//     HadamardProdTrace, HadamardProdTraceMLE, HadamardProdsTrace,
-// };
 pub use acc_trace::{AccTrace, AccTraceMLE};
 pub use hadamard_trace::{
     BatchedHadamardTrace, BatchedHadamardTraceMLE, HadamardTrace, HadamardTraceMLE,
@@ -17,6 +14,7 @@ pub use lookup_trace::normal_table::{
     LookupTrace, LookupTraceMLE, LookupWitness, LookupWitnessHelper,
 };
 pub use ntt_trace::{NTTTrace, NTTTraceInfo, NTTTraceMLE};
+pub use pbs_trace::{PBSTrace, PBSTraceMLE};
 
 pub trait ConvertToEF<F: Field, EF: AbstractExtensionField<F>> {
     type Output;
@@ -61,9 +59,6 @@ pub trait PackableTrace<F: Field> {
 
         let mut packed_values = self.pack_to_vec();
         packed_values.extend(vec![F::zero(); num_zeros]);
-        // let mut packed_values = Vec::with_capacity(1 << new_nvs);
-        // packed_values.extend(self.pack_to_vec());
-        // packed_values.extend(vec![F::zero(); num_zeros]);
         DenseMultilinearExtension::from_evaluations_vec(new_nvs, packed_values)
     }
 }

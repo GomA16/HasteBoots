@@ -71,17 +71,6 @@ impl<F: Field> LookupTrace<F> {
             range,
         }
     }
-
-    pub fn witness_num_vars(&self) -> usize {
-        let num_oracles = self.vec_input.len() + 2;
-        self.num_vars + num_oracles.next_power_of_two().trailing_zeros() as usize
-    }
-
-    pub fn helper_num_vars(&self, blk_size: usize) -> usize {
-        let total = 1 + self.vec_input.len();
-        let num_blks = (total + blk_size - 1) / blk_size;
-        self.num_vars + num_blks.next_power_of_two().trailing_zeros() as usize
-    }
 }
 
 impl<F: Field> From<LookupTrace<F>> for LookupTraceMLE<F> {
@@ -187,6 +176,19 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for LookupTrace
                 .map(|input| Rc::new(input.to_ef()))
                 .collect(),
         }
+    }
+}
+
+impl<F: Field> LookupTraceMLE<F> {
+    pub fn witness_num_vars(&self) -> usize {
+        let num_oracles = self.vec_input.len() + 2;
+        self.num_vars + num_oracles.next_power_of_two().trailing_zeros() as usize
+    }
+
+    pub fn helper_num_vars(&self, blk_size: usize) -> usize {
+        let total = 1 + self.vec_input.len();
+        let num_blks = (total + blk_size - 1) / blk_size;
+        self.num_vars + num_blks.next_power_of_two().trailing_zeros() as usize
     }
 }
 

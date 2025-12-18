@@ -454,8 +454,6 @@ impl<F: NTTField> NTTGadgetRLWE<F> {
             destination.add_ntt_rlwe_mul_ntt_polynomial_assign_fast(g_rlwe, decompose_space);
             trace.append_key_ntt(g_rlwe.a_b_slice());
         });
-
-        trace.add_sum_prod(destination.a_b_slice());
     }
 
     /// Perform `destination = self + rhs * ntt_polynomial`, and store the result into destination.
