@@ -1,4 +1,4 @@
-use crate::{AccTrace, AccTraceMLE, BatchedHadamardTrace, BatchedHadamardTraceMLE, HadamardTrace};
+use crate::{AccTrace, AccTraceMLE, SumHadamardTrace, SumHadamardTraceMLE, HadamardTrace};
 use crate::{LookupTraceMLE, LookupWitnessHelper};
 use algebra::{Field, NTTField};
 use std::{iter::chain, rc::Rc};
@@ -20,15 +20,15 @@ pub struct PBSParameters {
 
 pub struct PBSTrace<F: NTTField> {
     pub acc_trace: AccTrace<F>,
-    pub hadamard_trace_a: BatchedHadamardTrace<F>,
-    pub hadamard_trace_b: BatchedHadamardTrace<F>,
+    pub hadamard_trace_a: SumHadamardTrace<F>,
+    pub hadamard_trace_b: SumHadamardTrace<F>,
     pub params: PBSParameters,
 }
 
 pub struct PBSTraceMLE<F: NTTField> {
     pub acc_trace: AccTraceMLE<F>,
-    pub hadamard_trace_a: BatchedHadamardTraceMLE<F>,
-    pub hadamard_trace_b: BatchedHadamardTraceMLE<F>,
+    pub hadamard_trace_a: SumHadamardTraceMLE<F>,
+    pub hadamard_trace_b: SumHadamardTraceMLE<F>,
     pub params: PBSParameters,
 }
 
@@ -51,8 +51,8 @@ impl<F: NTTField> From<PBSTrace<F>> for PBSTraceMLE<F> {
     fn from(trace: PBSTrace<F>) -> Self {
         Self {
             acc_trace: AccTraceMLE::from(trace.acc_trace),
-            hadamard_trace_a: BatchedHadamardTraceMLE::from(trace.hadamard_trace_a),
-            hadamard_trace_b: BatchedHadamardTraceMLE::from(trace.hadamard_trace_b),
+            hadamard_trace_a: SumHadamardTraceMLE::from(trace.hadamard_trace_a),
+            hadamard_trace_b: SumHadamardTraceMLE::from(trace.hadamard_trace_b),
             params: trace.params,
         }
     }

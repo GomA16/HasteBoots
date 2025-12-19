@@ -106,7 +106,7 @@ where
 {
     pub fn commit_witness(
         &self,
-        params: &mut LogUpParams<F, EF, S, PCS>,
+        params: &LogUpParams<F, EF, S, PCS>,
         witness: &LookupWitness<F>,
     ) -> (PCS::Commitment, PCS::CommitmentState) {
         let witness_poly = witness.generate_oracle();
@@ -115,7 +115,7 @@ where
 
     pub fn commit_witness_ef(
         &self,
-        params: &mut LogUpParams<F, EF, S, PCS>,
+        params: &LogUpParams<F, EF, S, PCS>,
         witness: &LookupWitnessHelper<EF>,
     ) -> (PCS::Commitment, PCS::CommitmentStateEF) {
         let witness_poly = witness.generate_oracle();
@@ -137,9 +137,7 @@ where
         trans: &mut Transcript<EF>,
         trace_mle: LookupTraceMLE<F>,
         params: &mut LogUpParams<F, EF, S, PCS>,
-        // oracle: &EvalOracle<F, EF, S, PCS>,
     ) -> LogUpSnarksProof<F, EF, S, PCS> {
-        // let trace_mle: LookupTraceMLE<F> = trace.into();
         let witness: LookupWitness<F> = trace_mle.into();
 
         // Commit to the trace polynomial

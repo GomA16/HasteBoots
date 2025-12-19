@@ -8,7 +8,7 @@ mod pbs_trace;
 
 pub use acc_trace::{AccTrace, AccTraceMLE};
 pub use hadamard_trace::{
-    BatchedHadamardTrace, BatchedHadamardTraceMLE, HadamardTrace, HadamardTraceMLE,
+    SumHadamardTrace, SumHadamardTraceMLE, HadamardTrace, HadamardTraceMLE, SumHadamardTraceEval,
 };
 pub use lookup_trace::normal_table::{
     LookupTrace, LookupTraceMLE, LookupWitness, LookupWitnessHelper,
@@ -63,7 +63,17 @@ pub trait PackableTrace<F: Field> {
     }
 }
 
+pub trait PackableEval<F: Field> {
+    fn num_evals(&self) -> usize;
+    fn pack_to_vec(&self) -> Vec<F>;
+}
+
 pub trait EvaluableTrace<F: Field> {
     type TraceEval;
     fn evaluate(&self, point: &[F]) -> Self::TraceEval;
+}
+
+pub trait EvaluableTraceEF<F: Field, EF: AbstractExtensionField<F>> {
+    type TraceEval;
+    fn evaluate_ef(&self, point: &[EF]) -> Self::TraceEval;
 }

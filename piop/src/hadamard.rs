@@ -3,20 +3,22 @@ use algebra::Field;
 use algebra::NTTField;
 use algebra::PolynomialInfo;
 use bincode::de;
-use trace::PBSTrace;
-use trace::PBSTraceMLE;
 use core::num;
 use helper::FiatShamirTranscript;
 use helper::Transcript;
 use helper::utils::eval_identity_function;
 use rayon::vec;
 use serde::Serialize;
+use sha2::digest::typenum::Sum;
 use std::rc::Rc;
 use sumcheck::MLSumcheck;
 use sumcheck::Proof;
 use sumcheck::prover;
 use sumcheck::verifier::SubClaim;
-use trace::BatchedHadamardTraceMLE;
+use trace::PBSTrace;
+use trace::PBSTraceMLE;
+use trace::SumHadamardTraceEval;
+use trace::SumHadamardTraceMLE;
 
 use crate::LagrangeKernel;
 use crate::SumcheckClaim;
@@ -32,7 +34,7 @@ pub struct HadamardPIOP<F: Field> {
     _marker: std::marker::PhantomData<F>,
 }
 
-pub struct SumOfHadamardInstance<F: Field> {
+pub struct SumHadamardInstance<F: Field> {
     pub num_vars: usize,
     pub num_products: usize,
     pub products: Vec<(
@@ -43,10 +45,10 @@ pub struct SumOfHadamardInstance<F: Field> {
     pub result: Rc<DenseMultilinearExtension<F>>,
 }
 
-pub struct BatchedSumOfHadamardInstance<F: Field> {
+pub struct BatchedSumHadamardInstance<F: Field> {
     pub num_vars: usize,
     pub num_sum: usize,
-    pub vec_sum: Vec<SumOfHadamardInstance<F>>,
+    pub vec_sum: Vec<SumHadamardInstance<F>>,
 }
 
 pub struct HadamardProverState<F: Field> {
@@ -58,25 +60,27 @@ pub struct HadamardVerifierSubclaim<F: Field> {
 }
 
 #[derive(Serialize)]
-pub struct BatchedSumOfHadamardInfo<F: Field> {
+pub struct BatchedSumHadamardInfo<F: Field> {
     pub num_vars: usize,
     pub num_batch: usize,
     pub num_products_each: usize,
     _marker: std::marker::PhantomData<F>,
 }
 
-pub struct HadamardProof<F: Field> {
+#[derive(Serialize)]
+pub struct SumHadamardEval<F: Field> {
     pub products_at_r: Vec<(F, F)>,
     pub result_at_r: F,
 }
 
-pub struct BatchedHadamardProof<F: Field> {
+#[derive(Serialize)]
+pub struct BatchedSumHadamardProof<F: Field> {
     pub poly_info: PolynomialInfo,
     pub sumcheck_proof: Proof<F>,
-    pub hadamard_at_r: Vec<HadamardProof<F>>,
+    pub hadamard_at_r: Vec<SumHadamardEval<F>>,
 }
 
-impl<F: Field> SumOfHadamardInstance<F> {
+impl<F: Field> SumHadamardInstance<F> {
     pub fn add_into_sumcheck(
         &self,
         claim: &mut SumcheckClaim<F>,
@@ -92,12 +96,12 @@ impl<F: Field> SumOfHadamardInstance<F> {
         claim.poly_mut().add_product(prod, -random_lambda);
     }
 
-    pub fn eval_at_point(&self, point_r: &[F]) -> HadamardProof<F> {
+    pub fn eval_at_point(&self, point_r: &[F]) -> SumHadamardEval<F> {
         let mut products_at_r = Vec::with_capacity(self.num_products);
         for (a, b) in &self.products {
             products_at_r.push((a.evaluate(point_r), b.evaluate(point_r)));
         }
-        HadamardProof {
+        SumHadamardEval {
             products_at_r,
             result_at_r: self.result.evaluate(point_r),
         }
@@ -126,7 +130,7 @@ impl<F: Field> SumOfHadamardInstance<F> {
                 (Rc::new(a), Rc::new(b))
             })
             .collect::<Vec<_>>();
-        SumOfHadamardInstance {
+        SumHadamardInstance {
             num_vars,
             num_products: num_prods,
             products,
@@ -137,19 +141,19 @@ impl<F: Field> SumOfHadamardInstance<F> {
     }
 }
 
-impl<F: NTTField> BatchedSumOfHadamardInstance<F> {
-    pub fn from(pbs_trace: PBSTraceMLE<F>) -> Self {
-        let num_vars = pbs_trace.params.log_coeff_count + pbs_trace.params.log_num_round;
-        let num_sum = 4;
+impl<F: Field> BatchedSumHadamardInstance<F> {
+    pub fn from(trace: &SumHadamardTraceMLE<F>) -> Self {
+        let num_vars = trace.log_coeff_count + trace.log_num_round;
+        let num_sum = 2;
         let mut vec_sum = Vec::with_capacity(num_sum);
 
-        let mut add_into_batch = |batch: &BatchedHadamardTraceMLE<F>| {
+        let mut add_into_batch = |batch: &SumHadamardTraceMLE<F>| {
             let products = batch
                 .vec_trace
                 .iter()
                 .map(|trace| (trace.bit_ntt.clone(), trace.key_ntt.0.clone()))
                 .collect::<Vec<_>>();
-            vec_sum.push(SumOfHadamardInstance {
+            vec_sum.push(SumHadamardInstance {
                 num_vars,
                 num_products: products.len(),
                 products,
@@ -161,7 +165,7 @@ impl<F: NTTField> BatchedSumOfHadamardInstance<F> {
                 .iter()
                 .map(|trace| (trace.bit_ntt.clone(), trace.key_ntt.1.clone()))
                 .collect::<Vec<_>>();
-            vec_sum.push(SumOfHadamardInstance {
+            vec_sum.push(SumHadamardInstance {
                 num_vars,
                 num_products: products.len(),
                 products,
@@ -169,10 +173,9 @@ impl<F: NTTField> BatchedSumOfHadamardInstance<F> {
             });
         };
 
-        add_into_batch(&pbs_trace.hadamard_trace_a);
-        add_into_batch(&pbs_trace.hadamard_trace_b);
+        add_into_batch(trace);
 
-        BatchedSumOfHadamardInstance {
+        BatchedSumHadamardInstance {
             num_vars,
             num_sum,
             vec_sum,
@@ -187,9 +190,9 @@ impl<F: NTTField> BatchedSumOfHadamardInstance<F> {
     ) -> Self {
         let mut vec_sum = Vec::with_capacity(num_sum);
         for _ in 0..num_sum {
-            vec_sum.push(SumOfHadamardInstance::random(num_vars, num_prods, rng));
+            vec_sum.push(SumHadamardInstance::random(num_vars, num_prods, rng));
         }
-        BatchedSumOfHadamardInstance {
+        BatchedSumHadamardInstance {
             num_vars,
             num_sum,
             vec_sum,
@@ -197,7 +200,7 @@ impl<F: NTTField> BatchedSumOfHadamardInstance<F> {
     }
 }
 
-impl<F: Field> HadamardProof<F> {
+impl<F: Field> SumHadamardEval<F> {
     pub fn compute_subclaim(&self, random_lambda: F, kernel_at_r: F) -> F {
         let mut sum = self
             .products_at_r
@@ -208,11 +211,44 @@ impl<F: Field> HadamardProof<F> {
     }
 }
 
-impl<F: Field + Serialize> SumcheckInstance<F> for BatchedSumOfHadamardInstance<F> {
-    type Info = BatchedSumOfHadamardInfo<F>;
+impl<F: Field> BatchedSumHadamardProof<F> {
+    pub fn append_eval(&mut self, trace_eval: &SumHadamardTraceEval<F>) {
+        let num_sum = 2;
+        let mut hadamard_at_r = Vec::with_capacity(num_sum);
+
+        let mut add_into_batch = |batch: &SumHadamardTraceEval<F>| {
+            let products_at_r = batch
+                .vec_trace
+                .iter()
+                .map(|trace_eval| (trace_eval.bit_ntt, trace_eval.key_ntt.0))
+                .collect::<Vec<_>>();
+            hadamard_at_r.push(SumHadamardEval {
+                products_at_r,
+                result_at_r: batch.sum_prod_ntt.0,
+            });
+
+            let products_at_r = batch
+                .vec_trace
+                .iter()
+                .map(|trace_eval| (trace_eval.bit_ntt, trace_eval.key_ntt.1))
+                .collect::<Vec<_>>();
+            hadamard_at_r.push(SumHadamardEval {
+                products_at_r,
+                result_at_r: batch.sum_prod_ntt.1,
+            });
+        };
+
+        add_into_batch(trace_eval);
+
+        self.hadamard_at_r = hadamard_at_r;
+    }
+}
+
+impl<F: Field + Serialize> SumcheckInstance<F> for BatchedSumHadamardInstance<F> {
+    type Info = BatchedSumHadamardInfo<F>;
 
     fn info(&self) -> Self::Info {
-        BatchedSumOfHadamardInfo {
+        BatchedSumHadamardInfo {
             num_vars: self.num_vars,
             num_batch: self.num_sum,
             num_products_each: self.vec_sum[0].num_products,
@@ -225,7 +261,7 @@ impl<F: Field + Serialize> SumcheckInstance<F> for BatchedSumOfHadamardInstance<
     }
 }
 
-impl<F: Field> SumcheckInfo<F> for BatchedSumOfHadamardInfo<F> {
+impl<F: Field> SumcheckInfo<F> for BatchedSumHadamardInfo<F> {
     fn num_sumchecks(&self) -> usize {
         self.num_batch
     }
@@ -237,9 +273,9 @@ impl<F: Field> SumcheckInfo<F> for BatchedSumOfHadamardInfo<F> {
     }
 }
 
-impl<F: Field> SumcheckPureProof<F> for BatchedHadamardProof<F> {
+impl<F: Field> SumcheckPureProof<F> for BatchedSumHadamardProof<F> {
     fn from_sumcheck(sumcheck_claim: &SumcheckClaim<F>, proof: Proof<F>) -> Self {
-        BatchedHadamardProof {
+        BatchedSumHadamardProof {
             poly_info: sumcheck_claim.poly_ref().info(),
             sumcheck_proof: proof,
             hadamard_at_r: Vec::new(),
@@ -272,9 +308,9 @@ impl<F: Field> SumcheckPureSubclaim<F> for HadamardVerifierSubclaim<F> {
 }
 
 impl<F: Field + Serialize> SumcheckPIOP<F> for HadamardPIOP<F> {
-    type Instance = BatchedSumOfHadamardInstance<F>;
-    type Info = BatchedSumOfHadamardInfo<F>;
-    type Proof = BatchedHadamardProof<F>;
+    type Instance = BatchedSumHadamardInstance<F>;
+    type Info = BatchedSumHadamardInfo<F>;
+    type Proof = BatchedSumHadamardProof<F>;
     type ProverState = HadamardProverState<F>;
     type VerifierSubclaim = HadamardVerifierSubclaim<F>;
     // type FSTranscript = Transcript<F>;
@@ -305,7 +341,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for HadamardPIOP<F> {
             .map(|instance| instance.eval_at_point(&prover_state.randomness))
             .collect::<Vec<_>>();
 
-        let proof = BatchedHadamardProof {
+        let proof = BatchedSumHadamardProof {
             poly_info: sumcheck_claim.poly_ref().info(),
             sumcheck_proof,
             hadamard_at_r,
@@ -367,7 +403,7 @@ mod test {
         let num_sum = 2;
 
         let instance =
-            BatchedSumOfHadamardInstance::<FF>::random(num_sum, num_vars, num_products, &mut rng);
+            BatchedSumHadamardInstance::<FF>::random(num_sum, num_vars, num_products, &mut rng);
         let info = instance.info();
 
         let mut prover_transcript = Transcript::<FF>::new();

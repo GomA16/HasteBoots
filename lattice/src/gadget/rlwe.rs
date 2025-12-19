@@ -8,7 +8,7 @@ use rand::{CryptoRng, Rng};
 
 use crate::{DecompositionSpace, NTTRLWE, PolynomialSpace, RLWE};
 
-use trace::BatchedHadamardTrace;
+use trace::SumHadamardTrace;
 
 /// A representation of Ring Learning with Errors (RLWE) ciphertexts with respect to different powers
 /// of a base, used to control noise growth in polynomial multiplications.
@@ -432,7 +432,7 @@ impl<F: NTTField> NTTGadgetRLWE<F> {
         // Output destination
         destination: &mut NTTRLWE<F>,
         // Trace
-        trace: &mut BatchedHadamardTrace<F>,
+        trace: &mut SumHadamardTrace<F>,
     ) {
         let coeff_count = polynomial.coeff_count();
         debug_assert!(coeff_count.is_power_of_two());

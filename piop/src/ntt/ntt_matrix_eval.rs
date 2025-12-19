@@ -1,4 +1,4 @@
-use algebra::{DenseMultilinearExtension, Field, MultilinearExtension, PolynomialInfo};
+use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field, MultilinearExtension, NTTField, PolynomialInfo, transformation::AbstractNTT};
 use helper::{FiatShamirTranscript, Transcript};
 use serde::Serialize;
 use std::rc::Rc;
@@ -94,6 +94,18 @@ impl<F: Field> NTTMatrixEvalInstance<F> {
             point_u: point_u.to_vec(),
             point_v: point_v.to_vec(),
             evaluations_at_u_v: trace.evaluations.evaluate(&point_u_v),
+        }
+    }
+
+    pub fn from_subclaim(coeff: &Rc<DenseMultilinearExtension<F>>, ntt_table: &Rc<Vec<F>>, point_u: &[F], point_v: &[F], eval: F) -> Self {
+        Self {
+            log_coeff_count: point_u.len(),
+            log_num_ntt: point_v.len(),
+            coefficients: Rc::clone(coeff),
+            ntt_table: Rc::clone(ntt_table),
+            point_u: point_u.to_vec(),
+            point_v: point_v.to_vec(),
+            evaluations_at_u_v: eval,
         }
     }
 }

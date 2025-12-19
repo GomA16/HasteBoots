@@ -4,7 +4,7 @@ use algebra::{
 use lattice::{DecompositionSpace, LWE, NTTRGSW, NTTRLWESpace, PolynomialSpace, RLWE, RLWESpace};
 
 use num_traits::Zero;
-use trace::{AccTrace, BatchedHadamardTrace};
+use trace::{AccTrace, SumHadamardTrace};
 
 /// FHE binary blind rotation key
 #[derive(Debug, Clone)]
@@ -75,7 +75,7 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
         lwe: &LWE<<F as Field>::Value>,
         // Trace
         acc_trace: &mut AccTrace<F>,
-        hadmard_trace: &mut BatchedHadamardTrace<F>,
+        hadmard_trace: &mut SumHadamardTrace<F>,
     ) -> RLWE<F> {
         println!("Binary Blind Rotation with Trace");
         let rlwe_dimension = lut.coeff_count();

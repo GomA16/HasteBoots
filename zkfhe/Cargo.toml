@@ -10,6 +10,8 @@ fhe_core = { path = "../fhe_core", default-features = false }
 trace = {path = "../trace", default-features = false}
 piop = { path = "../piop", default-features = false }
 helper = { path = "../helper", default-features = false }
+snarks = { path = "../snarks", default-features = false }
+pcs = { path = "../pcs", default-features = false }
 
 rand = { workspace = true }
 rayon = { workspace = true }
@@ -18,6 +20,15 @@ itertools = { workspace = true }
 rand_distr = { workspace = true }
 log = { workspace = true }
 env_logger = "0.10"
+
+[target.'cfg(all(unix, any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64")))'.dependencies]
+sha2 = { version = "0.10", features = ["asm"] }
+
+[target.'cfg(all(target_os = "windows", target_arch = "x86_64", target_env = "gnu"))'.dependencies]
+sha2 = { version = "0.10", features = ["asm"] }
+
+[target.'cfg(all(target_os = "windows", target_env = "msvc"))'.dependencies]
+sha2 = { version = "0.10" }
 
 [features]
 default = ["concrete-ntt"]

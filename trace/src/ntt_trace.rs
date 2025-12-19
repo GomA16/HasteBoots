@@ -7,7 +7,7 @@ use algebra::{
 use rand_distr::Distribution;
 use serde::Serialize;
 
-use crate::ConvertToEF;
+use crate::{ConvertToEF, PackableTrace};
 
 pub struct NTTTrace<F: Field> {
     pub log_coeff_count: usize,
@@ -29,8 +29,8 @@ pub struct BatchedNTTTraceMLE<F: Field> {
     pub log_coeff_count: usize,
     pub log_num_ntt: usize,
     pub ntt_table: Rc<Vec<F>>,
-    pub coefficients: Vec<DenseMultilinearExtension<F>>,
-    pub evaluations: Vec<DenseMultilinearExtension<F>>,
+    pub coefficients: Vec<Rc<DenseMultilinearExtension<F>>>,
+    pub evaluations: Vec<Rc<DenseMultilinearExtension<F>>>,
 }
 
 /// NTT instance to be proved
@@ -229,17 +229,34 @@ impl<F: Field> From<NTTTrace<F>> for NTTTraceMLE<F> {
     }
 }
 
-impl<F: Field> NTTTraceMLE<F> {
-    pub fn num_vars(&self) -> usize {
-        assert_eq!(self.coefficients.num_vars(), self.evaluations.num_vars());
-        self.coefficients.num_vars()
+impl<F: Field> PackableTrace<F> for NTTTraceMLE<F> {
+    fn num_vars(&self) -> usize {
+        self.log_coeff_count + self.log_num_ntt
     }
 
-    pub fn coefficients(&self) -> Rc<DenseMultilinearExtension<F>> {
-        Rc::clone(&self.coefficients)
+    fn num_oracles(&self) -> usize {
+        1
     }
 
-    pub fn evaluations(&self) -> Rc<DenseMultilinearExtension<F>> {
-        Rc::clone(&self.evaluations)
+    fn pack_to_vec(&self) -> Vec<F> {
+        self.coefficients.evaluations.clone()
+    }
+}
+
+impl<F: Field> BatchedNTTTraceMLE<F> {
+    fn num_vars(&self) -> usize {
+        self.log_coeff_count + self.log_num_ntt
+    }
+
+    fn num_oracles(&self) -> usize {
+        self.coefficients.len()
+    }
+
+    fn pack_to_vec(&self) -> Vec<F> {
+        self.coefficients
+            .iter()
+            .flat_map(|mle| mle.iter())
+            .cloned()
+            .collect::<Vec<F>>()
     }
 }

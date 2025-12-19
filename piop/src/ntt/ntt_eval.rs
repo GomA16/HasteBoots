@@ -70,7 +70,7 @@ pub struct NTTEvalVerifierSubclaim<F: Field> {
 impl<F: Field> NTTEvalInstance<F> {
     pub fn from(trace: &NTTTraceMLE<F>, point_u: &[F]) -> Self {
         NTTEvalInstance {
-            log_coeff_count: trace.num_vars(),
+            log_coeff_count: trace.log_coeff_count + trace.log_num_ntt,
             coefficients: Rc::clone(&trace.coefficients),
             ntt_table: Rc::clone(&trace.ntt_table),
             point_u: point_u.to_vec(),

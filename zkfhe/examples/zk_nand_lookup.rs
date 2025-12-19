@@ -8,7 +8,7 @@ use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInstance};
 use piop::{SumcheckInstance, SumcheckPIOP};
 use rand::Rng;
 use rand_distr::Distribution;
-use trace::{BatchedHadamardTraceMLE, LookupWitness};
+use trace::{SumHadamardTraceMLE, LookupWitness};
 // use trace::HadamardProdTraceMLE;
 use zkfhe::bfhe::{CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
@@ -66,7 +66,7 @@ fn main() {
     let blk_size = 3;
     let randomness = DefaultFieldU32::random(&mut rng);
 
-    let trace_mle: BatchedHadamardTraceMLE<_> = trace.into();
+    let trace_mle: SumHadamardTraceMLE<_> = trace.into();
     let range = 1 << params.blind_rotation_basis().bits() as usize;
     let lookup_trace_mle = trace_mle.extract_lookup_trace_mle(range);
     let lookup_witness: LookupWitness<_> = lookup_trace_mle.into();

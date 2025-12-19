@@ -5,6 +5,7 @@ use pcs::PolynomialCommitmentScheme;
 pub mod lookup;
 pub mod ntt;
 pub mod pbs;
+pub mod hadamard;
 
 /// Oracle used in the NTT matrix evaluation PIOP
 pub struct EvalOracle<F, EF, S, PCS>

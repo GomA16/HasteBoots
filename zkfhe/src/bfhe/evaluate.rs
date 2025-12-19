@@ -3,7 +3,7 @@ use fhe_core::{
     KeySwitchingKeyEnum, KeySwitchingRLWEKey, LWECiphertext, Parameters, RLWEBlindRotationKey,
     SecretKeyPack, lwe_modulus_switch,
 };
-use trace::{AccTrace, BatchedHadamardTrace};
+use trace::{AccTrace, SumHadamardTrace};
 
 /// The evaluator of the homomorphic encryption scheme.
 #[derive(Debug, Clone)]
@@ -44,7 +44,7 @@ impl<Q: NTTField> EvaluationKey<Q> {
         &self,
         c: LWECiphertext<Q>,
         lut: Polynomial<Q>,
-    ) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
+    ) -> (LWECiphertext<Q>, SumHadamardTrace<Q>) {
         let parameters = self.parameters();
         let pre = parameters.process_before_blind_rotation();
 
@@ -56,7 +56,7 @@ impl<Q: NTTField> EvaluationKey<Q> {
             .next_power_of_two()
             .trailing_zeros() as usize;
         let mut acc_trace = AccTrace::<Q>::new(log_coeff_count, log_num_round);
-        let mut hadmard_trace = BatchedHadamardTrace::<Q>::new(
+        let mut hadmard_trace = SumHadamardTrace::<Q>::new(
             parameters.blind_rotation_basis().decompose_len() << 1,
             log_coeff_count,
             log_num_round,
@@ -110,7 +110,7 @@ impl<Q: NTTField> Evaluator<Q> {
         &self,
         c: LWECiphertext<Q>,
         lut: Polynomial<Q>,
-    ) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
+    ) -> (LWECiphertext<Q>, SumHadamardTrace<Q>) {
         self.ek.bootstrap(c, lut)
     }
 
@@ -141,7 +141,7 @@ impl<Q: NTTField> Evaluator<Q> {
         &self,
         c0: &LWECiphertext<Q>,
         c1: &LWECiphertext<Q>,
-    ) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
+    ) -> (LWECiphertext<Q>, SumHadamardTrace<Q>) {
         let parameters = self.parameters();
 
         let add = c0.add_component_wise_ref(c1);
@@ -162,7 +162,7 @@ impl<Q: NTTField> Evaluator<Q> {
         &self,
         c0: &LWECiphertext<Q>,
         c1: &LWECiphertext<Q>,
-    ) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
+    ) -> (LWECiphertext<Q>, SumHadamardTrace<Q>) {
         let parameters = self.parameters();
 
         let add = c0.add_component_wise_ref(c1);
@@ -184,7 +184,7 @@ impl<Q: NTTField> Evaluator<Q> {
         &self,
         c0: &LWECiphertext<Q>,
         c1: &LWECiphertext<Q>,
-    ) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
+    ) -> (LWECiphertext<Q>, SumHadamardTrace<Q>) {
         let parameters = self.parameters();
 
         let add = c0.add_component_wise_ref(c1);
@@ -205,7 +205,7 @@ impl<Q: NTTField> Evaluator<Q> {
         &self,
         c0: &LWECiphertext<Q>,
         c1: &LWECiphertext<Q>,
-    ) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
+    ) -> (LWECiphertext<Q>, SumHadamardTrace<Q>) {
         let parameters = self.parameters();
 
         let add = c0.add_component_wise_ref(c1);
@@ -226,7 +226,7 @@ impl<Q: NTTField> Evaluator<Q> {
         &self,
         c0: &LWECiphertext<Q>,
         c1: &LWECiphertext<Q>,
-    ) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
+    ) -> (LWECiphertext<Q>, SumHadamardTrace<Q>) {
         let parameters = self.parameters();
 
         let mut sub = c0.sub_component_wise_ref(c1);
@@ -248,7 +248,7 @@ impl<Q: NTTField> Evaluator<Q> {
         &self,
         c0: &LWECiphertext<Q>,
         c1: &LWECiphertext<Q>,
-    ) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
+    ) -> (LWECiphertext<Q>, SumHadamardTrace<Q>) {
         let parameters = self.parameters();
 
         let mut sub = c0.sub_component_wise_ref(c1);
@@ -273,7 +273,7 @@ impl<Q: NTTField> Evaluator<Q> {
         c0: &LWECiphertext<Q>,
         c1: &LWECiphertext<Q>,
         c2: &LWECiphertext<Q>,
-    ) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
+    ) -> (LWECiphertext<Q>, SumHadamardTrace<Q>) {
         let parameters = self.parameters();
 
         let mut add = c0.add_component_wise_ref(c1);
@@ -298,7 +298,7 @@ impl<Q: NTTField> Evaluator<Q> {
         c0: &LWECiphertext<Q>,
         c1: &LWECiphertext<Q>,
         c2: &LWECiphertext<Q>,
-    ) -> (LWECiphertext<Q>, BatchedHadamardTrace<Q>) {
+    ) -> (LWECiphertext<Q>, SumHadamardTrace<Q>) {
         let parameters = self.parameters();
 
         let not_c0 = self.not(c0);
