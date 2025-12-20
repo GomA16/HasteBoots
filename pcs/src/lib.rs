@@ -23,7 +23,7 @@ pub trait PolynomialCommitmentScheme<F: Field, EF: AbstractExtensionField<F>, S>
     /// Extension field polynomial to commit
     type EFPolynomial: MultilinearExtension<EF>;
     /// Commitment
-    type Commitment: Serialize + for<'de> Deserialize<'de>;
+    type Commitment: Serialize + for<'de> Deserialize<'de> + Clone;
     /// Auxiliary state of the commitment, output by the `commit` phase.
     type CommitmentState;
     /// Auxiliary state of the commitment, output by the `commit` phase.
