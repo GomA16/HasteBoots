@@ -84,6 +84,10 @@ impl<F: Field> SumHadamardTraceEval<F> {
         (self.vec_trace.len() * 2).next_power_of_two().trailing_zeros() as usize
     }
 
+    pub fn log_num_overall_poly(&self) -> usize {
+        (self.vec_trace.len() * 3 + 2).next_power_of_two().trailing_zeros() as usize
+    }
+
     pub fn pack_bit_poly_to_vec(&self) -> Vec<F> {
         self.vec_trace
             .iter()
@@ -97,6 +101,13 @@ impl<F: Field> SumHadamardTraceEval<F> {
             .iter()
             .flat_map(|trace| [trace.key_ntt.0, trace.key_ntt.1])
             .collect()
+    }
+
+    pub fn pack_overall_poly_to_vec(&self) -> Vec<F> {
+        let mut overall_vec = self.pack_bit_poly_to_vec();
+        overall_vec.extend(self.pack_key_ntt_to_vec());
+        overall_vec.extend(vec![self.sum_prod_ntt.0, self.sum_prod_ntt.1]);
+        overall_vec
     }
 }
 
@@ -452,6 +463,10 @@ impl<F: Field> SumHadamardTraceMLE<F> {
         self.num_trace * 2
     }
 
+    pub fn num_overall_poly(&self) -> usize {
+        self.num_trace * 3 + 2
+    }
+
     pub fn log_num_bit_poly(&self) -> usize {
         self.num_trace.next_power_of_two().trailing_zeros() as usize
     }
@@ -460,13 +475,36 @@ impl<F: Field> SumHadamardTraceMLE<F> {
         (self.num_trace * 2).next_power_of_two().trailing_zeros() as usize
     }
 
-    pub fn generate_bit_oracle(&self) -> DenseMultilinearExtension<F> {
-        let mut bit_polys = self
-            .vec_trace
+    pub fn log_num_overall_poly(&self) -> usize {
+        (self.num_trace * 3 + 2).next_power_of_two().trailing_zeros() as usize
+    }
+
+    pub fn generate_bit_vec(&self) -> Vec<F> {
+        self.vec_trace
             .iter()
             .flat_map(|trace| trace.bit_poly.iter())
             .cloned()
-            .collect::<Vec<F>>();
+            .collect()
+    }
+
+    pub fn generate_key_vec(&self) -> Vec<F> {
+        self.vec_trace
+            .iter()
+            .flat_map(|trace| trace.key_ntt.0.iter().chain(trace.key_ntt.1.iter()))
+            .cloned()
+            .collect()
+    }
+
+    pub fn generate_sum_prod_vec(&self) -> Vec<F> {
+        self.sum_prod_poly.0
+            .iter()
+            .cloned()
+            .chain(self.sum_prod_poly.1.iter().cloned())
+            .collect()
+    }
+
+    pub fn generate_bit_oracle(&self) -> DenseMultilinearExtension<F> {
+        let mut bit_polys = self.generate_bit_vec();
         let num_vars = bit_polys.len().next_power_of_two().trailing_zeros() as usize;
         let num_zeros = (1 << num_vars) - bit_polys.len();
         bit_polys.extend(vec![F::zero(); num_zeros]);
@@ -474,14 +512,21 @@ impl<F: Field> SumHadamardTraceMLE<F> {
     }
 
     pub fn generate_key_oracle(&self) -> DenseMultilinearExtension<F> {
-        let mut key_ntts = self.vec_trace
-            .iter()
-            .flat_map(|trace| trace.key_ntt.0.iter().chain(trace.key_ntt.1.iter()))
-            .cloned()
-            .collect::<Vec<F>>();
+        let mut key_ntts = self.generate_key_vec();
         let num_vars = key_ntts.len().next_power_of_two().trailing_zeros() as usize;
         let num_zeros = (1 << num_vars) - key_ntts.len();
         key_ntts.extend(vec![F::zero(); num_zeros]);
         DenseMultilinearExtension::from_evaluations_vec(num_vars, key_ntts)
     }
+
+    pub fn generate_overall_oracle(&self) -> DenseMultilinearExtension<F> {
+        let mut overall_vec = self.generate_bit_vec();
+        overall_vec.extend(self.generate_key_vec());
+        overall_vec.extend(self.generate_sum_prod_vec());
+        let num_vars = overall_vec.len().next_power_of_two().trailing_zeros() as usize;
+        let num_zeros = (1 << num_vars) - overall_vec.len();
+        overall_vec.extend(vec![F::zero(); num_zeros]);
+        DenseMultilinearExtension::from_evaluations_vec(num_vars, overall_vec)
+    }
+
 }

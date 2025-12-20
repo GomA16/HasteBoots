@@ -79,6 +79,7 @@ fn main() {
         ExpanderCodeSpec,
         BrakedownPCS<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>,
     >::default();
+    
     let params = snarks.setup(&trace_mle, code_spec.clone(), ntt_table);
 
     let mut prover_trans = Transcript::default();

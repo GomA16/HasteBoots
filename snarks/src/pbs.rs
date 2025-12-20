@@ -11,16 +11,19 @@ use piop::hadamard::{
 };
 use piop::lookup::logup::LogUpInstanceInfo;
 use piop::lookup::{LogUpIOP, LogUpInstance, LogUpProof};
-use piop::ntt::{NTTFourierEvalInfo, NTTMatrixEvalInfo, NTTMatrixEvalInstance, NTTMatrixEvalProof};
-use piop::{PackableEFProof, PackableProof, SumcheckInstance, SumcheckPIOP};
-use rayon::iter::IntoParallelRefIterator;
+use piop::ntt::{
+    NTTFourierEvalInfo, NTTFourierProof, NTTMatrixEvalIOP, NTTMatrixEvalInfo,
+    NTTMatrixEvalInstance, NTTMatrixEvalProof,
+};
+use piop::{SumcheckInstance, SumcheckPIOP};
 use serde::Serialize;
 use trace::{
     ConvertToEF, EvaluableTraceEF, LookupTrace, LookupTraceMLE, LookupWitness, LookupWitnessHelper,
 };
-use trace::{PackableTrace, SumHadamardTraceMLE};
+use trace::{SumHadamardTraceMLE};
 
-pub struct PBSSnarks<F, EF, S, PCS>
+#[derive(Default)]
+pub struct HadamardSnarks<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F>,
@@ -33,166 +36,39 @@ where
     _marker_pcs: std::marker::PhantomData<PCS>,
 }
 
-#[derive(Serialize)]
-pub struct KeyNTTCommitment<F, EF, S, PCS>
+pub struct HadamardParams<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F>,
     S: Clone,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
-    pub num_vars: usize,
-    pub key_ntt_0_commitment: Vec<PCS::Commitment>,
-    pub key_ntt_1_commitment: Vec<PCS::Commitment>,
-}
-
-#[derive(Serialize)]
-pub struct KeyNTTEvalProof<F, EF, S, PCS>
-where
-    F: Field,
-    EF: AbstractExtensionField<F>,
-    S: Clone,
-    PCS: PolynomialCommitmentScheme<F, EF, S>,
-{
-    pub num_vars: usize,
-    pub key_ntt_0_commitment: Vec<PCS::Proof>,
-    pub key_ntt_1_commitment: Vec<PCS::Proof>,
-}
-
-#[derive(Serialize)]
-pub struct PolyCommitment<F, EF, S, PCS>
-where
-    F: Field,
-    EF: AbstractExtensionField<F>,
-    S: Clone,
-    PCS: PolynomialCommitmentScheme<F, EF, S>,
-{
-    pub num_vars: usize,
-    pub bit_poly_commitment: Vec<PCS::Commitment>,
-    pub sum_prod_commitment_0: PCS::Commitment,
-    pub sum_prod_commitment_1: PCS::Commitment,
-}
-
-#[derive(Serialize)]
-pub struct PolyEvalProof<F, EF, S, PCS>
-where
-    F: Field,
-    EF: AbstractExtensionField<F>,
-    S: Clone,
-    PCS: PolynomialCommitmentScheme<F, EF, S>,
-{
-    pub num_vars: usize,
-    pub bit_poly_commitment: Vec<PCS::Proof>,
-    pub sum_prod_commitment_0: PCS::Proof,
-    pub sum_prod_commitment_1: PCS::Proof,
-}
-
-impl<F, EF, S, PCS> KeyNTTCommitment<F, EF, S, PCS>
-where
-    F: Field,
-    EF: AbstractExtensionField<F>,
-    S: Clone,
-    PCS: PolynomialCommitmentScheme<
-            F,
-            EF,
-            S,
-            Polynomial = DenseMultilinearExtension<F>,
-            EFPolynomial = DenseMultilinearExtension<EF>,
-            Point = EF,
-        >,
-{
-    pub fn from(params: &PCS::Parameters, trace: &SumHadamardTraceMLE<F>) -> Self {
-        let mut key_ntt_0_commitment = Vec::with_capacity(trace.num_trace);
-        let mut key_ntt_1_commitment = Vec::with_capacity(trace.num_trace);
-
-        for i in 0..trace.num_trace {
-            let key_poly_0 = &trace.vec_trace[i].key_ntt.0;
-            let key_poly_1 = &trace.vec_trace[i].key_ntt.1;
-
-            let (commitment_0, _state_0) = PCS::commit(params, key_poly_0.as_ref());
-            let (commitment_1, _state_1) = PCS::commit(params, key_poly_1.as_ref());
-
-            key_ntt_0_commitment.push(commitment_0);
-            key_ntt_1_commitment.push(commitment_1);
-        }
-
-        KeyNTTCommitment {
-            num_vars: trace.log_coeff_count,
-            key_ntt_0_commitment,
-            key_ntt_1_commitment,
-        }
-    }
-}
-
-impl<F, EF, S, PCS> PolyCommitment<F, EF, S, PCS>
-where
-    F: Field,
-    EF: AbstractExtensionField<F>,
-    S: Clone,
-    PCS: PolynomialCommitmentScheme<
-            F,
-            EF,
-            S,
-            Polynomial = DenseMultilinearExtension<F>,
-            EFPolynomial = DenseMultilinearExtension<EF>,
-            Point = EF,
-        >,
-{
-    pub fn from(params: &PCS::Parameters, trace: &SumHadamardTraceMLE<F>) -> Self {
-        let mut poly_commitment = Vec::with_capacity(trace.num_trace);
-        trace.vec_trace.iter().for_each(|trace| {
-            let (commitment, _state) = PCS::commit(params, trace.bit_poly.as_ref());
-            poly_commitment.push(commitment);
-        });
-        let (sum_prod_commitment_0, _state_0) = PCS::commit(params, trace.sum_prod_poly.0.as_ref());
-        let (sum_prod_commitment_1, _state_1) = PCS::commit(params, trace.sum_prod_poly.1.as_ref());
-        PolyCommitment {
-            num_vars: trace.log_coeff_count + trace.log_num_round,
-            bit_poly_commitment: poly_commitment,
-            sum_prod_commitment_0,
-            sum_prod_commitment_1,
-        }
-    }
-}
-
-pub struct PBSSnarksProof<F, EF, S, PCS>
-where
-    F: Field,
-    EF: AbstractExtensionField<F>,
-    S: Clone,
-    PCS: PolynomialCommitmentScheme<F, EF, S>,
-{
-    pub params: PBSSnarksParams<F, EF, S, PCS>,
-    pub coeffs_commitment: PCS::Commitment,
-    pub hadmard_info: BatchedSumHadamardInfo<EF>,
-    pub hadmard_piop_proof: BatchedSumHadamardProof<EF>,
-    pub ntt_eval_info: NTTMatrixEvalInfo<EF>,
-    pub ntt_eval_piop_proof: NTTMatrixEvalProof<EF>,
-    pub ntt_fourier_eval_info: NTTFourierEvalInfo<EF>,
-    pub ntt_fourier_eval_piop_proof: NTTMatrixEvalProof<EF>,
-    pub coeffs_eval_proof: PCS::Proof,
-}
-
-#[derive(Serialize)]
-pub struct PBSSnarksParams<F, EF, S, PCS>
-where
-    F: Field,
-    EF: AbstractExtensionField<F>,
-    S: Clone,
-    PCS: PolynomialCommitmentScheme<F, EF, S>,
-{
-    pub blk_size: usize,
     pub pcs_params: PCS::Parameters,
-    pub key_ntt_commitment: KeyNTTCommitment<F, EF, S, PCS>,
-    #[serde(skip)]
     pub ntt_table: Rc<Vec<EF>>,
 }
 
-impl<F, EF, S, PCS> PBSSnarks<F, EF, S, PCS>
+pub struct HadamardProof<F, EF, S, PCS>
 where
-    F: Field + Serialize,
+    F: Field,
+    EF: AbstractExtensionField<F>,
+    S: Clone,
+    PCS: PolynomialCommitmentScheme<F, EF, S>,
+{
+    pub log_num_overall_poly: usize,
+    pub pcs_params: PCS::Parameters,
+    pub commitment: PCS::Commitment,
+    pub hadamard_info: BatchedSumHadamardInfo<EF>,
+    pub hadamard_proof: BatchedSumHadamardProof<EF>,
+    pub ntt_info: NTTMatrixEvalInfo<EF>,
+    pub ntt_proof: NTTMatrixEvalProof<EF>,
+    pub eval_proof: PCS::Proof,
+}
+
+impl<F, EF, S, PCS> HadamardSnarks<F, EF, S, PCS>
+where
+    F: Field,
     EF: AbstractExtensionField<F> + Serialize,
-    S: Clone + Serialize,
+    S: Clone,
     PCS: PolynomialCommitmentScheme<
             F,
             EF,
@@ -202,29 +78,121 @@ where
             Point = EF,
         >,
 {
+    pub fn setup(
+        &self,
+        trace: &SumHadamardTraceMLE<F>,
+        code_spec: S,
+        ntt_table: Vec<F>,
+    ) -> HadamardParams<F, EF, S, PCS> {
+        let num_oracle_vars = trace.num_vars() + trace.log_num_overall_poly();
+        let pcs_params = PCS::setup(num_oracle_vars, Some(code_spec.clone()));
+        
+        HadamardParams {
+            pcs_params,
+            ntt_table: Rc::new(ntt_table.to_ef()),
+        }
+    }
+
     pub fn prove(
         &self,
         trans: &mut Transcript<EF>,
         trace_mle: &SumHadamardTraceMLE<F>,
-        params: &PBSSnarksParams<F, EF, S, PCS>,
-    ) -> PBSSnarksProof<F, EF, S, PCS> {
-        let poly_commitment = PolyCommitment::<F, EF, S, PCS>::from(&params.pcs_params, trace_mle);
-
-        trans.append_message(b"[Commit Phase]", &poly_commitment);
+        params: &HadamardParams<F, EF, S, PCS>,
+    ) -> HadamardProof<F, EF, S, PCS> {
+        let bit_poly = trace_mle.generate_overall_oracle();
+        let (commitment, commitment_state) = PCS::commit(&params.pcs_params, &bit_poly);
+        trans.append_message(b"Commit Phase", &commitment);
 
         let trace_ef = trace_mle.to_ef();
         let hadamard_instance = BatchedSumHadamardInstance::from(&trace_ef);
         let (mut hadamard_piop_proof, hadamard_piop_state) =
             HadamardPIOP::prover_without_evals(trans, &hadamard_instance);
+        let hadamard_evals = trace_mle.evaluate_ef(&hadamard_piop_state.point_r);
+        hadamard_piop_proof.append_eval(&hadamard_evals);
         trans.append_message(b"[PIOP Phase]", &hadamard_piop_proof);
-        let hadamard_trace_eval = trace_mle.evaluate_ef(&hadamard_piop_state.point_r);
-        trans.append_message(b"[PIOP Eval Phase]", &hadamard_trace_eval);
-        hadamard_piop_proof.append_eval(&hadamard_trace_eval);
 
         let point_u = hadamard_piop_state.point_r[..trace_mle.log_coeff_count].to_vec();
-        let point_v = hadamard_piop_state.point_r[trace_mle.log_coeff_count..].to_vec();
-        
+        let mut point_v = hadamard_piop_state.point_r[trace_mle.log_coeff_count..].to_vec();
+        let point_bit_oracle = trans.get_vec_challenge(
+            b"[Challenge] random point used to verify evaluations",
+            hadamard_evals.log_num_overall_poly(),
+        );
 
-        todo!()
+        let bit_poly = Rc::new(bit_poly.to_ef());
+        let bit_ntt_evals = hadamard_evals.pack_overall_poly_to_vec();
+        let eval = compute_oracle_evals(&bit_ntt_evals, &point_bit_oracle);
+
+        point_v.extend_from_slice(&point_bit_oracle);
+        let ntt_instance = NTTMatrixEvalInstance::from_subclaim(
+            &bit_poly,
+            &params.ntt_table,
+            &point_u,
+            &point_v,
+            eval,
+        );
+        let (ntt_piop_proof, ntt_piop_state) = NTTMatrixEvalIOP::prover(trans, &ntt_instance);
+        trans.append_message(b"[PIOP Phase]", &ntt_piop_proof);
+
+        let mut point_r_v = Vec::with_capacity(ntt_piop_state.point_r.len() + point_v.len());
+        point_r_v.extend_from_slice(&ntt_piop_state.point_r);
+        point_r_v.extend_from_slice(&point_v);
+        let eval_proof = PCS::open(
+            &params.pcs_params,
+            &commitment,
+            &commitment_state,
+            &point_r_v,
+            trans,
+        );
+
+        HadamardProof {
+            log_num_overall_poly: trace_mle.log_num_overall_poly(),
+            pcs_params: params.pcs_params.clone(),
+            commitment,
+            hadamard_info: hadamard_instance.info(),
+            hadamard_proof: hadamard_piop_proof,
+            ntt_info: ntt_instance.info(),
+            ntt_proof: ntt_piop_proof,
+            eval_proof,
+        }
+    }
+
+    pub fn verify(&self, trans: &mut Transcript<EF>, proof: &HadamardProof<F, EF, S, PCS>) -> bool {
+        trans.append_message(b"Commit Phase", &proof.commitment);
+        let mut res = true;
+
+        let (hadamard_res, hadamard_subclaim) =
+            HadamardPIOP::verifier(trans, &proof.hadamard_info, &proof.hadamard_proof);
+        res &= hadamard_res;
+
+        trans.append_message(b"[PIOP Phase]", &proof.hadamard_proof);
+
+        let point_u = hadamard_subclaim.point_r[..proof.ntt_info.log_coeff_count].to_vec();
+        let mut point_v = hadamard_subclaim.point_r[proof.ntt_info.log_coeff_count..].to_vec();
+        let point_bit_oracle = trans.get_vec_challenge(
+            b"[Challenge] random point used to verify evaluations",
+            proof.log_num_overall_poly,
+        );
+        point_v.extend_from_slice(&point_bit_oracle);
+
+        let (ntt_res, ntt_subclaim) =
+            NTTMatrixEvalIOP::verifier(trans, &proof.ntt_info, &proof.ntt_proof);
+        trans.append_message(b"[PIOP Phase]", &proof.ntt_proof);
+        res &= ntt_res;
+
+        let mut point_r_v = Vec::with_capacity(ntt_subclaim.point_r.len() + point_v.len());
+        point_r_v.extend_from_slice(&ntt_subclaim.point_r);
+        point_r_v.extend_from_slice(&point_v);
+        
+        let eval_res = PCS::verify(
+            &proof.pcs_params,
+            &proof.commitment,
+            &point_r_v,
+            proof.ntt_proof.coeff_eval_at_r_v,
+            &proof.eval_proof,
+            trans,
+        );
+        res &= eval_res;
+
+        res
     }
 }

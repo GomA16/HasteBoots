@@ -1,3 +1,16 @@
+//! This snarks implementation includes the proof generation for Hadamard product 
+//! along with all NTT evaluations.
+//! 
+//! When considering the multiplication-related relation between polynomials, 
+//! we are able to use Hadamard product to represent the element-wise relation
+//! of their NTT evaluations.
+//! 
+//! To reduce the elements to be committed as more as possible and also to simplify
+//! the proof structure, we only commit to the coefficient form of the polynomials.
+//! After running the protocol for Hadamard product, it is reduced to querying the
+//! evaluations of these polynomials at some random points. 
+//! All these queries are answered by the NTT PIOP, reducing to the queries of 
+//! their coefficient forms.
 use core::time;
 use std::rc::Rc;
 
@@ -15,13 +28,12 @@ use piop::ntt::{
     NTTFourierEvalInfo, NTTFourierProof, NTTMatrixEvalIOP, NTTMatrixEvalInfo,
     NTTMatrixEvalInstance, NTTMatrixEvalProof,
 };
-use piop::{PackableEFProof, PackableProof, SumcheckInstance, SumcheckPIOP};
-use rayon::iter::IntoParallelRefIterator;
+use piop::{SumcheckInstance, SumcheckPIOP};
 use serde::Serialize;
 use trace::{
     ConvertToEF, EvaluableTraceEF, LookupTrace, LookupTraceMLE, LookupWitness, LookupWitnessHelper,
 };
-use trace::{PackableTrace, SumHadamardTraceMLE};
+use trace::{SumHadamardTraceMLE};
 
 #[derive(Default)]
 pub struct HadamardSnarks<F, EF, S, PCS>
@@ -44,10 +56,7 @@ where
     S: Clone,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
-    pub pcs_bit_poly_params: PCS::Parameters,
-    pub pcs_key_params: PCS::Parameters,
-    pub pcs_key_commitment: PCS::Commitment,
-    pub pcs_key_state: PCS::CommitmentState,
+    pub pcs_params: PCS::Parameters,
     pub ntt_table: Rc<Vec<EF>>,
 }
 
@@ -58,19 +67,14 @@ where
     S: Clone,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
-    pub log_num_bit_poly: usize,
-    pub log_num_key_ntt: usize,
-    pub pcs_bit_poly_params: PCS::Parameters,
-    pub pcs_key_params: PCS::Parameters,
-    pub bit_poly_commitment: PCS::Commitment,
-    pub key_poly_commitment: PCS::Commitment,
+    pub log_num_overall_poly: usize,
+    pub pcs_params: PCS::Parameters,
+    pub commitment: PCS::Commitment,
     pub hadamard_info: BatchedSumHadamardInfo<EF>,
     pub hadamard_proof: BatchedSumHadamardProof<EF>,
     pub ntt_info: NTTMatrixEvalInfo<EF>,
     pub ntt_proof: NTTMatrixEvalProof<EF>,
     pub eval_proof: PCS::Proof,
-    pub key_eval: EF,
-    pub key_eval_proof: PCS::Proof,
 }
 
 impl<F, EF, S, PCS> HadamardSnarks<F, EF, S, PCS>
@@ -93,19 +97,11 @@ where
         code_spec: S,
         ntt_table: Vec<F>,
     ) -> HadamardParams<F, EF, S, PCS> {
-        // commit key oracle
-        let num_key_oracle_vars = trace.num_vars() + trace.log_num_key_ntt();
-        let pcs_key_params = PCS::setup(num_key_oracle_vars, Some(code_spec.clone()));
-        let key_poly = trace.generate_key_oracle();
-        let (pcs_key_commitment, pcs_key_state) = PCS::commit(&pcs_key_params, &key_poly);
-
-        let num_oracle_vars = trace.num_vars() + trace.log_num_bit_poly();
+        let num_oracle_vars = trace.num_vars() + trace.log_num_overall_poly();
         let pcs_params = PCS::setup(num_oracle_vars, Some(code_spec.clone()));
+        
         HadamardParams {
-            pcs_bit_poly_params: pcs_params,
-            pcs_key_params: pcs_key_params,
-            pcs_key_commitment,
-            pcs_key_state,
+            pcs_params,
             ntt_table: Rc::new(ntt_table.to_ef()),
         }
     }
@@ -116,8 +112,8 @@ where
         trace_mle: &SumHadamardTraceMLE<F>,
         params: &HadamardParams<F, EF, S, PCS>,
     ) -> HadamardProof<F, EF, S, PCS> {
-        let bit_poly = trace_mle.generate_bit_oracle();
-        let (commitment, commitment_state) = PCS::commit(&params.pcs_bit_poly_params, &bit_poly);
+        let bit_poly = trace_mle.generate_overall_oracle();
+        let (commitment, commitment_state) = PCS::commit(&params.pcs_params, &bit_poly);
         trans.append_message(b"Commit Phase", &commitment);
 
         let trace_ef = trace_mle.to_ef();
@@ -132,18 +128,12 @@ where
         let mut point_v = hadamard_piop_state.point_r[trace_mle.log_coeff_count..].to_vec();
         let point_bit_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
-            hadamard_evals.log_num_bit_poly(),
-        );
-        let point_key_oracle = trans.get_vec_challenge(
-            b"[Challenge] random point used to verify evaluations",
-            hadamard_evals.log_num_key_ntt(),
+            hadamard_evals.log_num_overall_poly(),
         );
 
         let bit_poly = Rc::new(bit_poly.to_ef());
-        let bit_ntt_evals = hadamard_evals.pack_bit_poly_to_vec();
+        let bit_ntt_evals = hadamard_evals.pack_overall_poly_to_vec();
         let eval = compute_oracle_evals(&bit_ntt_evals, &point_bit_oracle);
-        let key_ntt_evals = hadamard_evals.pack_key_ntt_to_vec();
-        let key_eval = compute_oracle_evals(&key_ntt_evals, &point_key_oracle);
 
         point_v.extend_from_slice(&point_bit_oracle);
         let ntt_instance = NTTMatrixEvalInstance::from_subclaim(
@@ -160,44 +150,27 @@ where
         point_r_v.extend_from_slice(&ntt_piop_state.point_r);
         point_r_v.extend_from_slice(&point_v);
         let eval_proof = PCS::open(
-            &params.pcs_bit_poly_params,
+            &params.pcs_params,
             &commitment,
             &commitment_state,
             &point_r_v,
             trans,
         );
 
-        let mut key_open_point =
-            Vec::with_capacity(hadamard_piop_state.point_r.len() + point_key_oracle.len());
-        key_open_point.extend_from_slice(&hadamard_piop_state.point_r);
-        key_open_point.extend_from_slice(&point_key_oracle);
-        let key_eval_proof = PCS::open(
-            &params.pcs_key_params,
-            &params.pcs_key_commitment,
-            &params.pcs_key_state,
-            &key_open_point,
-            trans,
-        );
-
         HadamardProof {
-            log_num_bit_poly: trace_mle.log_num_bit_poly(),
-            log_num_key_ntt: trace_mle.log_num_key_ntt(),
-            pcs_bit_poly_params: params.pcs_bit_poly_params.clone(),
-            pcs_key_params: params.pcs_key_params.clone(),
-            bit_poly_commitment: commitment,
-            key_poly_commitment: params.pcs_key_commitment.clone(),
+            log_num_overall_poly: trace_mle.log_num_overall_poly(),
+            pcs_params: params.pcs_params.clone(),
+            commitment,
             hadamard_info: hadamard_instance.info(),
             hadamard_proof: hadamard_piop_proof,
             ntt_info: ntt_instance.info(),
             ntt_proof: ntt_piop_proof,
             eval_proof,
-            key_eval,
-            key_eval_proof,
         }
     }
 
     pub fn verify(&self, trans: &mut Transcript<EF>, proof: &HadamardProof<F, EF, S, PCS>) -> bool {
-        trans.append_message(b"Commit Phase", &proof.bit_poly_commitment);
+        trans.append_message(b"Commit Phase", &proof.commitment);
         let mut res = true;
 
         let (hadamard_res, hadamard_subclaim) =
@@ -210,11 +183,7 @@ where
         let mut point_v = hadamard_subclaim.point_r[proof.ntt_info.log_coeff_count..].to_vec();
         let point_bit_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
-            proof.log_num_bit_poly,
-        );
-        let point_key_oracle = trans.get_vec_challenge(
-            b"[Challenge] random point used to verify evaluations",
-            proof.log_num_key_ntt,
+            proof.log_num_overall_poly,
         );
         point_v.extend_from_slice(&point_bit_oracle);
 
@@ -226,34 +195,16 @@ where
         let mut point_r_v = Vec::with_capacity(ntt_subclaim.point_r.len() + point_v.len());
         point_r_v.extend_from_slice(&ntt_subclaim.point_r);
         point_r_v.extend_from_slice(&point_v);
-
-        let mut key_open_point =
-        Vec::with_capacity(hadamard_subclaim.point_r.len() + point_key_oracle.len());
-        key_open_point.extend_from_slice(&hadamard_subclaim.point_r);
-        key_open_point.extend_from_slice(&point_key_oracle);
-
         
         let eval_res = PCS::verify(
-            &proof.pcs_bit_poly_params,
-            &proof.bit_poly_commitment,
+            &proof.pcs_params,
+            &proof.commitment,
             &point_r_v,
             proof.ntt_proof.coeff_eval_at_r_v,
             &proof.eval_proof,
             trans,
         );
         res &= eval_res;
-
-        
-        let key_eval_res = PCS::verify(
-            &proof.pcs_key_params,
-            &proof.key_poly_commitment,
-            &key_open_point,
-            proof.key_eval,
-            &proof.key_eval_proof,
-            trans,
-        );
-
-        res &= key_eval_res;
 
         res
     }
