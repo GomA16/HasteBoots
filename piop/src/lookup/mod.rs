@@ -1,3 +1,2 @@
-pub mod logup;
-
-pub use logup::{LogUpIOP, LogUpInstance, LogUpProof};
+pub mod normal_table;
+pub mod small_table;

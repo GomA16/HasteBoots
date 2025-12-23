@@ -6,10 +6,9 @@ use algebra::{
 use rayon::iter::IntoParallelRefIterator;
 use serde::Serialize;
 
-use crate::{
-    ConvertToEF, EvaluableTrace, EvaluableTraceEF, LookupTraceMLE, NTTTraceMLE, PackableEval,
-    PackableTrace,
-};
+use crate::lookup_trace::normal_table::LookupTraceMLE as LookupTraceMLENormalTable;
+use crate::lookup_trace::small_table::LookupTraceMLE as LookupTraceMLESmallTable;
+use crate::{ConvertToEF, EvaluableTraceEF, NTTTraceMLE, PackableEval, PackableTrace};
 
 /// Store the traces of each round of Hadamard product during blind rotation.
 #[derive(Debug, Clone)]
@@ -50,7 +49,9 @@ pub struct HadamardTraceMLE<F: Field> {
 
 #[derive(Serialize)]
 pub struct HadamardTraceEval<F: Field> {
+    pub bit_poly: F,
     pub bit_ntt: F,
+    pub key_poly: (F, F),
     pub key_ntt: (F, F),
 }
 
@@ -73,22 +74,12 @@ pub struct SumHadamardTraceMLE<F: Field> {
 pub struct SumHadamardTraceEval<F: Field> {
     pub vec_trace: Vec<HadamardTraceEval<F>>,
     pub sum_prod_ntt: (F, F),
+    pub sum_prod_poly: (F, F),
 }
 
 impl<F: Field> SumHadamardTraceEval<F> {
-    pub fn log_num_bit_poly(&self) -> usize {
-        self.vec_trace.len().next_power_of_two().trailing_zeros() as usize
-    }
-
-    pub fn log_num_key_ntt(&self) -> usize {
-        (self.vec_trace.len() * 2).next_power_of_two().trailing_zeros() as usize
-    }
-
-    pub fn log_num_overall_poly(&self) -> usize {
-        (self.vec_trace.len() * 3 + 2).next_power_of_two().trailing_zeros() as usize
-    }
-
-    pub fn pack_bit_poly_to_vec(&self) -> Vec<F> {
+    #[inline]
+    pub fn pack_bit_ntt_to_vec(&self) -> Vec<F> {
         self.vec_trace
             .iter()
             .map(|trace| &trace.bit_ntt)
@@ -96,6 +87,16 @@ impl<F: Field> SumHadamardTraceEval<F> {
             .collect()
     }
 
+    #[inline]
+    pub fn pack_bit_poly_to_vec(&self) -> Vec<F> {
+        self.vec_trace
+            .iter()
+            .map(|trace| &trace.bit_poly)
+            .cloned()
+            .collect()
+    }
+
+    #[inline]
     pub fn pack_key_ntt_to_vec(&self) -> Vec<F> {
         self.vec_trace
             .iter()
@@ -103,10 +104,27 @@ impl<F: Field> SumHadamardTraceEval<F> {
             .collect()
     }
 
-    pub fn pack_overall_poly_to_vec(&self) -> Vec<F> {
-        let mut overall_vec = self.pack_bit_poly_to_vec();
+    #[inline]
+    pub fn pack_key_poly_to_vec(&self) -> Vec<F> {
+        self.vec_trace
+            .iter()
+            .flat_map(|trace| [trace.key_poly.0, trace.key_poly.1])
+            .collect()
+    }
+
+    #[inline]
+    pub fn pack_all_ntt_to_vec(&self) -> Vec<F> {
+        let mut overall_vec = self.pack_bit_ntt_to_vec();
         overall_vec.extend(self.pack_key_ntt_to_vec());
         overall_vec.extend(vec![self.sum_prod_ntt.0, self.sum_prod_ntt.1]);
+        overall_vec
+    }
+
+    #[inline]
+    pub fn pack_all_poly_to_vec(&self) -> Vec<F> {
+        let mut overall_vec = self.pack_bit_poly_to_vec();
+        overall_vec.extend(self.pack_key_poly_to_vec());
+        overall_vec.extend(vec![self.sum_prod_poly.0, self.sum_prod_poly.1]);
         overall_vec
     }
 }
@@ -174,10 +192,12 @@ impl<F: NTTField> From<SumHadamardTrace<F>> for SumHadamardTraceMLE<F> {
 impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for HadamardTraceMLE<F> {
     type Output = HadamardTraceMLE<EF>;
 
+    #[inline]
     fn into_ef(self) -> Self::Output {
         unimplemented!("into_ef for HadamardTraceMLE is not supported yet");
     }
 
+    #[inline]
     fn to_ef(&self) -> Self::Output {
         Self::Output {
             log_coeff_count: self.log_coeff_count,
@@ -198,11 +218,12 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for HadamardTra
 
 impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for SumHadamardTraceMLE<F> {
     type Output = SumHadamardTraceMLE<EF>;
-
+    #[inline]
     fn into_ef(self) -> Self::Output {
         unimplemented!("into_ef for SumHadamardTraceMLE is not supported yet");
     }
 
+    #[inline]
     fn to_ef(&self) -> Self::Output {
         Self::Output {
             log_coeff_count: self.log_coeff_count,
@@ -227,22 +248,45 @@ impl<F: Field> SumHadamardTraceMLE<F> {
     }
 }
 
-impl<F: Field> EvaluableTrace<F> for HadamardTraceMLE<F> {
+impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for HadamardTraceMLE<F> {
     type TraceEval = HadamardTraceEval<F>;
+    type TraceEvalEF = HadamardTraceEval<EF>;
     #[inline]
     fn evaluate(&self, point: &[F]) -> Self::TraceEval {
         Self::TraceEval {
+            bit_poly: self.bit_poly.evaluate(point),
             bit_ntt: self.bit_ntt.evaluate(point),
             key_ntt: (
                 self.key_ntt.0.evaluate(point),
                 self.key_ntt.1.evaluate(point),
             ),
+            key_poly: (
+                self.key_poly.0.evaluate(point),
+                self.key_poly.1.evaluate(point),
+            ),
+        }
+    }
+
+    #[inline]
+    fn evaluate_ef(&self, point: &[EF]) -> Self::TraceEvalEF {
+        Self::TraceEvalEF {
+            bit_poly: self.bit_poly.evaluate_ext(point),
+            bit_ntt: self.bit_ntt.evaluate_ext(point),
+            key_ntt: (
+                self.key_ntt.0.evaluate_ext(point),
+                self.key_ntt.1.evaluate_ext(point),
+            ),
+            key_poly: (
+                self.key_poly.0.evaluate_ext(point),
+                self.key_poly.1.evaluate_ext(point),
+            ),
         }
     }
 }
 
-impl<F: Field> EvaluableTrace<F> for SumHadamardTraceMLE<F> {
+impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for SumHadamardTraceMLE<F> {
     type TraceEval = SumHadamardTraceEval<F>;
+    type TraceEvalEF = SumHadamardTraceEval<EF>;
 
     #[inline]
     fn evaluate(&self, point: &[F]) -> Self::TraceEval {
@@ -250,36 +294,24 @@ impl<F: Field> EvaluableTrace<F> for SumHadamardTraceMLE<F> {
             vec_trace: self
                 .vec_trace
                 .iter()
-                .map(|trace| trace.evaluate(point))
+                .map(|trace| {
+                    <HadamardTraceMLE<F> as EvaluableTraceEF<F, EF>>::evaluate(trace, point)
+                })
                 .collect(),
             sum_prod_ntt: (
                 self.sum_prod_ntt.0.evaluate(point),
                 self.sum_prod_ntt.1.evaluate(point),
             ),
-        }
-    }
-}
-
-impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for HadamardTraceMLE<F> {
-    type TraceEval = HadamardTraceEval<EF>;
-    #[inline]
-    fn evaluate_ef(&self, point: &[EF]) -> Self::TraceEval {
-        Self::TraceEval {
-            bit_ntt: self.bit_ntt.evaluate_ext(point),
-            key_ntt: (
-                self.key_ntt.0.evaluate_ext(point),
-                self.key_ntt.1.evaluate_ext(point),
+            sum_prod_poly: (
+                self.sum_prod_poly.0.evaluate(point),
+                self.sum_prod_poly.1.evaluate(point),
             ),
         }
     }
-}
-
-impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for SumHadamardTraceMLE<F> {
-    type TraceEval = SumHadamardTraceEval<EF>;
 
     #[inline]
-    fn evaluate_ef(&self, point: &[EF]) -> Self::TraceEval {
-        Self::TraceEval {
+    fn evaluate_ef(&self, point: &[EF]) -> Self::TraceEvalEF {
+        Self::TraceEvalEF {
             vec_trace: self
                 .vec_trace
                 .iter()
@@ -288,6 +320,10 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for SumHad
             sum_prod_ntt: (
                 self.sum_prod_ntt.0.evaluate_ext(point),
                 self.sum_prod_ntt.1.evaluate_ext(point),
+            ),
+            sum_prod_poly: (
+                self.sum_prod_poly.0.evaluate_ext(point),
+                self.sum_prod_poly.1.evaluate_ext(point),
             ),
         }
     }
@@ -311,14 +347,17 @@ impl<F: NTTField> HadamardTrace<F> {
         }
     }
 
+    #[inline]
     pub fn append_bit_poly(&mut self, bit_poly: &[F]) {
         self.bit_poly.extend_from_slice(bit_poly);
     }
 
+    #[inline]
     pub fn append_bit_ntt(&mut self, bit_ntt: &[F]) {
         self.bit_ntt.extend_from_slice(bit_ntt);
     }
 
+    #[inline]
     pub fn append_key_ntt(&mut self, key_ntt: (&[F], &[F])) {
         self.key_ntt.0.extend_from_slice(key_ntt.0);
         self.key_ntt.1.extend_from_slice(key_ntt.1);
@@ -331,6 +370,7 @@ impl<F: NTTField> HadamardTrace<F> {
         self.key_poly.1.extend_from_slice(key_poly_1.as_slice());
     }
 
+    #[inline]
     pub fn export_mles(
         self,
     ) -> (
@@ -347,23 +387,8 @@ impl<F: NTTField> HadamardTrace<F> {
     }
 }
 
-impl<F: NTTField> HadamardTraceMLE<F> {
-    pub fn extract_ntt_trace_mle(&self) -> NTTTraceMLE<F> {
-        NTTTraceMLE {
-            log_coeff_count: self.log_coeff_count,
-            log_num_ntt: self.log_num_round,
-            ntt_table: Rc::new(
-                F::get_ntt_table(self.log_coeff_count as u32)
-                    .unwrap()
-                    .root_powers(),
-            ),
-            coefficients: Rc::clone(&self.bit_ntt),
-            evaluations: Rc::clone(&self.bit_poly),
-        }
-    }
-}
-
 impl<F: NTTField> SumHadamardTrace<F> {
+    #[inline]
     pub fn new(num_trace: usize, log_coeff_count: usize, log_num_poly: usize) -> Self {
         Self {
             log_coeff_count,
@@ -381,104 +406,73 @@ impl<F: NTTField> SumHadamardTrace<F> {
         }
     }
 
+    #[inline]
     pub fn get_trace_mul(&mut self, trace_idx: usize) -> &mut HadamardTrace<F> {
         &mut self.vec_trace[trace_idx]
     }
 
+    #[inline]
     pub fn add_sum_prod_ntt(&mut self, sum_prod: (&[F], &[F])) {
         self.sum_prod_ntt.0.extend_from_slice(sum_prod.0);
         self.sum_prod_ntt.1.extend_from_slice(sum_prod.1);
     }
 
+    #[inline]
     pub fn add_sum_prod_poly(&mut self, sum_prod: (&[F], &[F])) {
         self.sum_prod_poly.0.extend_from_slice(sum_prod.0);
         self.sum_prod_poly.1.extend_from_slice(sum_prod.1);
     }
 }
 
-impl<F: NTTField> SumHadamardTraceMLE<F> {
-    pub fn extract_random_ntt_trace_mle(&self, randomness: &[F]) -> NTTTraceMLE<F> {
-        let size = 1 << (self.log_coeff_count + self.log_num_round);
-        let mut rand_coeffs = vec![F::zero(); size];
-        let mut rand_evals = vec![F::zero(); size];
-
-        let add_assign = |acc: &mut [F], vec: &[F], r: F| {
-            for (a, b) in acc.iter_mut().zip(vec.iter()) {
-                *a += r.mul(*b);
-            }
-        };
-
-        self.vec_trace
-            .iter()
-            .zip(randomness)
-            .for_each(|(trace, r)| {
-                add_assign(&mut rand_coeffs, trace.bit_ntt.as_slice(), *r);
-                add_assign(&mut rand_evals, trace.bit_poly.as_slice(), *r);
-            });
-
-        NTTTraceMLE {
-            log_coeff_count: self.log_coeff_count,
-            log_num_ntt: self.log_num_round,
-            ntt_table: Rc::new(
-                F::get_ntt_table(self.log_coeff_count as u32)
-                    .unwrap()
-                    .root_powers(),
-            ),
-            coefficients: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
-                self.log_coeff_count + self.log_num_round,
-                rand_coeffs,
-            )),
-            evaluations: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
-                self.log_coeff_count + self.log_num_round,
-                rand_evals,
-            )),
-        }
-    }
-
-    pub fn extract_lookup_trace_mle(&self, range: usize) -> LookupTraceMLE<F> {
-        let vec_input = self
-            .vec_trace
-            .iter()
-            .map(|trace| trace.bit_poly.clone())
-            .collect::<Vec<_>>();
-        let num_vars = self.log_coeff_count + self.log_num_round;
-        LookupTraceMLE {
-            num_vars,
-            range,
-            vec_input,
-        }
-    }
-}
-
 impl<F: Field> SumHadamardTraceMLE<F> {
+    #[inline]
     pub fn num_vars(&self) -> usize {
         self.log_coeff_count + self.log_num_round
     }
 
+    #[inline]
     pub fn num_bit_poly(&self) -> usize {
         self.num_trace
     }
 
-    pub fn num_key_ntt(&self) -> usize {
+    #[inline]
+    pub fn num_key_poly(&self) -> usize {
         self.num_trace * 2
     }
 
-    pub fn num_overall_poly(&self) -> usize {
+    #[inline]
+    pub fn num_all_poly(&self) -> usize {
+        // #bit_poly = num_trace
+        // #key_ntt = num_trace * 2
+        // #sum_prod = 2
         self.num_trace * 3 + 2
     }
 
+    #[inline]
     pub fn log_num_bit_poly(&self) -> usize {
-        self.num_trace.next_power_of_two().trailing_zeros() as usize
+        self.num_bit_poly().next_power_of_two().trailing_zeros() as usize
     }
 
-    pub fn log_num_key_ntt(&self) -> usize {
-        (self.num_trace * 2).next_power_of_two().trailing_zeros() as usize
+    #[inline]
+    pub fn log_num_key_poly(&self) -> usize {
+        self.num_key_poly().next_power_of_two().trailing_zeros() as usize
     }
 
-    pub fn log_num_overall_poly(&self) -> usize {
-        (self.num_trace * 3 + 2).next_power_of_two().trailing_zeros() as usize
+    #[inline]
+    pub fn log_num_all_poly(&self) -> usize {
+        (self.num_bit_poly() + self.num_key_poly() + 2)
+            .next_power_of_two()
+            .trailing_zeros() as usize
     }
 
+    #[inline]
+    pub fn log_num_helper_poly(&self, blk_size: usize) -> usize {
+        let num_lookup = self.num_bit_poly();
+        let num_helper = (num_lookup + blk_size - 1) / blk_size;
+        num_helper.next_power_of_two().trailing_zeros() as usize
+    }
+
+    #[inline]
     pub fn generate_bit_vec(&self) -> Vec<F> {
         self.vec_trace
             .iter()
@@ -487,22 +481,26 @@ impl<F: Field> SumHadamardTraceMLE<F> {
             .collect()
     }
 
+    #[inline]
     pub fn generate_key_vec(&self) -> Vec<F> {
         self.vec_trace
             .iter()
-            .flat_map(|trace| trace.key_ntt.0.iter().chain(trace.key_ntt.1.iter()))
+            .flat_map(|trace| trace.key_poly.0.iter().chain(trace.key_poly.1.iter()))
             .cloned()
             .collect()
     }
 
+    #[inline]
     pub fn generate_sum_prod_vec(&self) -> Vec<F> {
-        self.sum_prod_poly.0
+        self.sum_prod_poly
+            .0
             .iter()
             .cloned()
             .chain(self.sum_prod_poly.1.iter().cloned())
             .collect()
     }
 
+    #[inline]
     pub fn generate_bit_oracle(&self) -> DenseMultilinearExtension<F> {
         let mut bit_polys = self.generate_bit_vec();
         let num_vars = bit_polys.len().next_power_of_two().trailing_zeros() as usize;
@@ -511,6 +509,7 @@ impl<F: Field> SumHadamardTraceMLE<F> {
         DenseMultilinearExtension::from_evaluations_vec(num_vars, bit_polys)
     }
 
+    #[inline]
     pub fn generate_key_oracle(&self) -> DenseMultilinearExtension<F> {
         let mut key_ntts = self.generate_key_vec();
         let num_vars = key_ntts.len().next_power_of_two().trailing_zeros() as usize;
@@ -519,7 +518,8 @@ impl<F: Field> SumHadamardTraceMLE<F> {
         DenseMultilinearExtension::from_evaluations_vec(num_vars, key_ntts)
     }
 
-    pub fn generate_overall_oracle(&self) -> DenseMultilinearExtension<F> {
+    #[inline]
+    pub fn generate_all_oracle(&self) -> DenseMultilinearExtension<F> {
         let mut overall_vec = self.generate_bit_vec();
         overall_vec.extend(self.generate_key_vec());
         overall_vec.extend(self.generate_sum_prod_vec());
@@ -529,4 +529,39 @@ impl<F: Field> SumHadamardTraceMLE<F> {
         DenseMultilinearExtension::from_evaluations_vec(num_vars, overall_vec)
     }
 
+    #[inline]
+    pub fn extract_lookup_trace_mle_small_table(
+        &self,
+        range: usize,
+    ) -> LookupTraceMLESmallTable<F> {
+        let vec_input = self
+            .vec_trace
+            .iter()
+            .map(|trace| trace.bit_poly.clone())
+            .collect::<Vec<_>>();
+        let num_vars = self.log_coeff_count + self.log_num_round;
+        LookupTraceMLESmallTable {
+            num_vars,
+            range,
+            vec_input,
+        }
+    }
+
+    #[inline]
+    pub fn extract_lookup_trace_mle_normal_table(
+        &self,
+        range: usize,
+    ) -> LookupTraceMLENormalTable<F> {
+        let vec_input = self
+            .vec_trace
+            .iter()
+            .map(|trace| trace.bit_poly.clone())
+            .collect::<Vec<_>>();
+        let num_vars = self.log_coeff_count + self.log_num_round;
+        LookupTraceMLENormalTable {
+            num_vars,
+            range,
+            vec_input,
+        }
+    }
 }

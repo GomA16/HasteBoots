@@ -5,12 +5,13 @@ use helper::utils::compute_oracle_evals;
 use helper::{FiatShamirTranscript, Transcript};
 use pcs::PolynomialCommitmentScheme;
 use pcs::utils::code;
-use piop::lookup::logup::LogUpInstanceInfo;
-use piop::lookup::{LogUpIOP, LogUpInstance, LogUpProof};
-use piop::{PackableEFProof, PackableProof, SumcheckInstance, SumcheckPIOP};
+use piop::lookup::small_table::LogUpInstanceInfo;
+use piop::lookup::small_table::{LogUpIOP, LogUpInstance, LogUpProof};
+use piop::{SumcheckInstance, SumcheckPIOP};
 use serde::Serialize;
-use trace::PackableTrace;
-use trace::{ConvertToEF, LookupTrace, LookupTraceMLE, LookupWitness, LookupWitnessHelper};
+use trace::{EvaluableTrace, EvaluableTraceEF, PackableEval, PackableTrace};
+use trace::{ConvertToEF};
+use trace::lookup_trace::small_table::{LookupTrace, LookupTraceEval, LookupTraceMLE, LookupWitnessHelper, LookupWitnessHelperEval};
 
 #[derive(Default)]
 pub struct LogUpSnarks<F, EF, S, PCS>
@@ -50,8 +51,8 @@ where
         Self {
             // code_spec,
             blk_size,
-            pcs_params: PCS::setup(trace.witness_num_vars(), Some(code_spec.clone())),
-            pcs_params_ef: PCS::setup(trace.helper_num_vars(blk_size), Some(code_spec.clone())),
+            pcs_params: PCS::setup(trace.num_vars() + trace.log_num_oracles(), Some(code_spec.clone())),
+            pcs_params_ef: PCS::setup(trace.num_vars() + trace.log_num_helper_oracles(blk_size), Some(code_spec.clone())),
         }
     }
 }
@@ -66,7 +67,6 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            // code_spec: self.code_spec.clone(),
             blk_size: self.blk_size,
             pcs_params: self.pcs_params.clone(),
             pcs_params_ef: self.pcs_params_ef.clone(),
@@ -88,6 +88,11 @@ where
     pub piop_proof: LogUpProof<EF>,
     pub eval_trace_proof: PCS::Proof,
     pub eval_helper_proof: PCS::ProofEF,
+    // redudant info for ease of verification
+    pub log_num_oracles: usize,
+    pub log_num_helper_oracles: usize,
+    pub trace_eval: LookupTraceEval<EF>,
+    pub helper_eval: LookupWitnessHelperEval<EF>,
 }
 
 impl<F, EF, S, PCS> LogUpSnarks<F, EF, S, PCS>
@@ -107,10 +112,10 @@ where
     pub fn commit_witness(
         &self,
         params: &LogUpParams<F, EF, S, PCS>,
-        witness: &LookupWitness<F>,
+        trace: &LookupTraceMLE<F>,
     ) -> (PCS::Commitment, PCS::CommitmentState) {
-        let witness_poly = witness.generate_oracle();
-        PCS::commit(&params.pcs_params, &witness_poly)
+        let trace_poly = trace.generate_oracle();
+        PCS::commit(&params.pcs_params, &trace_poly)
     }
 
     pub fn commit_witness_ef(
@@ -122,14 +127,14 @@ where
         PCS::commit_ef(&params.pcs_params_ef, &witness_poly)
     }
 
-    pub fn compute_oracle_evaluation(&self, proof: &LogUpProof<EF>, point: &[EF]) -> EF {
-        let evals = proof.pack_to_vec();
-        compute_oracle_evals(&evals, point)
+    pub fn compute_oracle_evaluation(&self, eval: &LookupTraceEval<EF>, point: &[EF]) -> EF {
+        let reduced_eval = eval.pack_to_vec();
+        compute_oracle_evals(&reduced_eval, point)
     }
 
-    pub fn compute_oracle_evaluation_ef(&self, proof: &LogUpProof<EF>, point: &[EF]) -> EF {
-        let evals = proof.pack_to_vec_ef();
-        compute_oracle_evals(&evals, point)
+    pub fn compute_oracle_evaluation_ef(&self, eval: &LookupWitnessHelperEval<EF>, point: &[EF]) -> EF {
+        let reduced_eval = eval.pack_to_vec();
+        compute_oracle_evals(&reduced_eval, point)
     }
 
     pub fn prove(
@@ -138,42 +143,45 @@ where
         trace_mle: LookupTraceMLE<F>,
         params: &mut LogUpParams<F, EF, S, PCS>,
     ) -> LogUpSnarksProof<F, EF, S, PCS> {
-        let witness: LookupWitness<F> = trace_mle.into();
+        let witness = trace_mle.compute_witness_pure();
 
         // Commit to the trace polynomial
-        let (trace_commitment, commitment_state) = self.commit_witness(params, &witness);
+        let (trace_commitment, commitment_state) = self.commit_witness(params, &trace_mle);
         trans.append_message(b"[Commit Phase]", &trace_commitment);
 
         // Commit to the helper polynomial
         let random_value =
             trans.get_challenge(b"[Challenge] random value used in the rational identity");
-        let witness_ef: LookupWitness<EF> = witness.to_ef();
-        let helper = witness_ef.compute_helper_functions(params.blk_size, random_value);
+        let helper = trace_mle.compute_helper_functions_ef::<EF>(params.blk_size, random_value, &witness);
         let (helper_commitment, helper_commitment_state) = self.commit_witness_ef(params, &helper);
         trans.append_message(b"[Commit Phase]", &helper_commitment);
 
         // PIOP Phase
-        let instance = LogUpInstance::from(&witness_ef, &helper);
+        let trace_ef = trace_mle.to_ef();
+        let instance = LogUpInstance::from(&trace_ef, &helper);
         // let (piop_proof, piop_state) = LogUpIOP::prover(trans, &instance);
         // Prover can also use the following line to separate the sumcheck proof generation from the evaluation phase.
         let (mut piop_proof, piop_state) = LogUpIOP::prover_without_evals(trans, &instance);
-        piop_proof.append_eval_ef(&piop_state, &witness, &helper);
+
+        let trace_eval = trace_mle.evaluate_ef(&piop_state.point_r);
+        let helper_eval = helper.evaluate(&piop_state.point_r);
+        piop_proof.append_eval(&trace_eval, &helper_eval, random_value);
         trans.append_message(b"[PIOP Phase]", &piop_proof);
 
         // Reduce the evaluations to one evaluation on the oracle
         let point_trace_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
-            piop_proof.log_num_evals(),
+            trace_mle.log_num_oracles(),
         );
         let point_helper_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
-            piop_proof.log_num_evals_ef(),
+            trace_mle.log_num_helper_oracles(params.blk_size),
         );
 
-        let oracle_evaluation = self.compute_oracle_evaluation(&piop_proof, &point_trace_oracle);
+        let oracle_evaluation = self.compute_oracle_evaluation(&trace_eval, &point_trace_oracle);
         trans.append_message(b"[PIOP Phase]", &oracle_evaluation);
         let oracle_evaluation_ef =
-            self.compute_oracle_evaluation_ef(&piop_proof, &point_helper_oracle);
+            self.compute_oracle_evaluation_ef(&helper_eval, &point_helper_oracle);
         trans.append_message(b"[PIOP Phase]", &oracle_evaluation_ef);
 
         // PCS Phase
@@ -208,8 +216,12 @@ where
             helper_commitment,
             info: instance.info(),
             piop_proof,
+            log_num_oracles: trace_mle.log_num_oracles(),
+            log_num_helper_oracles: trace_mle.log_num_helper_oracles(params.blk_size),
             eval_trace_proof,
             eval_helper_proof,
+            trace_eval,
+            helper_eval,
         }
     }
 
@@ -235,18 +247,18 @@ where
         // Reduce the evaluations to one evaluation on the oracle
         let point_trace_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
-            proof.piop_proof.log_num_evals(),
+            proof.log_num_oracles,
         );
         let point_helper_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
-            proof.piop_proof.log_num_evals_ef(),
+            proof.log_num_helper_oracles,
         );
 
         let oracle_evaluation =
-            self.compute_oracle_evaluation(&proof.piop_proof, &point_trace_oracle);
+            self.compute_oracle_evaluation(&proof.trace_eval, &point_trace_oracle);
         trans.append_message(b"[PIOP Phase]", &oracle_evaluation);
         let oracle_evaluation_ef =
-            self.compute_oracle_evaluation_ef(&proof.piop_proof, &point_helper_oracle);
+            self.compute_oracle_evaluation_ef(&proof.helper_eval, &point_helper_oracle);
         trans.append_message(b"[PIOP Phase]", &oracle_evaluation_ef);
 
         let pcs_res = PCS::verify(
@@ -289,7 +301,7 @@ mod test {
         multilinear::BrakedownPCS,
         utils::code::{ExpanderCode, ExpanderCodeSpec},
     };
-    use trace::LookupTrace;
+    use trace::lookup_trace::small_table::LookupTrace;
 
     type FF = BabyBear;
     type EF = BabyBearExetension;

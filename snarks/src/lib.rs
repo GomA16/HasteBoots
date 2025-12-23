@@ -4,7 +4,8 @@ use pcs::PolynomialCommitmentScheme;
 
 pub mod lookup;
 pub mod ntt;
-pub mod pbs;
+// pub mod pbs;
+pub mod external_product;
 pub mod hadamard;
 
 /// Oracle used in the NTT matrix evaluation PIOP

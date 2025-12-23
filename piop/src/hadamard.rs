@@ -28,7 +28,6 @@ use crate::SumcheckPIOP;
 use crate::SumcheckPureProof;
 use crate::SumcheckPureProverState;
 use crate::SumcheckPureSubclaim;
-use crate::lookup::LogUpProof;
 
 pub struct HadamardPIOP<F: Field> {
     _marker: std::marker::PhantomData<F>,
@@ -90,10 +89,10 @@ impl<F: Field> SumHadamardInstance<F> {
         for (a, b) in &self.products {
             let prod: Vec<Rc<DenseMultilinearExtension<F>>> =
                 vec![a.clone(), b.clone(), kernel.eq_at_point.clone()];
-            claim.poly_mut().add_product(prod, random_lambda);
+            claim.poly.add_product(prod, random_lambda);
         }
         let prod = vec![self.result.clone(), kernel.eq_at_point.clone()];
-        claim.poly_mut().add_product(prod, -random_lambda);
+        claim.poly.add_product(prod, -random_lambda);
     }
 
     pub fn eval_at_point(&self, point_r: &[F]) -> SumHadamardEval<F> {
@@ -212,9 +211,21 @@ impl<F: Field> SumHadamardEval<F> {
 }
 
 impl<F: Field> BatchedSumHadamardProof<F> {
+    pub fn from_hadamard_trace_eval(
+        trace_eval: &SumHadamardTraceEval<F>,
+    ) -> Self {
+        let mut proof = BatchedSumHadamardProof {
+            poly_info: PolynomialInfo::default(),
+            sumcheck_proof: Proof::default(),
+            hadamard_at_r: Vec::new(),
+        };
+        proof.append_eval(trace_eval);
+        proof
+    }
+
     pub fn append_eval(&mut self, trace_eval: &SumHadamardTraceEval<F>) {
         let num_sum = 2;
-        let mut hadamard_at_r = Vec::with_capacity(num_sum);
+        let mut hadamard_at_r: Vec<SumHadamardEval<F>> = Vec::with_capacity(num_sum);
 
         let mut add_into_batch = |batch: &SumHadamardTraceEval<F>| {
             let products_at_r = batch
@@ -276,7 +287,7 @@ impl<F: Field> SumcheckInfo<F> for BatchedSumHadamardInfo<F> {
 impl<F: Field> SumcheckPureProof<F> for BatchedSumHadamardProof<F> {
     fn from_sumcheck(sumcheck_claim: &SumcheckClaim<F>, proof: Proof<F>) -> Self {
         BatchedSumHadamardProof {
-            poly_info: sumcheck_claim.poly_ref().info(),
+            poly_info: sumcheck_claim.poly.info(),
             sumcheck_proof: proof,
             hadamard_at_r: Vec::new(),
         }
@@ -332,7 +343,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for HadamardPIOP<F> {
             &randomness_batch,
             lagrange_kernel,
         );
-        let (sumcheck_proof, prover_state) = MLSumcheck::prove(trans, sumcheck_claim.poly_ref())
+        let (sumcheck_proof, prover_state) = MLSumcheck::prove(trans, &sumcheck_claim.poly)
             .expect("[HadamardIOP] Fail to generate sumcheck proof");
 
         let hadamard_at_r = instance
@@ -342,7 +353,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for HadamardPIOP<F> {
             .collect::<Vec<_>>();
 
         let proof = BatchedSumHadamardProof {
-            poly_info: sumcheck_claim.poly_ref().info(),
+            poly_info: sumcheck_claim.poly.info(),
             sumcheck_proof,
             hadamard_at_r,
         };

@@ -10,7 +10,7 @@ use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInstance};
 use piop::{SumcheckInstance, SumcheckPIOP};
 use rand::Rng;
 use rand_distr::Distribution;
-use snarks::hadamard::HadamardSnarks;
+use snarks::hadamard::{HadamardParams, HadamardSnarks};
 use trace::SumHadamardTraceMLE;
 // use trace::HadamardProdTraceMLE;
 use zkfhe::bfhe::{CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator, BABYBEAR_BINARY_128_BITS_PARAMETERS};
@@ -73,14 +73,13 @@ fn main() {
     let trace_mle: SumHadamardTraceMLE<_> = trace.into();
     let ntt_table = FF::get_ntt_table(trace_mle.log_coeff_count as u32).unwrap().root_powers();
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
+    let params = HadamardParams::new(code_spec, ntt_table, &trace_mle);
     let snarks = HadamardSnarks::<
         FF,
         EF,
         ExpanderCodeSpec,
         BrakedownPCS<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>,
     >::default();
-    
-    let params = snarks.setup(&trace_mle, code_spec.clone(), ntt_table);
 
     let mut prover_trans = Transcript::default();
     let time = std::time::Instant::now();

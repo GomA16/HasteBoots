@@ -9,6 +9,7 @@ pub mod multilinear;
 pub mod utils;
 
 use algebra::{AbstractExtensionField, Field, MultilinearExtension};
+use bincode::Encode;
 use helper::Transcript;
 use serde::{Deserialize, Serialize};
 

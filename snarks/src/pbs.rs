@@ -1,24 +1,33 @@
-use core::time;
+//! This snarks implementation includes the proof generation for blind rotation Hadamard product 
+//! along with all NTT evaluations.
+//! 
+//! When considering the multiplication-related relation between polynomials, 
+//! we are able to use Hadamard product to represent the element-wise relation
+//! of their NTT evaluations.
+//! 
+//! To reduce the elements to be committed as more as possible and also to simplify
+//! the proof structure, we only commit to the coefficient form of the polynomials.
+//! After running the protocol for Hadamard product, it is reduced to querying the
+//! evaluations of these polynomials at some random points. 
+//! All these queries are answered by the NTT PIOP, reducing to the queries of 
+//! their coefficient forms.
 use std::rc::Rc;
 
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 use helper::utils::compute_oracle_evals;
 use helper::{FiatShamirTranscript, Transcript};
 use pcs::PolynomialCommitmentScheme;
-use pcs::utils::code;
 use piop::hadamard::{
     BatchedSumHadamardInfo, BatchedSumHadamardInstance, BatchedSumHadamardProof, HadamardPIOP,
 };
-use piop::lookup::logup::LogUpInstanceInfo;
-use piop::lookup::{LogUpIOP, LogUpInstance, LogUpProof};
 use piop::ntt::{
-    NTTFourierEvalInfo, NTTFourierProof, NTTMatrixEvalIOP, NTTMatrixEvalInfo,
+    NTTMatrixEvalIOP, NTTMatrixEvalInfo,
     NTTMatrixEvalInstance, NTTMatrixEvalProof,
 };
 use piop::{SumcheckInstance, SumcheckPIOP};
 use serde::Serialize;
 use trace::{
-    ConvertToEF, EvaluableTraceEF, LookupTrace, LookupTraceMLE, LookupWitness, LookupWitnessHelper,
+    ConvertToEF, EvaluableTraceEF,
 };
 use trace::{SumHadamardTraceMLE};
 

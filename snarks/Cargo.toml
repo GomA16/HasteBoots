@@ -9,6 +9,7 @@ trace = { path = "../trace" }
 pcs = { path = "../pcs" }
 algebra = { path = "../algebra" }
 helper = { path = "../helper" }
+sumcheck = { path = "../sumcheck" }
 
 thiserror = { workspace = true }
 rand = { workspace = true }

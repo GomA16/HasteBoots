@@ -92,13 +92,6 @@ impl<F: Field + Serialize> MLSumcheck<F> {
             polynomial.num_variables,
             polynomial.products.len()
         );
-        // println!(
-        //     "[sumcheck] The polynomial (degree = {}) to be proved consists of {} MLEs (#vars = {}) in the form of {} products.",
-        //     polynomial.max_multiplicands,
-        //     polynomial.flattened_ml_extensions.len(),
-        //     polynomial.num_variables,
-        //     polynomial.products.len()
-        // );
 
         let mut prover_state = IPForMLSumcheck::prover_init(polynomial);
         let mut verifier_msg = None;

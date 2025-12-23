@@ -11,8 +11,8 @@ use std::rc::Rc;
 use sumcheck::{MLSumcheck, Proof, prover::ProverState, verifier::SubClaim};
 
 pub struct SumcheckClaim<F: Field> {
-    poly: ListOfProductsOfPolynomials<F>,
-    sum: F,
+    pub poly: ListOfProductsOfPolynomials<F>,
+    pub sum: F,
 }
 
 /// When proving the \sum a(x)b(x) = c(x) on a hypercube, it can be reduced
@@ -145,7 +145,6 @@ pub trait SumcheckPIOP<F: Field + Serialize> {
         trans.append_message(b"[Statement]", &info);
 
         let mut sumcheck_claim = SumcheckClaim::new(info.num_vars());
-
         let lagrange_kernel = Some(&LagrangeKernel::random(trans, instance.num_vars()));
         let randomness_batch = info.sample_randomness_for_sumcheck(trans);
         Self::prover_batch_sumcheck(
@@ -154,7 +153,7 @@ pub trait SumcheckPIOP<F: Field + Serialize> {
             &randomness_batch,
             lagrange_kernel,
         );
-        let (sumcheck_proof, prover_state) = MLSumcheck::prove(trans, sumcheck_claim.poly_ref())
+        let (sumcheck_proof, prover_state) = MLSumcheck::prove(trans, &sumcheck_claim.poly)
             .expect("[SumcheckIOP] Fail to generate sumcheck proof");
 
         let proof = Self::Proof::from_sumcheck(&sumcheck_claim, sumcheck_proof);
@@ -193,41 +192,5 @@ impl<F: Field> SumcheckClaim<F> {
             sum: F::zero(),
         }
     }
-
-    pub fn poly_mut(&mut self) -> &mut ListOfProductsOfPolynomials<F> {
-        &mut self.poly
-    }
-
-    pub fn sum_mut(&mut self) -> &mut F {
-        &mut self.sum
-    }
-
-    pub fn poly_ref(&self) -> &ListOfProductsOfPolynomials<F> {
-        &self.poly
-    }
-
-    pub fn sum_ref(&self) -> &F {
-        &self.sum
-    }
 }
 
-// A counterpart trait of `PackableTrace` in `trace/src/lib.rs`
-pub trait PackableProof<F: Field> {
-    // These functions are used to pack these evaluations on oracles,
-    // only containing Base Field elements.
-    fn num_evals(&self) -> usize;
-    fn log_num_evals(&self) -> usize {
-        self.num_evals().next_power_of_two().trailing_zeros() as usize
-    }
-    fn pack_to_vec(&self) -> Vec<F>;
-}
-
-pub trait PackableEFProof<F: Field> {
-    // These functions are used to pack these evaluations on oracles,
-    // only containing Base Field elements.
-    fn num_evals_ef(&self) -> usize;
-    fn log_num_evals_ef(&self) -> usize {
-        self.num_evals_ef().next_power_of_two().trailing_zeros() as usize
-    }
-    fn pack_to_vec_ef(&self) -> Vec<F>;
-}

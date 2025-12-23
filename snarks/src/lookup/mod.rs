@@ -1,3 +1,2 @@
-pub mod logup;
-
-pub use logup::{LogUpParams, LogUpSnarks};
+pub mod normal_table;
+pub mod small_table;

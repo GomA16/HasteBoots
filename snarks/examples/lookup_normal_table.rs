@@ -8,8 +8,8 @@ use pcs::{
     multilinear::BrakedownPCS,
     utils::code::{ExpanderCode, ExpanderCodeSpec},
 };
-use snarks::lookup::{LogUpParams, LogUpSnarks};
-use trace::{LookupTrace, LookupTraceMLE};
+use snarks::lookup::normal_table::{LogUpParams, LogUpSnarks};
+use trace::lookup_trace::normal_table::{LookupTrace, LookupTraceMLE};
 
 type FF = BabyBear;
 type EF = BabyBearExetension;
@@ -19,7 +19,7 @@ const BASE_FIELD_BITS: usize = 31;
 fn main() {
     let mut rng = rand::rng();
     let num_vars = 10;
-    let num_vec = 10240;
+    let num_vec = 10<<9;
     let range = 1 << 7;
     let blk_size = 3;
 

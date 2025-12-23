@@ -5,15 +5,19 @@ use algebra::{
 use helper::utils::eval_identity_function;
 use helper::{FiatShamirTranscript, Transcript, transcript};
 use serde::Serialize;
+use trace::{SumHadamardTraceEval, SumHadamardTraceMLE};
 use std::os::macos::raw::stat;
 use std::{iter::Sum, rc::Rc};
 use sumcheck::{MLSumcheck, Proof, prover};
 use sumcheck::{prover::ProverState, verifier::SubClaim};
-use trace::{LookupTraceMLE, LookupWitness, LookupWitnessHelper};
+use trace::lookup_trace::small_table::{
+    LookupTraceEval, LookupTraceMLE, LookupWitnessHelper, LookupWitnessHelperEval,
+    LookupWitnessPure,
+};
 
 use crate::{
-    LagrangeKernel, PackableEFProof, PackableProof, SumcheckClaim, SumcheckInfo, SumcheckInstance,
-    SumcheckPIOP, SumcheckPureProof, SumcheckPureProverState, SumcheckPureSubclaim,
+    LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance, SumcheckPIOP, SumcheckPureProof,
+    SumcheckPureProverState, SumcheckPureSubclaim,
 };
 use rayon::prelude::*;
 
@@ -23,11 +27,8 @@ pub struct LogUpIOP<F: Field> {
 
 pub struct LogUpInstance<F: Field> {
     pub num_vars: usize,
-    // pub lookup_trace: LookupTraceMLE<F>,
-    // pub witness: LookupWitness<F>,
     pub trace: LookupTraceMLE<F>,
-    pub table: Rc<DenseMultilinearExtension<F>>,
-    pub multiplicity: Rc<DenseMultilinearExtension<F>>,
+    pub sum: F,
     pub helper: LookupWitnessHelper<F>,
 }
 
@@ -40,7 +41,6 @@ pub struct LogUpInstanceInfo<F: Field> {
     #[serde(skip)]
     // random value used before sumcheck protocol
     pub random_value: F,
-    // _marker: std::marker::PhantomData<F>,
 }
 
 #[derive(Serialize)]
@@ -51,8 +51,6 @@ pub struct LogUpProof<F: Field> {
     // input_at_r can be derived from phi_at_r and random_value
     pub input_at_r: Vec<F>,
     pub phi_at_r: Vec<F>,
-    // evaluations of (table(r), multiplicity(r))
-    pub witness_at_r: (F, F),
     pub helper_at_r: Vec<F>,
 }
 
@@ -65,48 +63,51 @@ pub struct LogUpVerifierSubclaim<F: Field> {
 }
 
 impl<F: Field> LogUpInstance<F> {
-    pub fn from(
-        // trace: &LookupTraceMLE<F>,
-        witness: &LookupWitness<F>,
-        helper: &LookupWitnessHelper<F>,
-    ) -> Self {
+    pub fn from(trace: &LookupTraceMLE<F>, helper: &LookupWitnessHelper<F>) -> Self {
         Self {
-            num_vars: witness.trace.num_vars,
-            trace: witness.trace.clone(),
-            table: witness.table.clone(),
-            multiplicity: witness.multiplicity.clone(),
+            num_vars: trace.num_vars,
+            trace: trace.clone(),
+            sum: helper.sum,
             helper: helper.clone(),
         }
     }
 
-    // \sum h_1 + ... + h_k = 0
+    // \sum h_1 + ... + h_k = sum
     pub fn add_helper_sum_into_sumcheck(&self, claim: &mut SumcheckClaim<F>, random_lambda: F) {
-        let add_assign = |acc: &mut [F], vec: &[F]| {
-            for (a, b) in acc.iter_mut().zip(vec.iter()) {
-                *a += *b;
-            }
-        };
-
-        let h_sum = self.helper.helper_functions.iter().fold(
-            vec![F::zero(); 1 << self.num_vars],
-            |mut acc, hf| {
-                add_assign(&mut acc, hf.as_slice());
-                acc
-            },
-        );
-        let h_sum = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
-            self.num_vars,
-            h_sum,
-        ));
-
-        #[cfg(test)]
-        {
-            let sum = h_sum.iter().fold(F::zero(), |acc, &x| acc + x);
-            debug_assert_eq!(sum, F::zero());
-            println!("Sanity check passed for helper sum function: h_sum");
+        for helper in self.helper.helper_functions.iter() {
+            claim
+                .poly
+                .add_product(vec![Rc::clone(helper)], random_lambda);
         }
+        claim.sum += random_lambda * self.sum;
 
-        claim.poly_mut().add_product(vec![h_sum], random_lambda);
+        // let add_assign = |acc: &mut [F], vec: &[F]| {
+        //     for (a, b) in acc.iter_mut().zip(vec.iter()) {
+        //         *a += *b;
+        //     }
+        // };
+
+        // let h_sum = self.helper.helper_functions.iter().fold(
+        //     vec![F::zero(); 1 << self.num_vars],
+        //     |mut acc, hf| {
+        //         add_assign(&mut acc, hf.as_slice());
+        //         acc
+        //     },
+        // );
+        // let h_sum = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
+        //     self.num_vars,
+        //     h_sum,
+        // ));
+
+        // #[cfg(test)]
+        // {
+        //     let sum = h_sum.iter().fold(F::zero(), |acc, &x| acc + x);
+        //     debug_assert_eq!(sum, self.sum);
+        //     println!("Sanity check passed for helper sum function: h_sum");
+        // }
+
+        // claim.poly.add_product(vec![h_sum], random_lambda);
+        // claim.sum += random_lambda * self.sum;
     }
 
     pub fn add_helper_identity_into_sumcheck(
@@ -130,10 +131,7 @@ impl<F: Field> LogUpInstance<F> {
                 .for_each(|(x, h)| {
                     let mut sum = F::zero();
                     for i in idx_start..idx_end {
-                        let m = match (idx, i) {
-                            (0, 0) => -self.multiplicity.evaluations[x],
-                            _ => F::one(),
-                        };
+                        let m = F::one();
                         sum += m / self.helper.phi_functions[i].evaluations[x];
                     }
                     assert_eq!(*h, sum);
@@ -153,26 +151,14 @@ impl<F: Field> LogUpInstance<F> {
         prod.extend_from_slice(&phi_block);
         prod.push(Rc::clone(&kernel.eq_at_point));
         prod.push(Rc::clone(&self.helper.helper_functions[idx]));
-        claim.poly_mut().add_product(prod, random_lambda);
+        claim.poly.add_product(prod, random_lambda);
 
         for off_idx in 0..blk_len {
-            match (idx, off_idx) {
-                (0, 0) => {
-                    // randomness * L * m * \prod phi_i / phi_{off_idx}
-                    let mut prod_i = Vec::with_capacity(blk_len + 1);
-                    prod_i.extend_from_slice(&phi_block);
-                    prod_i[off_idx] = Rc::clone(&self.multiplicity);
-                    prod_i.push(Rc::clone(&kernel.eq_at_point));
-                    claim.poly_mut().add_product(prod_i, random_lambda);
-                }
-                _ => {
-                    // - randomness * L * \prod phi_i / phi_{off_idx}
-                    let mut prod_i = Vec::with_capacity(blk_len);
-                    prod_i.extend_from_slice(&phi_block);
-                    prod_i[off_idx] = Rc::clone(&kernel.eq_at_point);
-                    claim.poly_mut().add_product(prod_i, -random_lambda);
-                }
-            }
+            // - randomness * L * \prod phi_i / phi_{off_idx}
+            let mut prod_i = Vec::with_capacity(blk_len);
+            prod_i.extend_from_slice(&phi_block);
+            prod_i[off_idx] = Rc::clone(&kernel.eq_at_point);
+            claim.poly.add_product(prod_i, -random_lambda);
         }
     }
 }
@@ -212,11 +198,11 @@ impl<F: Field> SumcheckInfo<F> for LogUpInstanceInfo<F> {
 impl<F: Field> SumcheckPureProof<F> for LogUpProof<F> {
     fn from_sumcheck(sumcheck_claim: &SumcheckClaim<F>, proof: Proof<F>) -> Self {
         LogUpProof {
-            poly_info: sumcheck_claim.poly_ref().info(),
+            poly_info: sumcheck_claim.poly.info(),
             sumcheck_proof: proof,
             input_at_r: Vec::new(),
             phi_at_r: Vec::new(),
-            witness_at_r: (F::zero(), F::zero()),
+            // witness_at_r: (F::zero(), F::zero()),
             helper_at_r: Vec::new(),
         }
     }
@@ -270,7 +256,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
             &randomness_batch,
             lagrange_kernel,
         );
-        let (sumcheck_proof, prover_state) = MLSumcheck::prove(trans, sumcheck_claim.poly_ref())
+        let (sumcheck_proof, prover_state) = MLSumcheck::prove(trans, &sumcheck_claim.poly)
             .expect("[LogUpIOP] Fail to generate sumcheck proof");
 
         // TODO optimize evaluation using base field mle
@@ -285,18 +271,14 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
             .iter()
             .map(|x| *x - info.random_value)
             .collect::<Vec<_>>();
-        let witness_at_r = (
-            instance.table.evaluate(&prover_state.randomness),
-            instance.multiplicity.evaluate(&prover_state.randomness),
-        );
         let helper_at_r = mle_eval(&instance.helper.helper_functions);
 
         let proof = LogUpProof {
-            poly_info: sumcheck_claim.poly_ref().info(),
+            poly_info: sumcheck_claim.poly.info(),
             sumcheck_proof,
             input_at_r,
             phi_at_r,
-            witness_at_r,
+            // witness_at_r,
             helper_at_r,
         };
 
@@ -340,6 +322,23 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
 }
 
 impl<F: Field> LogUpProof<F> {
+    pub fn from_hadamard_trace_eval(
+        trace_eval: &SumHadamardTraceEval<F>,
+        helper_eval: &LookupWitnessHelperEval<F>,
+        random_value: F,
+    ) -> Self {
+        let phi_at_r = trace_eval.vec_trace.iter()
+            .map(|x| x.bit_poly + random_value).collect::<Vec<_>>();
+        let proof = LogUpProof {
+            poly_info: PolynomialInfo::default(),
+            sumcheck_proof: Proof::default(),
+            input_at_r: Vec::default(),
+            phi_at_r,
+            helper_at_r: helper_eval.helper_functions_at_r.clone(),
+        };
+        proof
+    }
+
     pub fn compute_helper_subclaim(&self, random_lambda: F) -> F {
         random_lambda * (self.helper_at_r.iter().fold(F::zero(), |acc, &x| acc + x))
     }
@@ -363,80 +362,27 @@ impl<F: Field> LogUpProof<F> {
         sum += self.helper_at_r[idx] * grand_prod;
 
         for off_idx in 0..blk_len {
-            match (idx, off_idx) {
-                (0, 0) => {
-                    sum += self.witness_at_r.1 * grand_prod / phi_block[off_idx];
-                }
-                _ => sum -= grand_prod / phi_block[off_idx],
-            }
+            sum -= grand_prod / phi_block[off_idx];
         }
 
         sum * random_lambda * kernel_at_r
     }
-}
 
-impl<EF: Field> LogUpProof<EF> {
-    pub fn append_eval_ef<F: Field>(
+    pub fn append_eval(
         &mut self,
-        state: &LogUpProverState<EF>,
-        witness: &LookupWitness<F>,
-        helper: &LookupWitnessHelper<EF>,
-    ) where
-        EF: AbstractExtensionField<F>,
-    {
-        let mle_eval = |mle: &[Rc<DenseMultilinearExtension<F>>]| {
-            mle.iter()
-                .map(|m| m.evaluate_ext(&state.point_r))
-                .collect::<Vec<_>>()
-        };
-
-        let ef_mle_eval = |mle: &[Rc<DenseMultilinearExtension<EF>>]| {
-            mle.iter()
-                .map(|m| m.evaluate(&state.point_r))
-                .collect::<Vec<_>>()
-        };
-
-        let input_at_r = mle_eval(witness.trace.vec_input.as_slice());
-        let witness_at_r = (
-            witness.table.evaluate_ext(&state.point_r),
-            witness.multiplicity.evaluate_ext(&state.point_r),
-        );
-        let phi_at_r = std::iter::once(&witness_at_r.0)
-            .chain(input_at_r.iter())
-            .map(|&x| x + helper.random_value)
-            .collect::<Vec<_>>();
-        let helper_at_r = ef_mle_eval(&helper.helper_functions);
-
-        self.input_at_r = input_at_r;
-        self.phi_at_r = phi_at_r;
-        self.witness_at_r = witness_at_r;
-        self.helper_at_r = helper_at_r;
-    }
-}
-
-// Counterpart of [`PackableTrace<F>`] for [`LogupWitness<F>`].
-impl<F: Field> PackableProof<F> for LogUpProof<F> {
-    fn num_evals(&self) -> usize {
-        self.input_at_r.len() + 2
-    }
-    fn pack_to_vec(&self) -> Vec<F> {
-        self.input_at_r
+        trace_eval: &LookupTraceEval<F>,
+        helper_eval: &LookupWitnessHelperEval<F>,
+        random_value: F,
+    ) {
+        let phi_at_r = trace_eval
+            .vec_input_at_r
             .iter()
-            .chain(std::iter::once(&self.witness_at_r.0))
-            .chain(std::iter::once(&self.witness_at_r.1))
-            .cloned()
-            .collect::<Vec<_>>()
-    }
-}
+            .map(|&x| x + random_value)
+            .collect::<Vec<_>>();
 
-// Counterpart of [`PackableTrace<F>`] for [`LogupWitnessHelper<F>`].
-impl<F: Field> PackableEFProof<F> for LogUpProof<F> {
-    fn num_evals_ef(&self) -> usize {
-        self.helper_at_r.len()
-    }
-
-    fn pack_to_vec_ef(&self) -> Vec<F> {
-        self.helper_at_r.clone()
+        self.input_at_r = trace_eval.vec_input_at_r.clone();
+        self.phi_at_r = phi_at_r;
+        self.helper_at_r = helper_eval.helper_functions_at_r.clone();
     }
 }
 
@@ -450,7 +396,7 @@ mod test {
     };
     use helper::Transcript;
     use rand_distr::Distribution;
-    use trace::LookupTrace;
+    use trace::lookup_trace::small_table::LookupTrace;
 
     #[derive(Field, DecomposableField, FheField, Prime, NTT)]
     #[modulus = 132120577]
@@ -468,14 +414,14 @@ mod test {
 
         let lookup_trace = LookupTrace::<FF>::random(&mut rng, num_vars, num_vec, range);
         let lookup_mle: LookupTraceMLE<FF> = lookup_trace.into();
-        let lookup_witness: LookupWitness<FF> = lookup_mle.into();
+        let lookup_witness = lookup_mle.compute_witness_pure();
 
         let uniform = FieldUniformSampler::<FF>::new();
         let random_value = uniform.sample(&mut rng);
         let lookup_helper: LookupWitnessHelper<FF> =
-            lookup_witness.compute_helper_functions(blk_size, random_value);
+            lookup_mle.compute_helper_functions(blk_size, random_value, &lookup_witness);
 
-        let instance = LogUpInstance::<FF>::from(&lookup_witness, &lookup_helper);
+        let instance = LogUpInstance::<FF>::from(&lookup_mle, &lookup_helper);
         let info = instance.info();
 
         let mut prover_transcript = Transcript::<FF>::new();

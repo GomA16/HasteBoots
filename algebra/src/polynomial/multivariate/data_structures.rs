@@ -51,7 +51,7 @@ impl<F: Field> ListOfProductsOfPolynomials<F> {
     }
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize, Default)]
 /// Stores the number of variables and max number of multiplicands of the added polynomial used by the prover.
 /// This data structures will be used as the verifier key.
 pub struct PolynomialInfo {

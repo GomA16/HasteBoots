@@ -1,5 +1,4 @@
 use crate::{AccTrace, AccTraceMLE, SumHadamardTrace, SumHadamardTraceMLE, HadamardTrace};
-use crate::{LookupTraceMLE, LookupWitnessHelper};
 use algebra::{Field, NTTField};
 use std::{iter::chain, rc::Rc};
 
@@ -20,15 +19,13 @@ pub struct PBSParameters {
 
 pub struct PBSTrace<F: NTTField> {
     pub acc_trace: AccTrace<F>,
-    pub hadamard_trace_a: SumHadamardTrace<F>,
-    pub hadamard_trace_b: SumHadamardTrace<F>,
+    pub hadamard_trace: SumHadamardTrace<F>,
     pub params: PBSParameters,
 }
 
 pub struct PBSTraceMLE<F: NTTField> {
     pub acc_trace: AccTraceMLE<F>,
-    pub hadamard_trace_a: SumHadamardTraceMLE<F>,
-    pub hadamard_trace_b: SumHadamardTraceMLE<F>,
+    pub hadamard_trace: SumHadamardTraceMLE<F>,
     pub params: PBSParameters,
 }
 
@@ -51,8 +48,7 @@ impl<F: NTTField> From<PBSTrace<F>> for PBSTraceMLE<F> {
     fn from(trace: PBSTrace<F>) -> Self {
         Self {
             acc_trace: AccTraceMLE::from(trace.acc_trace),
-            hadamard_trace_a: SumHadamardTraceMLE::from(trace.hadamard_trace_a),
-            hadamard_trace_b: SumHadamardTraceMLE::from(trace.hadamard_trace_b),
+            hadamard_trace: SumHadamardTraceMLE::from(trace.hadamard_trace),
             params: trace.params,
         }
     }
@@ -76,20 +72,5 @@ impl<F: NTTField> PBSTraceMLE<F> {
         let total = self.num_bit_poly() + 1;
         let num_blks = (total + blk_size - 1) / blk_size;
         self.num_vars() + num_blks.next_power_of_two().trailing_zeros() as usize
-    }
-
-    pub fn get_lookup_trace(&self) -> LookupTraceMLE<F> {
-        let vec_input = self
-            .hadamard_trace_a
-            .iter()
-            .chain(self.hadamard_trace_b.iter())
-            .map(|trace| Rc::clone(&trace.bit_poly))
-            .collect();
-
-        LookupTraceMLE {
-            num_vars: self.params.log_coeff_count + self.params.log_num_round,
-            range: self.params.basis,
-            vec_input,
-        }
     }
 }

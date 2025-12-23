@@ -186,7 +186,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
         let mut sumcheck_claim = SumcheckClaim::new(info.sumcheck_num_vars());
         let mut prover_state =
             Self::prover_batch_sumcheck(instance, &mut sumcheck_claim, &[F::one()], None).unwrap();
-        let (sumcheck_proof, sumcheck_state) = MLSumcheck::prove(trans, sumcheck_claim.poly_ref())
+        let (sumcheck_proof, sumcheck_state) = MLSumcheck::prove(trans, &sumcheck_claim.poly)
             .expect("[NTTMatrixEvalIOP] Fail to generate sumcheck proof");
         prover_state.point_r = sumcheck_state.randomness.clone();
 
@@ -209,7 +209,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
 
         (
             Self::Proof {
-                poly_info: sumcheck_claim.poly_ref().info(),
+                poly_info: sumcheck_claim.poly.info(),
                 sumcheck_proof,
                 coeff_eval_at_r_v,
                 fourier_eval_at_u_r,
@@ -279,11 +279,11 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
         // TODO optimize the init_fourier_table with intermediate storage
         let fourier_at_u = Rc::new(init_fourier_table(&instance.point_u, &instance.ntt_table));
         let coeffs_at_v_back = Rc::new(instance.coefficients.fix_variables_back(&instance.point_v));
-        claim.poly_mut().add_product(
+        claim.poly.add_product(
             [Rc::clone(&fourier_at_u), Rc::clone(&coeffs_at_v_back)],
             randomness[0],
         );
-        *claim.sum_mut() += instance.evaluations_at_u_v * randomness[0];
+        claim.sum += instance.evaluations_at_u_v * randomness[0];
         Some(Self::ProverState {
             fourier_at_u,
             coeffs_at_v_back,

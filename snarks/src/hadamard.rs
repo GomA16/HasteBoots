@@ -11,27 +11,24 @@
 //! evaluations of these polynomials at some random points. 
 //! All these queries are answered by the NTT PIOP, reducing to the queries of 
 //! their coefficient forms.
-use core::time;
+use core::num;
 use std::rc::Rc;
 
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 use helper::utils::compute_oracle_evals;
 use helper::{FiatShamirTranscript, Transcript};
 use pcs::PolynomialCommitmentScheme;
-use pcs::utils::code;
 use piop::hadamard::{
     BatchedSumHadamardInfo, BatchedSumHadamardInstance, BatchedSumHadamardProof, HadamardPIOP,
 };
-use piop::lookup::logup::LogUpInstanceInfo;
-use piop::lookup::{LogUpIOP, LogUpInstance, LogUpProof};
 use piop::ntt::{
-    NTTFourierEvalInfo, NTTFourierProof, NTTMatrixEvalIOP, NTTMatrixEvalInfo,
+    NTTMatrixEvalIOP, NTTMatrixEvalInfo,
     NTTMatrixEvalInstance, NTTMatrixEvalProof,
 };
 use piop::{SumcheckInstance, SumcheckPIOP};
 use serde::Serialize;
 use trace::{
-    ConvertToEF, EvaluableTraceEF, LookupTrace, LookupTraceMLE, LookupWitness, LookupWitnessHelper,
+    ConvertToEF, EvaluableTraceEF,
 };
 use trace::{SumHadamardTraceMLE};
 
@@ -58,6 +55,23 @@ where
 {
     pub pcs_params: PCS::Parameters,
     pub ntt_table: Rc<Vec<EF>>,
+}
+
+impl<F, EF, S, PCS> HadamardParams<F, EF, S, PCS>
+where
+    F: Field,
+    EF: AbstractExtensionField<F>,
+    S: Clone,
+    PCS: PolynomialCommitmentScheme<F, EF, S>,
+{
+    pub fn new(code_spec: S, ntt_table: Vec<F>, trace: &SumHadamardTraceMLE<F>) -> Self {
+        let num_oracle_vars = trace.num_vars() + trace.log_num_all_poly();
+        let pcs_params = PCS::setup(num_oracle_vars, Some(code_spec.clone()));
+        HadamardParams {
+            pcs_params,
+            ntt_table: Rc::new(ntt_table.to_ef()),
+        }
+    }
 }
 
 pub struct HadamardProof<F, EF, S, PCS>
@@ -91,28 +105,13 @@ where
             Point = EF,
         >,
 {
-    pub fn setup(
-        &self,
-        trace: &SumHadamardTraceMLE<F>,
-        code_spec: S,
-        ntt_table: Vec<F>,
-    ) -> HadamardParams<F, EF, S, PCS> {
-        let num_oracle_vars = trace.num_vars() + trace.log_num_overall_poly();
-        let pcs_params = PCS::setup(num_oracle_vars, Some(code_spec.clone()));
-        
-        HadamardParams {
-            pcs_params,
-            ntt_table: Rc::new(ntt_table.to_ef()),
-        }
-    }
-
     pub fn prove(
         &self,
         trans: &mut Transcript<EF>,
         trace_mle: &SumHadamardTraceMLE<F>,
         params: &HadamardParams<F, EF, S, PCS>,
     ) -> HadamardProof<F, EF, S, PCS> {
-        let bit_poly = trace_mle.generate_overall_oracle();
+        let bit_poly = trace_mle.generate_all_oracle();
         let (commitment, commitment_state) = PCS::commit(&params.pcs_params, &bit_poly);
         trans.append_message(b"Commit Phase", &commitment);
 
@@ -128,11 +127,11 @@ where
         let mut point_v = hadamard_piop_state.point_r[trace_mle.log_coeff_count..].to_vec();
         let point_bit_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
-            hadamard_evals.log_num_overall_poly(),
+            trace_mle.log_num_all_poly(),
         );
 
         let bit_poly = Rc::new(bit_poly.to_ef());
-        let bit_ntt_evals = hadamard_evals.pack_overall_poly_to_vec();
+        let bit_ntt_evals = hadamard_evals.pack_all_ntt_to_vec();
         let eval = compute_oracle_evals(&bit_ntt_evals, &point_bit_oracle);
 
         point_v.extend_from_slice(&point_bit_oracle);
@@ -158,7 +157,7 @@ where
         );
 
         HadamardProof {
-            log_num_overall_poly: trace_mle.log_num_overall_poly(),
+            log_num_overall_poly: trace_mle.log_num_all_poly(),
             pcs_params: params.pcs_params.clone(),
             commitment,
             hadamard_info: hadamard_instance.info(),

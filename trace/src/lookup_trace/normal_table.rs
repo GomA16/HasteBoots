@@ -9,7 +9,7 @@ use rayon::vec;
 use std::sync::Arc;
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{ConvertToEF, PackableTrace};
+use crate::{ConvertToEF, EvaluableTrace, EvaluableTraceEF, PackableEval, PackableTrace};
 use log::info;
 
 // Conversion Chain: LookupTrace => LookupTraceMLE => LookupWitness
@@ -39,6 +39,12 @@ pub struct LookupWitness<F: Field> {
     pub multiplicity: Rc<DenseMultilinearExtension<F>>,
 }
 
+pub struct LookupWitnessEval<F: Field> {
+    pub vec_input_at_r: Vec<F>,
+    pub table_at_r: F,
+    pub multiplicity_at_r: F,
+}
+
 #[derive(Clone)]
 pub struct LookupWitnessHelper<F: Field> {
     pub block_size: usize,
@@ -47,6 +53,10 @@ pub struct LookupWitnessHelper<F: Field> {
     pub helper_functions: Vec<Rc<DenseMultilinearExtension<F>>>,
     // only for efficiency of prover
     pub phi_functions: Vec<Rc<DenseMultilinearExtension<F>>>,
+}
+
+pub struct LookupWitnessHelperEval<F: Field> {
+    pub helper_at_r: Vec<F>,
 }
 
 impl<F: Field> LookupTrace<F> {
@@ -185,10 +195,14 @@ impl<F: Field> LookupTraceMLE<F> {
         self.num_vars + num_oracles.next_power_of_two().trailing_zeros() as usize
     }
 
-    pub fn helper_num_vars(&self, blk_size: usize) -> usize {
-        let total = 1 + self.vec_input.len();
+    pub fn compute_helper_num_vars(num_vars: usize, num_vec: usize, blk_size: usize) -> usize {
+        let total = 1 + num_vec;
         let num_blks = (total + blk_size - 1) / blk_size;
-        self.num_vars + num_blks.next_power_of_two().trailing_zeros() as usize
+        num_vars + num_blks.next_power_of_two().trailing_zeros() as usize
+    }
+
+    pub fn helper_num_vars(&self, blk_size: usize) -> usize {
+        LookupTraceMLE::<F>::compute_helper_num_vars(self.num_vars, self.vec_input.len(), blk_size)
     }
 }
 
@@ -334,5 +348,77 @@ impl<F: Field> PackableTrace<F> for LookupWitnessHelper<F> {
             .flat_map(|input: &Rc<DenseMultilinearExtension<F>>| input.iter())
             .cloned()
             .collect::<Vec<F>>()
+    }
+}
+
+impl<F: Field> PackableEval<F> for LookupWitnessEval<F> {
+    fn num_evals(&self) -> usize {
+        self.vec_input_at_r.len() + 2
+    }
+
+    fn pack_to_vec(&self) -> Vec<F> {
+        self.vec_input_at_r
+            .iter()
+            .cloned()
+            .chain(std::iter::once(self.table_at_r))
+            .chain(std::iter::once(self.multiplicity_at_r))
+            .collect::<Vec<F>>()
+    }
+}
+
+impl<F: Field> PackableEval<F> for LookupWitnessHelperEval<F> {
+    fn num_evals(&self) -> usize {
+        self.helper_at_r.len()
+    }
+
+    fn pack_to_vec(&self) -> Vec<F> {
+        self.helper_at_r.iter().cloned().collect::<Vec<F>>()
+    }
+}
+
+impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for LookupWitness<F> {
+    type TraceEval = LookupWitnessEval<F>;
+    type TraceEvalEF = LookupWitnessEval<EF>;
+    fn evaluate(&self, point: &[F]) -> Self::TraceEval {
+        let vec_input_at_r = self
+            .trace
+            .vec_input
+            .iter()
+            .map(|input| input.evaluate(point))
+            .collect::<Vec<F>>();
+        let table_at_r = self.table.evaluate(point);
+        let multiplicity_at_r = self.multiplicity.evaluate(point);
+        LookupWitnessEval {
+            vec_input_at_r,
+            table_at_r,
+            multiplicity_at_r,
+        }
+    }
+    fn evaluate_ef(&self, point: &[EF]) -> Self::TraceEvalEF {
+        let vec_input_at_r = self
+            .trace
+            .vec_input
+            .iter()
+            .map(|input| input.evaluate_ext(point))
+            .collect::<Vec<EF>>();
+        let table_at_r = self.table.evaluate_ext(point);
+        let multiplicity_at_r = self.multiplicity.evaluate_ext(point);
+        LookupWitnessEval {
+            vec_input_at_r,
+            table_at_r,
+            multiplicity_at_r,
+        }
+    }
+}
+
+impl<F: Field> EvaluableTrace<F> for LookupWitnessHelper<F> {
+    type TraceEval = LookupWitnessHelperEval<F>;
+    fn evaluate(&self, point: &[F]) -> Self::TraceEval {
+        let helper_at_r = self
+            .helper_functions
+            .iter()
+            .map(|hf| hf.evaluate(point))
+            .collect::<Vec<F>>();
+        LookupWitnessHelperEval { helper_at_r }
     }
 }
