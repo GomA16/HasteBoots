@@ -699,7 +699,7 @@ impl<F: NTTField> Inv for &Polynomial<F> {
 /// The result coefficients may be in [0, 2*modulus) for some case,
 /// and fall back to [0, modulus) for normal case.
 #[inline]
-fn ntt_mul_assign_fast<F: NTTField>(lhs: &mut [F], rhs: &NTTPolynomial<F>) {
+pub fn ntt_mul_assign_fast<F: NTTField>(lhs: &mut [F], rhs: &NTTPolynomial<F>) {
     lhs.iter_mut()
         .zip(rhs)
         .for_each(|(l, &r)| l.mul_assign_fast(r));
