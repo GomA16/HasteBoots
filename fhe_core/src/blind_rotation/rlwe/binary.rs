@@ -119,6 +119,7 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
             let neg_b = (rlwe_dimension << 1) - AsInto::<usize>::as_into(lwe.b());
 
             let lut = lut.as_mut_slice();
+            // TODO: Remove follow line
             polynomial_space.copy_from(&*lut);
 
             ntt_table.transform_coeff_one_monomial(neg_b, ntt_polynomial_space.as_mut_slice());
@@ -126,6 +127,7 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
             ntt_mul_assign_fast(lut, ntt_polynomial_space);
             ntt_table.inverse_transform_slice(lut);
 
+            // TODO: Remove follow codes
             if neg_b <= rlwe_dimension {
                 polynomial_space.as_mut_slice().rotate_right(neg_b);
                 polynomial_space[..neg_b]
@@ -160,6 +162,7 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
                 ntt_rlwe_space.inverse_transform_inplace(external_product);
                 external_product.sub_assign_element_wise(&acc);
 
+                // TODO: Remove follow codes
                 acc.mul_monic_monomial_sub_one_inplace(
                     rlwe_dimension,
                     a_i.as_into(),
