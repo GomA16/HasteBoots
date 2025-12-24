@@ -19,7 +19,7 @@ const BASE_FIELD_BITS: usize = 31;
 fn main() {
     let mut rng = rand::rng();
     let num_vars = 12;
-    let num_vec = 10<<7;
+    let num_vec = 10 << 7;
     let range = 1 << 7;
     let blk_size = 3;
 

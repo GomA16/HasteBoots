@@ -1,15 +1,15 @@
-//! This snarks implementation includes the proof generation for Hadamard product 
+//! This snarks implementation includes the proof generation for Hadamard product
 //! along with all NTT evaluations.
-//! 
-//! When considering the multiplication-related relation between polynomials, 
+//!
+//! When considering the multiplication-related relation between polynomials,
 //! we are able to use Hadamard product to represent the element-wise relation
 //! of their NTT evaluations.
-//! 
+//!
 //! To reduce the elements to be committed as more as possible and also to simplify
 //! the proof structure, we only commit to the coefficient form of the polynomials.
 //! After running the protocol for Hadamard product, it is reduced to querying the
-//! evaluations of these polynomials at some random points. 
-//! All these queries are answered by the NTT PIOP, reducing to the queries of 
+//! evaluations of these polynomials at some random points.
+//! All these queries are answered by the NTT PIOP, reducing to the queries of
 //! their coefficient forms.
 use core::num;
 use std::rc::Rc;
@@ -21,16 +21,11 @@ use pcs::PolynomialCommitmentScheme;
 use piop::hadamard::{
     BatchedSumHadamardInfo, BatchedSumHadamardInstance, BatchedSumHadamardProof, HadamardPIOP,
 };
-use piop::ntt::{
-    NTTMatrixEvalIOP, NTTMatrixEvalInfo,
-    NTTMatrixEvalInstance, NTTMatrixEvalProof,
-};
+use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance, NTTMatrixEvalProof};
 use piop::{SumcheckInstance, SumcheckPIOP};
 use serde::Serialize;
-use trace::{
-    ConvertToEF, EvaluableTraceEF,
-};
-use trace::{SumHadamardTraceMLE};
+use trace::SumHadamardTraceMLE;
+use trace::{ConvertToEF, EvaluableTraceEF};
 
 #[derive(Default)]
 pub struct HadamardSnarks<F, EF, S, PCS>
@@ -194,7 +189,7 @@ where
         let mut point_r_v = Vec::with_capacity(ntt_subclaim.point_r.len() + point_v.len());
         point_r_v.extend_from_slice(&ntt_subclaim.point_r);
         point_r_v.extend_from_slice(&point_v);
-        
+
         let eval_res = PCS::verify(
             &proof.pcs_params,
             &proof.commitment,

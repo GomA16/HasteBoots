@@ -1,7 +1,10 @@
 use std::marker::PhantomData;
 
 use algebra::{AbstractExtensionField, Field, utils::Prg};
-use bincode::{Encode, error::{DecodeError, EncodeError}};
+use bincode::{
+    Encode,
+    error::{DecodeError, EncodeError},
+};
 use serde::{Deserialize, Serialize, ser};
 
 use crate::utils::{

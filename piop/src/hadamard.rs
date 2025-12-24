@@ -211,9 +211,7 @@ impl<F: Field> SumHadamardEval<F> {
 }
 
 impl<F: Field> BatchedSumHadamardProof<F> {
-    pub fn from_hadamard_trace_eval(
-        trace_eval: &SumHadamardTraceEval<F>,
-    ) -> Self {
+    pub fn from_hadamard_trace_eval(trace_eval: &SumHadamardTraceEval<F>) -> Self {
         let mut proof = BatchedSumHadamardProof {
             poly_info: PolynomialInfo::default(),
             sumcheck_proof: Proof::default(),

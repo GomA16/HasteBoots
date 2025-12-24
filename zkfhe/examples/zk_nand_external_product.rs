@@ -14,7 +14,9 @@ use snarks::external_product::{ExternalProductParams, ExternalProductSnarks};
 use snarks::hadamard::{HadamardParams, HadamardSnarks};
 use trace::SumHadamardTraceMLE;
 // use trace::HadamardProdTraceMLE;
-use zkfhe::bfhe::{CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator, BABYBEAR_BINARY_128_BITS_PARAMETERS};
+use zkfhe::bfhe::{
+    BABYBEAR_BINARY_128_BITS_PARAMETERS, CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator,
+};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
 type FF = BabyBear;
@@ -62,7 +64,7 @@ fn main() {
 
     let _start = std::time::Instant::now();
     // let (ct_nand, trace) = eval.nand(&x, &y);
-    let (ct_nand, trace) = eval.nand(&x, &y);
+    let (ct_nand, mut trace) = eval.nand(&x, &y);
 
     // nand
     let (m, noise) = dec.decrypt_with_noise(&ct_nand);
@@ -72,11 +74,16 @@ fn main() {
     // Generate SNARKs for nand
     println!("");
     println!("Starting verification of nand.\n");
+    trace.finalize(params.lwe_dimension() as usize);
     let trace_mle: SumHadamardTraceMLE<_> = trace.into();
-    let ntt_table = FF::get_ntt_table(trace_mle.log_coeff_count as u32).unwrap().root_powers();
+    let ntt_table = FF::get_ntt_table(trace_mle.log_coeff_count as u32)
+        .unwrap()
+        .root_powers();
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
     let blk_size = 3;
-    let basis = BABYBEAR_BINARY_128_BITS_PARAMETERS.blind_rotation_basis().basis() as usize;
+    let basis = BABYBEAR_BINARY_128_BITS_PARAMETERS
+        .blind_rotation_basis()
+        .basis() as usize;
     let params = ExternalProductParams::new(code_spec, ntt_table, blk_size, basis, &trace_mle);
     let snarks = ExternalProductSnarks::<
         FF,
@@ -96,6 +103,14 @@ fn main() {
     let res = snarks.verify(&mut verifier_trans, &proof);
     println!("Proofs verification done!\n");
     println!("Proof verification time: {:?}\n", time.elapsed());
+    println!(
+        "PIOP Proof Size: {} MB",
+        proof.piop_proof_len() as f64 / (1000 * 1000) as f64
+    );
+    println!(
+        "PCS Proof Size: {} MB",
+        proof.pcs_proof_len() as f64 / (1000 * 1000) as f64
+    );
     assert!(res);
 }
 

@@ -1,4 +1,4 @@
-use crate::{AccTrace, AccTraceMLE, SumHadamardTrace, SumHadamardTraceMLE, HadamardTrace};
+use crate::{AccTrace, AccTraceMLE, HadamardTrace, SumHadamardTrace, SumHadamardTraceMLE};
 use algebra::{Field, NTTField};
 use std::{iter::chain, rc::Rc};
 
@@ -30,7 +30,12 @@ pub struct PBSTraceMLE<F: NTTField> {
 }
 
 impl PBSParameters {
-    pub fn new(log_coeff_count: usize, log_num_round: usize, decomposed_len:usize, basis: usize) -> Self {
+    pub fn new(
+        log_coeff_count: usize,
+        log_num_round: usize,
+        decomposed_len: usize,
+        basis: usize,
+    ) -> Self {
         let num_bit_poly = decomposed_len * 2;
         let num_key_ntt = decomposed_len * 4;
         Self {
@@ -54,7 +59,7 @@ impl<F: NTTField> From<PBSTrace<F>> for PBSTraceMLE<F> {
     }
 }
 
-// TODO: use 
+// TODO: use
 impl<F: NTTField> PBSTraceMLE<F> {
     pub fn num_vars(&self) -> usize {
         self.params.log_coeff_count + self.params.log_num_round

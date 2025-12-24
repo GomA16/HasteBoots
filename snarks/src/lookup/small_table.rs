@@ -9,9 +9,11 @@ use piop::lookup::small_table::LogUpInstanceInfo;
 use piop::lookup::small_table::{LogUpIOP, LogUpInstance, LogUpProof};
 use piop::{SumcheckInstance, SumcheckPIOP};
 use serde::Serialize;
+use trace::ConvertToEF;
+use trace::lookup_trace::small_table::{
+    LookupTrace, LookupTraceEval, LookupTraceMLE, LookupWitnessHelper, LookupWitnessHelperEval,
+};
 use trace::{EvaluableTrace, EvaluableTraceEF, PackableEval, PackableTrace};
-use trace::{ConvertToEF};
-use trace::lookup_trace::small_table::{LookupTrace, LookupTraceEval, LookupTraceMLE, LookupWitnessHelper, LookupWitnessHelperEval};
 
 #[derive(Default)]
 pub struct LogUpSnarks<F, EF, S, PCS>
@@ -51,8 +53,14 @@ where
         Self {
             // code_spec,
             blk_size,
-            pcs_params: PCS::setup(trace.num_vars() + trace.log_num_oracles(), Some(code_spec.clone())),
-            pcs_params_ef: PCS::setup(trace.num_vars() + trace.log_num_helper_oracles(blk_size), Some(code_spec.clone())),
+            pcs_params: PCS::setup(
+                trace.num_vars() + trace.log_num_oracles(),
+                Some(code_spec.clone()),
+            ),
+            pcs_params_ef: PCS::setup(
+                trace.num_vars() + trace.log_num_helper_oracles(blk_size),
+                Some(code_spec.clone()),
+            ),
         }
     }
 }
@@ -132,7 +140,11 @@ where
         compute_oracle_evals(&reduced_eval, point)
     }
 
-    pub fn compute_oracle_evaluation_ef(&self, eval: &LookupWitnessHelperEval<EF>, point: &[EF]) -> EF {
+    pub fn compute_oracle_evaluation_ef(
+        &self,
+        eval: &LookupWitnessHelperEval<EF>,
+        point: &[EF],
+    ) -> EF {
         let reduced_eval = eval.pack_to_vec();
         compute_oracle_evals(&reduced_eval, point)
     }
@@ -152,7 +164,8 @@ where
         // Commit to the helper polynomial
         let random_value =
             trans.get_challenge(b"[Challenge] random value used in the rational identity");
-        let helper = trace_mle.compute_helper_functions_ef::<EF>(params.blk_size, random_value, &witness);
+        let helper =
+            trace_mle.compute_helper_functions_ef::<EF>(params.blk_size, random_value, &witness);
         let (helper_commitment, helper_commitment_state) = self.commit_witness_ef(params, &helper);
         trans.append_message(b"[Commit Phase]", &helper_commitment);
 

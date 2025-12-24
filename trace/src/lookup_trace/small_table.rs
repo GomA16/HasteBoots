@@ -11,6 +11,7 @@ use itertools::Itertools;
 use rayon::iter::ParallelIterator;
 use rayon::slice::ParallelSlice;
 use rayon::vec;
+use serde::Serialize;
 use std::sync::Arc;
 use std::{collections::HashMap, rc::Rc};
 
@@ -60,6 +61,7 @@ pub struct LookupWitnessHelper<F: Field> {
     pub phi_functions: Vec<Rc<DenseMultilinearExtension<F>>>,
 }
 
+#[derive(Serialize)]
 pub struct LookupWitnessHelperEval<F: Field> {
     pub block_size: usize,
     pub num_blocks: usize,
@@ -149,7 +151,9 @@ impl<F: Field> LookupTraceMLE<F> {
     }
 
     pub fn log_num_helper_oracles(&self, blk_size: usize) -> usize {
-        self.num_helper_oracles(blk_size).next_power_of_two().trailing_zeros() as usize
+        self.num_helper_oracles(blk_size)
+            .next_power_of_two()
+            .trailing_zeros() as usize
     }
 
     pub fn compute_witness_pure(&self) -> LookupWitnessPure<F> {
@@ -196,8 +200,7 @@ impl<F: Field> LookupTraceMLE<F> {
         block_size: usize,
         randomness: F,
         witness: &LookupWitnessPure<F>,
-    ) -> LookupWitnessHelper<F> 
-    {
+    ) -> LookupWitnessHelper<F> {
         let mle_size = 1 << self.num_vars;
         let blk_span = block_size << self.num_vars;
 
@@ -221,7 +224,8 @@ impl<F: Field> LookupTraceMLE<F> {
 
         let num_threads = rayon::current_num_threads();
         info!("Computing helper functions using {} threads", num_threads);
-        let chunk_size = std::cmp::max(1, (all_inputs_plus_r.len() + num_threads - 1) / num_threads);
+        let chunk_size =
+            std::cmp::max(1, (all_inputs_plus_r.len() + num_threads - 1) / num_threads);
 
         // 1 / (f(x) + r)
         let inversed_values = all_inputs_plus_r
@@ -263,7 +267,7 @@ impl<F: Field> LookupTraceMLE<F> {
                 acc
             })
             .collect::<Vec<_>>();
-        
+
         // f(x) + r
         let phi = all_inputs_plus_r
             .chunks_exact(1 << self.num_vars)
@@ -301,8 +305,7 @@ impl<F: Field> LookupTraceMLE<F> {
         block_size: usize,
         randomness: EF,
         witness: &LookupWitnessPure<F>,
-    ) -> LookupWitnessHelper<EF> 
-    {
+    ) -> LookupWitnessHelper<EF> {
         let mle_size = 1 << self.num_vars;
         let blk_span = block_size << self.num_vars;
 
@@ -326,7 +329,8 @@ impl<F: Field> LookupTraceMLE<F> {
 
         let num_threads = rayon::current_num_threads();
         info!("Computing helper functions using {} threads", num_threads);
-        let chunk_size = std::cmp::max(1, (all_inputs_plus_r.len() + num_threads - 1) / num_threads);
+        let chunk_size =
+            std::cmp::max(1, (all_inputs_plus_r.len() + num_threads - 1) / num_threads);
 
         // 1 / (f(x) + r)
         let inversed_values = all_inputs_plus_r
@@ -368,7 +372,7 @@ impl<F: Field> LookupTraceMLE<F> {
                 acc
             })
             .collect::<Vec<_>>();
-        
+
         // f(x) + r
         let phi = all_inputs_plus_r
             .chunks_exact(1 << self.num_vars)
@@ -402,14 +406,14 @@ impl<F: Field> LookupTraceMLE<F> {
     }
 }
 
-// impl<EF: Field> LookupTraceMLE<EF> 
+// impl<EF: Field> LookupTraceMLE<EF>
 // {
 //     pub fn compute_helper_functions_ef<F: Field>(
 //         &self,
 //         block_size: usize,
 //         randomness: EF,
 //         witness: &LookupWitnessPure<F>,
-//     ) -> LookupWitnessHelper<EF> 
+//     ) -> LookupWitnessHelper<EF>
 //     where EF: AbstractExtensionField<F>
 //     {
 //         let mle_size = 1 << self.num_vars;
@@ -477,7 +481,7 @@ impl<F: Field> LookupTraceMLE<F> {
 //                 acc
 //             })
 //             .collect::<Vec<_>>();
-        
+
 //         // f(x) + r
 //         let phi = all_inputs_plus_r
 //             .chunks_exact(1 << self.num_vars)
@@ -534,7 +538,8 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for Lookup
     type TraceEvalEF = LookupTraceEval<EF>;
 
     fn evaluate(&self, point: &[F]) -> Self::TraceEval {
-        let vec_input_at_r =self.vec_input
+        let vec_input_at_r = self
+            .vec_input
             .iter()
             .map(|input| input.evaluate(point))
             .collect::<Vec<F>>();
@@ -545,7 +550,8 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for Lookup
         }
     }
     fn evaluate_ef(&self, point: &[EF]) -> Self::TraceEvalEF {
-        let vec_input_at_r =self.vec_input
+        let vec_input_at_r = self
+            .vec_input
             .iter()
             .map(|input| input.evaluate_ext(point))
             .collect::<Vec<EF>>();
@@ -556,7 +562,6 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for Lookup
         }
     }
 }
-
 
 impl<F: Field> PackableTrace<F> for LookupWitnessHelper<F> {
     fn num_oracles(&self) -> usize {
@@ -580,7 +585,8 @@ impl<F: Field> EvaluableTrace<F> for LookupWitnessHelper<F> {
     type TraceEval = LookupWitnessHelperEval<F>;
 
     fn evaluate(&self, point: &[F]) -> Self::TraceEval {
-        let helper_functions_at_r =self.helper_functions
+        let helper_functions_at_r = self
+            .helper_functions
             .iter()
             .map(|input| input.evaluate(point))
             .collect::<Vec<F>>();

@@ -8,7 +8,7 @@ pub mod pbs_trace;
 
 pub use acc_trace::{AccTrace, AccTraceMLE};
 pub use hadamard_trace::{
-    SumHadamardTrace, SumHadamardTraceMLE, HadamardTrace, HadamardTraceMLE, SumHadamardTraceEval,
+    HadamardTrace, HadamardTraceMLE, SumHadamardTrace, SumHadamardTraceEval, SumHadamardTraceMLE,
 };
 // pub use lookup_trace::normal_table::{
 //     LookupTrace, LookupTraceMLE, LookupWitness, LookupWitnessHelper,

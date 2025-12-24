@@ -7,11 +7,13 @@ use serde::Serialize;
 use std::{iter::Sum, rc::Rc};
 use sumcheck::{MLSumcheck, Proof, prover};
 use sumcheck::{prover::ProverState, verifier::SubClaim};
-use trace::lookup_trace::normal_table::{LookupTraceMLE, LookupWitness, LookupWitnessEval, LookupWitnessHelper, LookupWitnessHelperEval};
+use trace::lookup_trace::normal_table::{
+    LookupTraceMLE, LookupWitness, LookupWitnessEval, LookupWitnessHelper, LookupWitnessHelperEval,
+};
 
 use crate::{
-    LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance,
-    SumcheckPIOP, SumcheckPureProof, SumcheckPureProverState, SumcheckPureSubclaim,
+    LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance, SumcheckPIOP, SumcheckPureProof,
+    SumcheckPureProverState, SumcheckPureSubclaim,
 };
 use rayon::prelude::*;
 
@@ -377,8 +379,7 @@ impl<F: Field> LogUpProof<F> {
         witness_eval: &LookupWitnessEval<F>,
         helper_eval: &LookupWitnessHelperEval<F>,
         random_value: F,
-    ) 
-    {
+    ) {
         let phi_at_r = std::iter::once(&witness_eval.table_at_r)
             .chain(witness_eval.vec_input_at_r.iter())
             .map(|&x| x + random_value)
@@ -391,8 +392,6 @@ impl<F: Field> LogUpProof<F> {
         self.helper_at_r = helper_eval.helper_at_r.clone();
     }
 }
-
-
 
 #[cfg(test)]
 mod test {

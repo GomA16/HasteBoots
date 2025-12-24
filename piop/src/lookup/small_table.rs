@@ -5,7 +5,6 @@ use algebra::{
 use helper::utils::eval_identity_function;
 use helper::{FiatShamirTranscript, Transcript, transcript};
 use serde::Serialize;
-use trace::{SumHadamardTraceEval, SumHadamardTraceMLE};
 use std::os::macos::raw::stat;
 use std::{iter::Sum, rc::Rc};
 use sumcheck::{MLSumcheck, Proof, prover};
@@ -14,6 +13,7 @@ use trace::lookup_trace::small_table::{
     LookupTraceEval, LookupTraceMLE, LookupWitnessHelper, LookupWitnessHelperEval,
     LookupWitnessPure,
 };
+use trace::{SumHadamardTraceEval, SumHadamardTraceMLE};
 
 use crate::{
     LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance, SumcheckPIOP, SumcheckPureProof,
@@ -327,8 +327,11 @@ impl<F: Field> LogUpProof<F> {
         helper_eval: &LookupWitnessHelperEval<F>,
         random_value: F,
     ) -> Self {
-        let phi_at_r = trace_eval.vec_trace.iter()
-            .map(|x| x.bit_poly + random_value).collect::<Vec<_>>();
+        let phi_at_r = trace_eval
+            .vec_trace
+            .iter()
+            .map(|x| x.bit_poly + random_value)
+            .collect::<Vec<_>>();
         let proof = LogUpProof {
             poly_info: PolynomialInfo::default(),
             sumcheck_proof: Proof::default(),

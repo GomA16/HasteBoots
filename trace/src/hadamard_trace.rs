@@ -371,19 +371,16 @@ impl<F: NTTField> HadamardTrace<F> {
     }
 
     #[inline]
-    pub fn export_mles(
-        self,
-    ) -> (
-        (DenseMultilinearExtension<F>, DenseMultilinearExtension<F>),
-        (DenseMultilinearExtension<F>, DenseMultilinearExtension<F>),
-    ) {
-        let num_vars = self.log_coeff_count + self.log_num_round;
-        let bit_poly_mle = DenseMultilinearExtension::from_evaluations_vec(num_vars, self.bit_poly);
-        let bit_ntt_mle = DenseMultilinearExtension::from_evaluations_vec(num_vars, self.bit_ntt);
-        let key_mle_0 = DenseMultilinearExtension::from_evaluations_vec(num_vars, self.key_ntt.0);
-        let key_mle_1 = DenseMultilinearExtension::from_evaluations_vec(num_vars, self.key_ntt.1);
-
-        ((bit_poly_mle, bit_ntt_mle), (key_mle_0, key_mle_1))
+    pub fn finalize(&mut self, num_round: usize) {
+        if !num_round.is_power_of_two() {
+            let num_zeros = ((1 << self.log_num_round) - num_round) * (1 << self.log_coeff_count);
+            self.bit_poly.extend(vec![F::zero(); num_zeros]);
+            self.bit_ntt.extend(vec![F::zero(); num_zeros]);
+            self.key_ntt.0.extend(vec![F::zero(); num_zeros]);
+            self.key_ntt.1.extend(vec![F::zero(); num_zeros]);
+            self.key_poly.0.extend(vec![F::zero(); num_zeros]);
+            self.key_poly.1.extend(vec![F::zero(); num_zeros]);
+        }
     }
 }
 
@@ -421,6 +418,20 @@ impl<F: NTTField> SumHadamardTrace<F> {
     pub fn add_sum_prod_poly(&mut self, sum_prod: (&[F], &[F])) {
         self.sum_prod_poly.0.extend_from_slice(sum_prod.0);
         self.sum_prod_poly.1.extend_from_slice(sum_prod.1);
+    }
+
+    #[inline]
+    pub fn finalize(&mut self, num_round: usize) {
+        for trace in self.vec_trace.iter_mut() {
+            trace.finalize(num_round);
+        }
+        if !num_round.is_power_of_two() {
+            let num_zeros = ((1 << self.log_num_round) - num_round) * (1 << self.log_coeff_count);
+            self.sum_prod_ntt.0.extend(vec![F::zero(); num_zeros]);
+            self.sum_prod_ntt.1.extend(vec![F::zero(); num_zeros]);
+            self.sum_prod_poly.0.extend(vec![F::zero(); num_zeros]);
+            self.sum_prod_poly.1.extend(vec![F::zero(); num_zeros]);
+        }
     }
 }
 

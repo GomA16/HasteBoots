@@ -8,7 +8,7 @@ use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInstance};
 use piop::{SumcheckInstance, SumcheckPIOP};
 use rand::Rng;
 use trace::SumHadamardTraceMLE;
-use trace::lookup_trace::normal_table::{LookupWitness};
+use trace::lookup_trace::normal_table::LookupWitness;
 // use trace::HadamardProdTraceMLE;
 use zkfhe::bfhe::{CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor, KeyGen};

@@ -13,7 +13,9 @@ use rand_distr::Distribution;
 use snarks::hadamard::{HadamardParams, HadamardSnarks};
 use trace::SumHadamardTraceMLE;
 // use trace::HadamardProdTraceMLE;
-use zkfhe::bfhe::{CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator, BABYBEAR_BINARY_128_BITS_PARAMETERS};
+use zkfhe::bfhe::{
+    BABYBEAR_BINARY_128_BITS_PARAMETERS, CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator,
+};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
 type FF = BabyBear;
@@ -61,7 +63,7 @@ fn main() {
 
     let _start = std::time::Instant::now();
     // let (ct_nand, trace) = eval.nand(&x, &y);
-    let (ct_nand, trace) = eval.nand(&x, &y);
+    let (ct_nand, mut trace) = eval.nand(&x, &y);
 
     // nand
     let (m, noise) = dec.decrypt_with_noise(&ct_nand);
@@ -70,8 +72,11 @@ fn main() {
 
     // Generate SNARKs for nand
     println!("Starting verification of nand.\n");
+    trace.finalize(params.lwe_dimension() as usize);
     let trace_mle: SumHadamardTraceMLE<_> = trace.into();
-    let ntt_table = FF::get_ntt_table(trace_mle.log_coeff_count as u32).unwrap().root_powers();
+    let ntt_table = FF::get_ntt_table(trace_mle.log_coeff_count as u32)
+        .unwrap()
+        .root_powers();
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
     let params = HadamardParams::new(code_spec, ntt_table, &trace_mle);
     let snarks = HadamardSnarks::<

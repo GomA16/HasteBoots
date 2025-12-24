@@ -1,6 +1,7 @@
 pub mod hadamard;
 pub mod lookup;
 pub mod ntt;
+pub mod permutation;
 
 use algebra::{DenseMultilinearExtension, Field, ListOfProductsOfPolynomials, PolynomialInfo};
 use helper::{
@@ -193,4 +194,3 @@ impl<F: Field> SumcheckClaim<F> {
         }
     }
 }
-

@@ -155,9 +155,8 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTEvalIOP<F> {
         let mut sumcheck_claim = SumcheckClaim::new(instance.log_coeff_count);
         let prover_state =
             Self::prover_batch_sumcheck(instance, &mut sumcheck_claim, &[F::one()], None).unwrap();
-        let (sumcheck_proof, sumcheck_state) =
-            MLSumcheck::<F>::prove(trans, &sumcheck_claim.poly)
-                .expect("[NTTPolyIOP - Prover] Fail to generate sumcheck proof");
+        let (sumcheck_proof, sumcheck_state) = MLSumcheck::<F>::prove(trans, &sumcheck_claim.poly)
+            .expect("[NTTPolyIOP - Prover] Fail to generate sumcheck proof");
 
         let coeff_eval_at_v = instance.coefficients.evaluate(&sumcheck_state.randomness);
         let fourier_eval_at_v = prover_state

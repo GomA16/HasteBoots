@@ -14,6 +14,7 @@
 use std::rc::Rc;
 
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field, PolynomialInfo};
+use bincode::config::standard;
 use bincode::{Decode, Encode};
 use helper::utils::{compute_oracle_evals, eval_identity_function};
 use helper::{FiatShamirTranscript, Transcript};
@@ -99,9 +100,13 @@ where
     pub log_coeff_count: usize,
     pub log_num_all_poly: usize,
     pub log_num_helper_poly: usize,
+    #[serde(skip)]
     pub pcs_params: PCS::Parameters,
+    #[serde(skip)]
     pub commitment: PCS::Commitment,
+    #[serde(skip)]
     pub pcs_params_ef: PCS::Parameters,
+    #[serde(skip)]
     pub helper_commitment: PCS::Commitment,
     pub sumcheck_poly_info: PolynomialInfo,
     pub sumcheck_proof: Proof<EF>,
@@ -111,13 +116,81 @@ where
     pub hadamard_proof: BatchedSumHadamardProof<EF>,
     pub ntt_info: NTTMatrixEvalInfo<EF>,
     pub ntt_proof: NTTMatrixEvalProof<EF>,
+    #[serde(skip)]
     pub eval_proof: Vec<PCS::Proof>,
+    #[serde(skip)]
     pub eval_ef_proof: PCS::ProofEF,
     // Redudant fields for ease of implementation
     #[serde(skip)]
     pub trace_evals: SumHadamardTraceEval<EF>,
     #[serde(skip)]
     pub helper_evals: LookupWitnessHelperEval<EF>,
+}
+
+impl<F, EF, S, PCS> ExternalProductProof<F, EF, S, PCS>
+where
+    F: Field,
+    EF: AbstractExtensionField<F> + Serialize,
+    S: Clone,
+    PCS: PolynomialCommitmentScheme<
+            F,
+            EF,
+            S,
+            Polynomial = DenseMultilinearExtension<F>,
+            EFPolynomial = DenseMultilinearExtension<EF>,
+            Point = EF,
+        >,
+{
+    pub fn piop_proof_len(&self) -> usize {
+        bincode::serde::encode_to_vec(&self.sumcheck_poly_info, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&self.sumcheck_proof, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&self.lookup_info, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&self.lookup_proof, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&self.hadamard_info, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&self.hadamard_proof, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&self.ntt_info, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&self.ntt_proof, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&self.trace_evals, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&self.helper_evals, standard())
+                .unwrap()
+                .len()
+    }
+
+    pub fn pcs_proof_len(&self) -> usize {
+        let mut len = 0;
+        for proof in &self.eval_proof {
+            len += bincode::serde::encode_to_vec(proof, standard())
+                .unwrap()
+                .len();
+        }
+        len + bincode::serde::encode_to_vec(&self.eval_ef_proof, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&self.commitment, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&self.helper_commitment, standard())
+                .unwrap()
+                .len()
+    }
 }
 
 impl<F, EF, S, PCS> ExternalProductSnarks<F, EF, S, PCS>
@@ -140,6 +213,7 @@ where
         trace_mle: &SumHadamardTraceMLE<F>,
         params: &ExternalProductParams<F, EF, S, PCS>,
     ) -> ExternalProductProof<F, EF, S, PCS> {
+        let time = std::time::Instant::now();
         // Commit to the trace polynomial
         let bit_poly = trace_mle.generate_all_oracle();
         let (commitment, commitment_state) = PCS::commit(&params.pcs_params, &bit_poly);
@@ -158,8 +232,10 @@ where
         let helper_poly = lookup_helper.generate_oracle();
         let (helper_commitment, helper_commitment_state) =
             PCS::commit_ef(&params.pcs_params_ef, &helper_poly);
+        println!("Commit Phase time: {:?}", time.elapsed());
 
         // PIOP Phase
+        let time = std::time::Instant::now();
         let trace_ef = trace_mle.to_ef();
         let lookup_trace_ef = lookup_trace.to_ef();
         let hadamard_instance = BatchedSumHadamardInstance::from(&trace_ef);
@@ -243,13 +319,21 @@ where
         );
         let (ntt_piop_proof, ntt_piop_state) = NTTMatrixEvalIOP::prover(trans, &ntt_instance);
         // let open_eval_2 = ntt_piop_proof.coeff_eval_at_r_v;
-        
+
         trans.append_message(b"[PIOP Phase]", &ntt_piop_proof);
 
+        println!("PIOP Phase time: {:?}", time.elapsed());
+
+        let time = std::time::Instant::now();
         let mut open_point_2 = Vec::with_capacity(ntt_piop_state.point_r.len() + point_v.len());
         open_point_2.extend_from_slice(&ntt_piop_state.point_r);
         open_point_2.extend_from_slice(&point_v);
-        let open_points = vec![open_point_1, open_point_2];
+        let open_points = vec![
+            open_point_1.clone(),
+            open_point_1.clone(),
+            open_point_1.clone(),
+            open_point_2,
+        ];
         let eval_proof = PCS::batch_open(
             &params.pcs_params,
             &commitment,
@@ -265,6 +349,8 @@ where
             &open_point_ef,
             trans,
         );
+
+        println!("PCS Opening Phase time: {:?}", time.elapsed());
 
         ExternalProductProof {
             log_coeff_count: trace_mle.log_coeff_count,
@@ -302,6 +388,7 @@ where
         let random_value =
             trans.get_challenge(b"[Challenge] random value used in the rational identity");
 
+        let time = std::time::Instant::now();
         // PIOP Phase
         trans.append_message(b"[Hadamard Statement]", &proof.hadamard_info);
         trans.append_message(b"[Lookup Statement]", &proof.lookup_info);
@@ -383,13 +470,22 @@ where
         trans.append_message(b"[PIOP Phase]", &proof.ntt_proof);
         res &= ntt_res;
 
+        println!("PIOP Phase time: {:?}", time.elapsed());
+
+        let time = std::time::Instant::now();
         let mut open_point_2 = Vec::with_capacity(ntt_subclaim.point_r.len() + point_v.len());
         open_point_2.extend_from_slice(&ntt_subclaim.point_r);
         open_point_2.extend_from_slice(&point_v);
 
-        let open_points = vec![open_point_1, open_point_2];
+        let open_points = vec![
+            open_point_1.clone(),
+            open_point_1.clone(),
+            open_point_1.clone(),
+            open_point_2,
+        ];
         let open_evals = vec![open_eval_1, open_eval_2];
-        
+
+        // PCS Opening Phase
         let eval_res = PCS::batch_verify(
             &proof.pcs_params,
             &proof.commitment,
@@ -409,6 +505,8 @@ where
             trans,
         );
         res &= eval_ef_res;
+
+        println!("PCS Opening Phase time: {:?}", time.elapsed());
 
         res
     }

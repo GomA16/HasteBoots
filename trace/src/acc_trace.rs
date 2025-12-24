@@ -3,6 +3,10 @@ use algebra::{DenseMultilinearExtension, NTTField, transformation::AbstractNTT};
 pub struct AccTrace<F: NTTField> {
     pub log_coeff_count: usize,
     pub log_num_round: usize,
+    // input polynomial is the first row of input_acc
+    // output polynomial is the last row of output_acc
+    pub input_polynomial: (Vec<F>, Vec<F>),
+    pub output_polynomial: (Vec<F>, Vec<F>),
     pub input_acc: RLWETrace<F>,
     pub output_acc: RLWETrace<F>,
 }
@@ -73,6 +77,8 @@ impl<F: NTTField> AccTrace<F> {
             log_num_round,
             input_acc: RLWETrace::new(log_coeff_count, log_num_round),
             output_acc: RLWETrace::new(log_coeff_count, log_num_round),
+            input_polynomial: (Vec::new(), Vec::new()),
+            output_polynomial: (Vec::new(), Vec::new()),
         }
     }
 

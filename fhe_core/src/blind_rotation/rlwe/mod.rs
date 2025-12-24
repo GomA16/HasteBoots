@@ -65,12 +65,9 @@ impl<F: NTTField> BlindRotationKey<F> {
         hadmard_trace: &mut SumHadamardTrace<F>,
     ) -> RLWE<F> {
         match self {
-            BlindRotationKey::Binary(bootstrapping_key) => bootstrapping_key.blind_rotate_w_trace(
-                lut,
-                lwe,
-                acc_trace,
-                hadmard_trace,
-            ),
+            BlindRotationKey::Binary(bootstrapping_key) => {
+                bootstrapping_key.blind_rotate_w_trace(lut, lwe, acc_trace, hadmard_trace)
+            }
             BlindRotationKey::Ternary(bootstrapping_key) => {
                 bootstrapping_key.blind_rotate(lut, lwe, blind_rotation_basis)
             }
