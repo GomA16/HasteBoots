@@ -56,9 +56,10 @@ fn main() {
     let y = enc.encrypt(b);
     // let mut z = enc.encrypt(c);
 
-    let _start = std::time::Instant::now();
+    let start = std::time::Instant::now();
     // let (ct_nand, trace) = eval.nand(&x, &y);
     let (ct_nand, mut trace) = eval.nand(&x, &y);
+    println!("NAND Evaluation Time is : {:?}\n", start.elapsed());
 
     // nand
     let (m, noise) = dec.decrypt_with_noise(&ct_nand);
