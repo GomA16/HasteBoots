@@ -1,17 +1,11 @@
-use core::time;
-
 use algebra::transformation::AbstractNTT;
-use algebra::{AsInto, BabyBear, BabyBearExetension, FieldUniformSampler, NTTField};
+use algebra::{AsInto, BabyBear, BabyBearExetension, NTTField};
 use fhe_core::utils::*;
 use helper::Transcript;
 use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
-use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInstance};
-use piop::{SumcheckInstance, SumcheckPIOP};
 use rand::Rng;
-use rand_distr::Distribution;
 use snarks::external_product::{ExternalProductParams, ExternalProductSnarks};
-use snarks::hadamard::{HadamardParams, HadamardSnarks};
 use trace::SumHadamardTraceMLE;
 // use trace::HadamardProdTraceMLE;
 use zkfhe::bfhe::{
@@ -30,7 +24,7 @@ fn main() {
 
     // set parameter
     let params = *BABYBEAR_BINARY_128_BITS_PARAMETERS;
-    println!("Parameters: {params:?}\n");
+    println!("Parameters: {params:#?}\n");
 
     let noise_max = (params.lwe_cipher_modulus_value() as f64 / 16.0).as_into();
 
@@ -55,8 +49,8 @@ fn main() {
     let b: bool = rng.random();
     // let mut c = rng.random();
 
-    let mut a = a.as_into();
-    let mut b = b.as_into();
+    let a = a.as_into();
+    let b = b.as_into();
 
     let x = enc.encrypt(a);
     let y = enc.encrypt(b);
@@ -74,16 +68,14 @@ fn main() {
     // Generate SNARKs for nand
     println!("");
     println!("Starting verification of nand.\n");
-    trace.finalize(params.lwe_dimension() as usize);
+    trace.finalize(params.lwe_dimension());
     let trace_mle: SumHadamardTraceMLE<_> = trace.into();
     let ntt_table = FF::get_ntt_table(trace_mle.log_coeff_count as u32)
         .unwrap()
         .root_powers();
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
     let blk_size = 3;
-    let basis = BABYBEAR_BINARY_128_BITS_PARAMETERS
-        .blind_rotation_basis()
-        .basis() as usize;
+    let basis = params.blind_rotation_basis().basis() as usize;
     let params = ExternalProductParams::new(code_spec, ntt_table, blk_size, basis, &trace_mle);
     let snarks = ExternalProductSnarks::<
         FF,

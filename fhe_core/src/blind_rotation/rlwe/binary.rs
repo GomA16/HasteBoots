@@ -110,41 +110,34 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
         let polynomial_space = &mut PolynomialSpace::new(rlwe_dimension);
         let ntt_rlwe_space = &mut NTTRLWESpace::new(rlwe_dimension);
         let external_product = &mut RLWESpace::new(rlwe_dimension);
+        let external_product2 = &mut RLWESpace::new(rlwe_dimension);
 
         let ntt_table = F::get_ntt_table(rlwe_dimension.trailing_zeros()).unwrap();
 
-        let mut lut_alternate = lut.clone();
         // lut * X^{-b}
         if !lwe.b().is_zero() {
             let neg_b = (rlwe_dimension << 1) - AsInto::<usize>::as_into(lwe.b());
-            if neg_b <= rlwe_dimension {
-                lut.as_mut_slice().rotate_right(neg_b);
-                lut[..neg_b].iter_mut().for_each(|v| *v = v.neg());
-            } else {
-                let r = neg_b - rlwe_dimension;
-                lut.as_mut_slice().rotate_right(r);
-                lut[r..].iter_mut().for_each(|v| *v = v.neg());
-            }
-        }
-        // lut * X^{-b}
-        if !lwe.b().is_zero() {
-            let neg_b = (rlwe_dimension << 1) - AsInto::<usize>::as_into(lwe.b());
-            let lut = lut_alternate.as_mut_slice();
+
+            let lut = lut.as_mut_slice();
+            polynomial_space.copy_from(&*lut);
+
             ntt_table.transform_coeff_one_monomial(neg_b, ntt_polynomial_space.as_mut_slice());
             ntt_table.transform_slice(lut);
             ntt_mul_assign_fast(lut, ntt_polynomial_space);
             ntt_table.inverse_transform_slice(lut);
 
-            // if neg_b <= rlwe_dimension {
-            //     lut.as_mut_slice().rotate_right(neg_b);
-            //     lut[..neg_b].iter_mut().for_each(|v| *v = v.neg());
-            // } else {
-            //     let r = neg_b - rlwe_dimension;
-            //     lut.as_mut_slice().rotate_right(r);
-            //     lut[r..].iter_mut().for_each(|v| *v = v.neg());
-            // }
+            if neg_b <= rlwe_dimension {
+                polynomial_space.as_mut_slice().rotate_right(neg_b);
+                polynomial_space[..neg_b]
+                    .iter_mut()
+                    .for_each(|v| *v = v.neg());
+            } else {
+                let r = neg_b - rlwe_dimension;
+                polynomial_space.as_mut_slice().rotate_right(r);
+                polynomial_space[r..].iter_mut().for_each(|v| *v = v.neg());
+            }
+            assert_eq!(polynomial_space.as_slice(), &*lut);
         }
-        // println!("First attempt: {:?}", lut_alternate.as_slice());
 
         let acc = RLWE::new(Polynomial::zero(rlwe_dimension), lut);
 
@@ -158,11 +151,21 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
             .zip(lwe.a())
             .fold(acc, |mut acc, (s_i, &a_i)| {
                 // external_product = (X^{a_i} - 1) * ACC
+                acc.transform_inplace(ntt_rlwe_space);
+                ntt_table.transform_coeff_one_monomial(
+                    a_i.as_into(),
+                    ntt_polynomial_space.as_mut_slice(),
+                );
+                ntt_rlwe_space.mul_ntt_polynomial_assign(ntt_polynomial_space);
+                ntt_rlwe_space.inverse_transform_inplace(external_product);
+                external_product.sub_assign_element_wise(&acc);
+
                 acc.mul_monic_monomial_sub_one_inplace(
                     rlwe_dimension,
                     a_i.as_into(),
-                    external_product,
+                    external_product2,
                 );
+                assert_eq!(&**external_product, &**external_product2);
 
                 // external_product = (X^{a_i} - 1) * ACC * RGSW(s_i)
                 external_product.mul_assign_ntt_rgsw_w_trace(

@@ -1,25 +1,18 @@
-use algebra::{
-    AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
-    PolynomialInfo,
-};
-use helper::utils::eval_identity_function;
-use helper::{FiatShamirTranscript, Transcript, transcript};
+use algebra::{DenseMultilinearExtension, Field, PolynomialInfo};
+use helper::{FiatShamirTranscript, Transcript};
 use serde::Serialize;
-use std::os::macos::raw::stat;
-use std::{iter::Sum, rc::Rc};
-use sumcheck::{MLSumcheck, Proof, prover};
+use std::rc::Rc;
+use sumcheck::{MLSumcheck, Proof};
 use sumcheck::{prover::ProverState, verifier::SubClaim};
+use trace::SumHadamardTraceEval;
 use trace::lookup_trace::small_table::{
     LookupTraceEval, LookupTraceMLE, LookupWitnessHelper, LookupWitnessHelperEval,
-    LookupWitnessPure,
 };
-use trace::{SumHadamardTraceEval, SumHadamardTraceMLE};
 
 use crate::{
     LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance, SumcheckPIOP, SumcheckPureProof,
     SumcheckPureProverState, SumcheckPureSubclaim,
 };
-use rayon::prelude::*;
 
 pub struct LogUpIOP<F: Field> {
     _marker: std::marker::PhantomData<F>,
