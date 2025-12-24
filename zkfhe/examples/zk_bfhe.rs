@@ -3,7 +3,7 @@ use fhe_core::{LWECiphertext, utils::*};
 use rand::Rng;
 use zkfhe::{
     Decryptor, Encryptor, KeyGen,
-    bfhe::{CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator},
+    bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator},
 };
 
 fn main() {
@@ -11,7 +11,7 @@ fn main() {
     let mut rng = rand::rng();
 
     // set parameter
-    let params = *CUSTOM_TERNARY_128_BITS_PARAMETERS;
+    let params = *BABYBEAR_BINARY_128_BITS_PARAMETERS;
 
     let noise_max = (params.lwe_cipher_modulus_value() as f64 / 16.0).as_into();
 

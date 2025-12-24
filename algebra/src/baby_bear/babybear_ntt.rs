@@ -168,7 +168,7 @@ impl NTTField for BabyBear {
 
 #[test]
 fn ntt_test() {
-    use crate::{NTTPolynomial, Polynomial};
+    use crate::{NTTPolynomial, Polynomial, transformation::MonomialNTT};
     let n = 1 << 10;
     let mut rng = rand::rng();
     let poly = Polynomial::<BabyBear>::random(n, &mut rng);
@@ -177,4 +177,39 @@ fn ntt_test() {
 
     let expect_poly: Polynomial<BabyBear> = ntt_poly.into();
     assert_eq!(poly, expect_poly);
+
+    let ntt_table = BabyBear::get_ntt_table(10).unwrap();
+
+    let mut poly1 = Polynomial::<BabyBear>::zero(n);
+    poly1[50] = BabyBear::new(37);
+
+    let ntt_poly1: NTTPolynomial<BabyBear> = poly1.clone().into();
+    let mut ntt_poly1_p: NTTPolynomial<BabyBear> = NTTPolynomial::zero(n);
+    ntt_table.transform_monomial(BabyBear::new(37), 50, ntt_poly1_p.as_mut_slice());
+    ntt_poly1_p.iter_mut().for_each(|v| *v = BabyBear::new(v.0));
+    assert_eq!(ntt_poly1, ntt_poly1_p);
+
+    let mut poly2 = Polynomial::<BabyBear>::zero(n);
+    poly2[70] = BabyBear::new(67);
+
+    let ntt_poly2: NTTPolynomial<BabyBear> = poly2.clone().into();
+
+    let product = &ntt_poly1 * &ntt_poly2;
+
+    let mut product = product.into_native_polynomial();
+    assert_eq!(product[120], BabyBear::new(37 * 67), "{:?}", product);
+    product[120] = BabyBear::zero();
+    assert!(product.is_zero());
+
+    let mut poly3 = Polynomial::<BabyBear>::zero(n);
+    poly3[90] = BabyBear::new(55);
+
+    let ntt_poly3: NTTPolynomial<BabyBear> = poly3.clone().into();
+
+    let product = ntt_poly1 * &ntt_poly2 * &ntt_poly3;
+
+    let mut product = product.into_native_polynomial();
+    assert_eq!(product[210], BabyBear::new(37 * 67 * 55), "{:?}", product);
+    product[210] = BabyBear::zero();
+    assert!(product.is_zero());
 }
