@@ -2,6 +2,7 @@ pub mod hadamard;
 pub mod lookup;
 pub mod ntt;
 pub mod permutation;
+pub mod sparse_matrix_eval;
 
 use algebra::{DenseMultilinearExtension, Field, ListOfProductsOfPolynomials, PolynomialInfo};
 use helper::{

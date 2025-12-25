@@ -153,7 +153,7 @@ where
         &self,
         trans: &mut Transcript<EF>,
         trace_mle: LookupTraceMLE<F>,
-        params: &mut LogUpParams<F, EF, S, PCS>,
+        params: &LogUpParams<F, EF, S, PCS>,
     ) -> LogUpSnarksProof<F, EF, S, PCS> {
         let witness = trace_mle.compute_witness_pure();
 
@@ -238,7 +238,7 @@ where
         }
     }
 
-    pub fn verifier(
+    pub fn verify(
         &self,
         trans: &mut Transcript<EF>,
         proof: &LogUpSnarksProof<F, EF, S, PCS>,
@@ -344,7 +344,7 @@ mod test {
         let proof = snarks.prove(prover_trans, trace, params);
 
         let verifier_trans = &mut Transcript::<EF>::default();
-        let res = snarks.verifier(verifier_trans, &proof);
+        let res = snarks.verify(verifier_trans, &proof);
         assert!(res);
     }
 }

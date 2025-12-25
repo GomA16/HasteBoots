@@ -43,7 +43,7 @@ fn main() {
 
     let verifier_trans = &mut Transcript::<EF>::default();
     let start = Instant::now();
-    let res = snarks.verifier(verifier_trans, &proof);
+    let res = snarks.verify(verifier_trans, &proof);
     println!("Verify time: {:?}", start.elapsed());
     assert!(res);
 }

@@ -236,48 +236,20 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
         trans: &mut Transcript<F>,
         instance: &Self::Instance,
     ) -> (Self::Proof, Self::ProverState) {
-        let info = instance.info();
-        trans.append_message(b"[Statement]", &info);
+        let (mut proof, state) = Self::prover_without_evals(trans, instance);
 
-        let mut sumcheck_claim = SumcheckClaim::new(info.sumcheck_num_vars());
-
-        let lagrange_kernel = Some(&LagrangeKernel::random(trans, instance.num_vars));
-        let randomness_batch = info.sample_randomness_for_sumcheck(trans);
-        Self::prover_batch_sumcheck(
-            instance,
-            &mut sumcheck_claim,
-            &randomness_batch,
-            lagrange_kernel,
-        );
-        let (sumcheck_proof, prover_state) = MLSumcheck::prove(trans, &sumcheck_claim.poly)
-            .expect("[LogUpIOP] Fail to generate sumcheck proof");
-
-        // TODO optimize evaluation using base field mle
         let mle_eval = |mle: &[Rc<DenseMultilinearExtension<F>>]| {
             mle.iter()
-                .map(|m| m.evaluate(&prover_state.randomness))
+                .map(|m| m.evaluate(&state.point_r))
                 .collect::<Vec<_>>()
         };
 
-        let phi_at_r = mle_eval(&instance.helper.phi_functions);
-        let input_at_r = phi_at_r[1..]
+        proof.phi_at_r = mle_eval(&instance.helper.phi_functions);
+        proof.input_at_r = proof.phi_at_r[1..]
             .iter()
-            .map(|x| *x - info.random_value)
+            .map(|x| *x - instance.helper.random_value)
             .collect::<Vec<_>>();
-        let helper_at_r = mle_eval(&instance.helper.helper_functions);
-
-        let proof = LogUpProof {
-            poly_info: sumcheck_claim.poly.info(),
-            sumcheck_proof,
-            input_at_r,
-            phi_at_r,
-            // witness_at_r,
-            helper_at_r,
-        };
-
-        let state = LogUpProverState {
-            point_r: prover_state.randomness.to_vec(),
-        };
+        proof.helper_at_r = mle_eval(&instance.helper.helper_functions);
         (proof, state)
     }
 

@@ -235,7 +235,7 @@ impl<F: Field> LookupTraceMLE<F> {
             .collect::<Vec<F>>();
 
         // 1 / (t(x) + r)
-        let mut table_inversed_values = table_plus_r
+        let table_inversed_values = table_plus_r
             .par_chunks(chunk_size)
             .map(|chunk| batch_inverse(chunk))
             .flatten()
@@ -244,7 +244,7 @@ impl<F: Field> LookupTraceMLE<F> {
         // sum = \sum m(x) / (t(x) + r)
         let mut sum = F::zero();
         for (t_i, m_i) in table_inversed_values
-            .iter_mut()
+            .iter()
             .take(1 << self.num_vars)
             .zip(witness.multiplicity.iter())
         {
@@ -406,114 +406,6 @@ impl<F: Field> LookupTraceMLE<F> {
     }
 }
 
-// impl<EF: Field> LookupTraceMLE<EF>
-// {
-//     pub fn compute_helper_functions_ef<F: Field>(
-//         &self,
-//         block_size: usize,
-//         randomness: EF,
-//         witness: &LookupWitnessPure<F>,
-//     ) -> LookupWitnessHelper<EF>
-//     where EF: AbstractExtensionField<F>
-//     {
-//         let mle_size = 1 << self.num_vars;
-//         let blk_span = block_size << self.num_vars;
-
-//         // divide vec_input into blocks of size block_size
-//         let total = self.vec_input.len();
-//         let num_blocks = (total + block_size - 1) / block_size;
-
-//         // f(x) + r
-//         let all_inputs_plus_r = self
-//             .vec_input
-//             .iter()
-//             .flat_map(|input| input.iter())
-//             .map(|&x| x + randomness)
-//             .collect::<Vec<EF>>();
-//         // t(x) + r
-//         let table_plus_r = witness
-//             .table
-//             .iter()
-//             .map(|&x| randomness + x)
-//             .collect::<Vec<EF>>();
-
-//         let num_threads = rayon::current_num_threads();
-//         info!("Computing helper functions using {} threads", num_threads);
-//         let chunk_size = std::cmp::max(1, (all_inputs_plus_r.len() + num_threads - 1) / num_threads);
-
-//         // 1 / (f(x) + r)
-//         let inversed_values = all_inputs_plus_r
-//             .par_chunks(chunk_size)
-//             .map(|chunk| batch_inverse(chunk))
-//             .flatten()
-//             .collect::<Vec<EF>>();
-
-//         // 1 / (t(x) + r)
-//         let mut table_inversed_values = table_plus_r
-//             .par_chunks(chunk_size)
-//             .map(|chunk| batch_inverse(chunk))
-//             .flatten()
-//             .collect::<Vec<EF>>();
-
-//         // sum = \sum m(x) / (t(x) + r)
-//         let mut sum = EF::zero();
-//         for (t_i, m_i) in table_inversed_values
-//             .iter_mut()
-//             .take(1 << self.num_vars)
-//             .zip(witness.multiplicity.iter())
-//         {
-//             sum += *t_i * *m_i;
-//         }
-
-//         let add_assign = |acc: &mut [EF], vec: &[EF]| {
-//             for (a, b) in acc.iter_mut().zip(vec.iter()) {
-//                 *a += *b;
-//             }
-//         };
-
-//         let helper_functions = inversed_values
-//             .par_chunks(blk_span)
-//             .map(|block| {
-//                 let mut acc = vec![EF::zero(); mle_size];
-//                 for one_mle in block.chunks_exact(mle_size) {
-//                     add_assign(&mut acc, one_mle);
-//                 }
-//                 acc
-//             })
-//             .collect::<Vec<_>>();
-
-//         // f(x) + r
-//         let phi = all_inputs_plus_r
-//             .chunks_exact(1 << self.num_vars)
-//             .map(|chunk| chunk.to_vec())
-//             .collect::<Vec<_>>();
-
-//         LookupWitnessHelper {
-//             block_size,
-//             num_blocks,
-//             random_value: randomness,
-//             sum,
-//             helper_functions: helper_functions
-//                 .into_iter()
-//                 .map(|hf| {
-//                     Rc::new(DenseMultilinearExtension::from_evaluations_vec(
-//                         self.num_vars,
-//                         hf,
-//                     ))
-//                 })
-//                 .collect(),
-//             phi_functions: phi
-//                 .into_iter()
-//                 .map(|phi| {
-//                     Rc::new(DenseMultilinearExtension::from_evaluations_vec(
-//                         self.num_vars,
-//                         phi,
-//                     ))
-//                 })
-//                 .collect(),
-//         }
-//     }
-// }
 
 impl<F: Field> PackableTrace<F> for LookupTraceMLE<F> {
     fn num_oracles(&self) -> usize {

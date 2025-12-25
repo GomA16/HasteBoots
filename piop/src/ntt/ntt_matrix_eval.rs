@@ -22,10 +22,12 @@ pub struct NTTMatrixEvalIOP<F: Field> {
 }
 
 /// Consider a coefficient matrix `C` where each row is the coefficients of a polynomial.
+/// 
 /// Matrix indexing: `C[Y][X]` where `X` is the row index and `Y` is the column index.
-/// MLE indexing: `C(y0, y1, ..., yN, x0, x1, ..., xM)` where `Y = y0*2^0 + y1*2^1 + ...
-/// + yN*2^N` and `X = x0*2^0 + x1*2^1 + ... + xM*2^M`. This is the little-endian
-/// representation.
+/// 
+/// MLE indexing: `C(y, x) = C(y0, y1, ..., yN, x0, x1, ..., xM)` where 
+/// `Y = y0*2^0 + y1*2^1 + ... + yN*2^N` and `X = x0*2^0 + x1*2^1 + ... + xM*2^M`. 
+/// This is the little-endian representation.
 ///
 /// Consider the corresponding NTT matrix `A` where each row is the NTT evaluation of the
 /// corresponding polynomial in `C`.
