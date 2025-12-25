@@ -1,4 +1,3 @@
-
 use core::time;
 
 use algebra::{BabyBear, BabyBearExetension};
@@ -7,9 +6,10 @@ use pcs::{
     multilinear::BrakedownPCS,
     utils::code::{ExpanderCode, ExpanderCodeSpec},
 };
-use rand::rand_core::le;
-use snarks::lookup::indexed_table::indexed_table::IndexedLogUpSnarks;
-use trace::lookup_trace::indexed_table::{IndexedLookupTrace, IndexedLookupTraceMLE};
+use piop::sparse_matrix_eval::sparse_row::SparseRowEvalInstance;
+use snarks::{
+    sparse_matrix_eval::SparseRowEvalSnarks,
+};
 
 type FF = BabyBear;
 type EF = BabyBearExetension;
@@ -17,23 +17,20 @@ type Hash = sha2::Sha256;
 
 fn main() {
     let mut rng = rand::rng();
-    let num_input_vars = 10;
-    let num_table_vars = 10;
+    let num_x_vars = 10;
+    let num_y_vars = 10;
 
-    let lookup_trace = IndexedLookupTrace::<EF>::random(&mut rng, num_input_vars, num_table_vars);
-    let lookup_mle: IndexedLookupTraceMLE<EF> = lookup_trace.into();
-    let snarks = IndexedLogUpSnarks::<
+    let instance = SparseRowEvalInstance::<EF>::random(&mut rng, num_x_vars, num_y_vars);
+    let snarks = SparseRowEvalSnarks::<
         FF,
         EF,
         ExpanderCodeSpec,
         BrakedownPCS<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>,
     >::default();
-
     let prover_trans = &mut Transcript::<EF>::default();
     let time = std::time::Instant::now();
-    let proof = snarks.prove(prover_trans, &lookup_mle);
+    let proof = snarks.prove(prover_trans, &instance);
     println!("Prove time: {:?}", time.elapsed());
-
     let verifier_trans = &mut Transcript::<EF>::default();
     let time = std::time::Instant::now();
     let res = snarks.verify(verifier_trans, &proof);

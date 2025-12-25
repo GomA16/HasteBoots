@@ -407,10 +407,10 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for IndexedLogUpTableIOP<F> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{SumcheckInstance, lookup};
+    use crate::{SumcheckInstance};
     use algebra::{
         FieldUniformSampler,
-        derive::{DecomposableField, FheField, Field, NTT, Prime},
+        derive::{Field, Prime},
     };
     use helper::Transcript;
     use rand_distr::Distribution;

@@ -44,6 +44,15 @@ impl<F: Field> LagrangeKernel<F> {
         point
     }
 
+    // generate the Lagrange kernel for a given point
+    pub fn from_point(point: &[F]) -> Self {
+        let eq_at_point = Rc::new(gen_identity_evaluations(point));
+        Self {
+            point: point.to_vec(),
+            eq_at_point,
+        }
+    }
+
     pub fn evaluate(&self, x: &[F]) -> F {
         self.eq_at_point.evaluate(x)
     }

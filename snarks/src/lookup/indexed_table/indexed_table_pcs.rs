@@ -70,7 +70,7 @@ where
     }
 }
 
-pub struct IndexedLogUpSnarksProof<F, EF, S, PCS>
+pub struct IndexedLogUpSnarksPlusPCSProof<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F>,
@@ -113,7 +113,7 @@ where
         trans: &mut Transcript<EF>,
         trace_mle: &IndexedLookupTraceMLE<EF>,
         params: &IndexedLogUpParams<F, EF, S, PCS>,
-    ) -> IndexedLogUpSnarksProof<F, EF, S, PCS> {
+    ) -> IndexedLogUpSnarksPlusPCSProof<F, EF, S, PCS> {
         let witness = trace_mle.compute_witness();
 
         let comm_input = |poly: &PCS::EFPolynomial| PCS::commit_ef(&params.pcs_input_params, poly);
@@ -171,7 +171,7 @@ where
         };
         let multiplicity_eval_proof = open_table(&multiplicity_comm, &multiplicity_comm_state);
         let helper_table_eval_proof = open_table(&helper_table_comm, &helper_table_comm_state);
-        IndexedLogUpSnarksProof {
+        IndexedLogUpSnarksPlusPCSProof {
             params: params.clone(),
             input_commitment: input_comm,
             index_commitment: index_comm,
@@ -193,7 +193,7 @@ where
     pub fn verify(
         &self,
         trans: &mut Transcript<EF>,
-        proof: &IndexedLogUpSnarksProof<F, EF, S, PCS>,
+        proof: &IndexedLogUpSnarksPlusPCSProof<F, EF, S, PCS>,
     ) -> bool {
         let mut res = true;
         trans.append_message(b"[Commit Phase]", &proof.input_commitment);

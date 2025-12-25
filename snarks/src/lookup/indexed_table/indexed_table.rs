@@ -1,10 +1,14 @@
-//! In our case, the polynomial is so small and it is more costy for verifier
-//! to check a evaluation proof than just evaluating the polynomial directly.
-//!
-//! Instead, we let the prover sends the polynomial to the verifier directly,
-//! and the verifier just evaluates the polynomial at the random point.
+//! In our case, the polynomial is so small and the number of these small
+//! oracles is also small. For better efficiency when proving a single 
+//! bootstrapping operation, we instead send the polynomial directly to 
+//! the verifier and the verifier just evaluates the evaluation of the 
+//! random point on his own.
+//! 
+//! When proving multiple bootstrapping operations in a batch, we can use
+//! PCS to boost efficiency of the evaluation.
 
-use std::ops::Index;
+use core::time;
+use std::marker::PhantomData;
 
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 use helper::{FiatShamirTranscript, Transcript, utils::eval_identity_function};
@@ -16,7 +20,6 @@ use piop::{
         IndexedLogUpTableIOP, IndexedLogUpTableInstanceInfo, IndexedLogUpTableProof,
     },
 };
-use rand::rand_core::le;
 use serde::Serialize;
 use trace::lookup_trace::indexed_table::IndexedLookupTraceMLE;
 
@@ -34,6 +37,7 @@ where
     _marker_pcs: std::marker::PhantomData<PCS>,
 }
 
+#[derive(Serialize)]
 pub struct IndexedLogUpSnarksProof<F, EF, S, PCS>
 where
     F: Field,
@@ -71,8 +75,23 @@ where
         trans: &mut Transcript<EF>,
         trace_mle: &IndexedLookupTraceMLE<EF>,
     ) -> IndexedLogUpSnarksProof<F, EF, S, PCS> {
-        let witness = trace_mle.compute_witness();
+        IndexedLogUpSnarks::prove_as_subprotocol(trans, trace_mle)
+    }
 
+    pub fn verify(
+        &self,
+        trans: &mut Transcript<EF>,
+        proof: &IndexedLogUpSnarksProof<F, EF, S, PCS>,
+    ) -> bool {
+        IndexedLogUpSnarks::verify_as_subprotocol(trans, proof)
+    }
+
+    pub fn prove_as_subprotocol(
+        trans: &mut Transcript<EF>,
+        trace_mle: &IndexedLookupTraceMLE<EF>,
+    ) -> IndexedLogUpSnarksProof<F, EF, S, PCS> {
+        let witness = trace_mle.compute_witness();
+        // Commit phase: send the polynomials directly to the verifier
         trans.append_message(b"[Commit Phase]", trace_mle.input.as_ref());
         trans.append_message(b"[Commit Phase]", trace_mle.index.as_ref());
         trans.append_message(b"[Commit Phase]", witness.multiplicity.as_ref());
@@ -83,14 +102,14 @@ where
         let helper = trace_mle.compute_helper_functions(&witness, random_value, random_s_hash);
         trans.append_message(b"[Commit Phase]", helper.helper_input.as_ref());
         trans.append_message(b"[Commit Phase]", helper.helper_table.as_ref());
-        
+
         let input_instance =
             indexed_table::IndexedLogUpInputInstance::<EF>::from(trace_mle, &helper);
         let (input_piop_proof, _input_piop_state) =
             indexed_table::IndexedLogUpInputIOP::prover(trans, &input_instance);
         let table_instance =
             indexed_table::IndexedLogUpTableInstance::<EF>::from(&witness, &helper);
-        let (table_piop_proof, table_piop_state) =
+        let (table_piop_proof, _table_piop_state) =
             indexed_table::IndexedLogUpTableIOP::prover(trans, &table_instance);
         trans.append_message(b"[PIOP Phase]", &input_piop_proof);
         trans.append_message(b"[PIOP Phase]", &table_piop_proof);
@@ -108,8 +127,7 @@ where
         }
     }
 
-    pub fn verify(
-        &self,
+    pub fn verify_as_subprotocol(
         trans: &mut Transcript<EF>,
         proof: &IndexedLogUpSnarksProof<F, EF, S, PCS>,
     ) -> bool {
@@ -118,9 +136,10 @@ where
         trans.append_message(b"[Commit Phase]", &proof.index_commitment);
         trans.append_message(b"[Commit Phase]", &proof.multiplicity_commitment);
 
-        let random_value =
+        // Some simple value equality checks are omitted here for brevity.
+        let _random_value =
             trans.get_challenge(b"[Challenge] random value used in the rational identity");
-        let random_s_hash = trans.get_challenge(b"[Challenge] random value used for hashing.");
+        let _random_s_hash = trans.get_challenge(b"[Challenge] random value used for hashing.");
 
         trans.append_message(b"[Commit Phase]", &proof.helper_input_commitment);
         trans.append_message(b"[Commit Phase]", &proof.helper_table_commitment);
