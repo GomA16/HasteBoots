@@ -301,7 +301,8 @@ mod test {
         let num_input_vars = 5;
         let num_table_vars = 10;
 
-        let lookup_trace = IndexedLookupTrace::<EF>::random(&mut rng, num_input_vars, num_table_vars);
+        let lookup_trace =
+            IndexedLookupTrace::<EF>::random(&mut rng, num_input_vars, num_table_vars);
         let lookup_mle: IndexedLookupTraceMLE<EF> = lookup_trace.into();
         let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
         let snarks = IndexedLogUpSnarksPlusPCS::<
@@ -320,4 +321,3 @@ mod test {
         assert!(res);
     }
 }
-

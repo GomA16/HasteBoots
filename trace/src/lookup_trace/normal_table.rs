@@ -377,23 +377,7 @@ impl<F: Field> PackableEval<F> for LookupWitnessHelperEval<F> {
 }
 
 impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for LookupWitness<F> {
-    type TraceEval = LookupWitnessEval<F>;
     type TraceEvalEF = LookupWitnessEval<EF>;
-    fn evaluate(&self, point: &[F]) -> Self::TraceEval {
-        let vec_input_at_r = self
-            .trace
-            .vec_input
-            .iter()
-            .map(|input| input.evaluate(point))
-            .collect::<Vec<F>>();
-        let table_at_r = self.table.evaluate(point);
-        let multiplicity_at_r = self.multiplicity.evaluate(point);
-        LookupWitnessEval {
-            vec_input_at_r,
-            table_at_r,
-            multiplicity_at_r,
-        }
-    }
     fn evaluate_ef(&self, point: &[EF]) -> Self::TraceEvalEF {
         let vec_input_at_r = self
             .trace

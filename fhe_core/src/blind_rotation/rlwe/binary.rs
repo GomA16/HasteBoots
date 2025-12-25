@@ -119,7 +119,6 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
         let polynomial_space = &mut PolynomialSpace::new(rlwe_dimension);
         let ntt_rlwe_space = &mut NTTRLWESpace::new(rlwe_dimension);
         let external_product = &mut RLWESpace::new(rlwe_dimension);
-        
 
         let ntt_table = F::get_ntt_table(rlwe_dimension.trailing_zeros()).unwrap();
 
@@ -146,10 +145,10 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
             #[cfg(test)]
             {
                 if neg_b <= rlwe_dimension {
-                polynomial_space.as_mut_slice().rotate_right(neg_b);
-                polynomial_space[..neg_b]
-                    .iter_mut()
-                    .for_each(|v| *v = v.neg());
+                    polynomial_space.as_mut_slice().rotate_right(neg_b);
+                    polynomial_space[..neg_b]
+                        .iter_mut()
+                        .for_each(|v| *v = v.neg());
                 } else {
                     let r = neg_b - rlwe_dimension;
                     polynomial_space.as_mut_slice().rotate_right(r);
@@ -162,7 +161,6 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
                 );
                 println!("Sanity check for lut * X^-b passed.");
             }
-            
         }
 
         let acc = RLWE::new(Polynomial::zero(rlwe_dimension), lut);
@@ -183,10 +181,19 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
                 let a_i: usize = a_i.as_into();
                 if a_i < rlwe_dimension {
                     ntt_polynomial_space[a_i] = F::one();
+                    acc_trace.append_monomial(
+                        ntt_polynomial_space.as_slice(),
+                        F::from(a_i),
+                        F::one(),
+                    );
                 } else {
                     ntt_polynomial_space[a_i - rlwe_dimension] = F::neg_one();
+                    acc_trace.append_monomial(
+                        ntt_polynomial_space.as_slice(),
+                        F::from(a_i - rlwe_dimension),
+                        F::neg_one(),
+                    );
                 }
-                acc_trace.append_monomial(ntt_polynomial_space.as_slice());
                 ntt_table.transform_slice(ntt_polynomial_space.as_mut_slice());
                 ntt_rlwe_space.mul_ntt_polynomial_assign(ntt_polynomial_space);
                 ntt_rlwe_space.inverse_transform_inplace(external_product);
@@ -198,9 +205,9 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
                 {
                     let external_product2 = &mut RLWESpace::new(rlwe_dimension);
                     acc.mul_monic_monomial_sub_one_inplace(
-                    rlwe_dimension,
-                    a_i.as_into(),
-                    external_product2,
+                        rlwe_dimension,
+                        a_i.as_into(),
+                        external_product2,
                     );
                     assert_eq!(
                         &**external_product, &**external_product2,
@@ -208,7 +215,6 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
                     );
                     println!("Sanity check for (X^a - 1) * ACC passed.");
                 }
-                
 
                 // external_product = (X^{a_i} - 1) * ACC * RGSW(s_i)
                 external_product.mul_assign_ntt_rgsw_w_trace(

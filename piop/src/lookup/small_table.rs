@@ -295,7 +295,7 @@ impl<F: Field> LogUpProof<F> {
         let phi_at_r = trace_eval
             .vec_trace
             .iter()
-            .map(|x| x.bit_poly + random_value)
+            .map(|x| x.poly_eval.poly + random_value)
             .collect::<Vec<_>>();
         let proof = LogUpProof {
             poly_info: PolynomialInfo::default(),

@@ -264,11 +264,9 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for SparseRowEvalPIOP<F> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use algebra::{
-        derive::{Field, Prime},
-    };
+    use algebra::derive::{Field, Prime};
     use helper::Transcript;
-    
+
     #[derive(Field, Prime)]
     #[modulus = 132120577]
     pub struct Fp32(u32);

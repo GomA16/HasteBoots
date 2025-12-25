@@ -5,14 +5,12 @@ pub mod hadamard_trace;
 pub mod lookup_trace;
 pub mod ntt_trace;
 pub mod pbs_trace;
+pub mod rlwe_trace;
 
 pub use acc_trace::{AccTrace, AccTraceMLE};
 pub use hadamard_trace::{
     HadamardTrace, HadamardTraceMLE, SumHadamardTrace, SumHadamardTraceEval, SumHadamardTraceMLE,
 };
-// pub use lookup_trace::normal_table::{
-//     LookupTrace, LookupTraceMLE, LookupWitness, LookupWitnessHelper,
-// };
 pub use ntt_trace::{NTTTrace, NTTTraceInfo, NTTTraceMLE};
 pub use pbs_trace::{PBSTrace, PBSTraceMLE};
 
@@ -74,8 +72,6 @@ pub trait EvaluableTrace<F: Field> {
 }
 
 pub trait EvaluableTraceEF<F: Field, EF: AbstractExtensionField<F>> {
-    type TraceEval;
     type TraceEvalEF;
-    fn evaluate(&self, point: &[F]) -> Self::TraceEval;
     fn evaluate_ef(&self, point: &[EF]) -> Self::TraceEvalEF;
 }

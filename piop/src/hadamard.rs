@@ -1,22 +1,14 @@
 use algebra::DenseMultilinearExtension;
 use algebra::Field;
-use algebra::NTTField;
 use algebra::PolynomialInfo;
-use bincode::de;
-use core::num;
 use helper::FiatShamirTranscript;
 use helper::Transcript;
-use helper::utils::eval_identity_function;
-use rayon::vec;
 use serde::Serialize;
-use sha2::digest::typenum::Sum;
 use std::rc::Rc;
 use sumcheck::MLSumcheck;
 use sumcheck::Proof;
 use sumcheck::prover;
 use sumcheck::verifier::SubClaim;
-use trace::PBSTrace;
-use trace::PBSTraceMLE;
 use trace::SumHadamardTraceEval;
 use trace::SumHadamardTraceMLE;
 
@@ -150,25 +142,25 @@ impl<F: Field> BatchedSumHadamardInstance<F> {
             let products = batch
                 .vec_trace
                 .iter()
-                .map(|trace| (trace.bit_ntt.clone(), trace.key_ntt.0.clone()))
+                .map(|trace| (trace.poly.ntt.clone(), trace.rlwe.ntt.0.clone()))
                 .collect::<Vec<_>>();
             vec_sum.push(SumHadamardInstance {
                 num_vars,
                 num_products: products.len(),
                 products,
-                result: batch.sum_prod_ntt.0.clone(),
+                result: batch.sum_prod.ntt.0.clone(),
             });
 
             let products = batch
                 .vec_trace
                 .iter()
-                .map(|trace| (trace.bit_ntt.clone(), trace.key_ntt.1.clone()))
+                .map(|trace| (trace.poly.ntt.clone(), trace.rlwe.ntt.1.clone()))
                 .collect::<Vec<_>>();
             vec_sum.push(SumHadamardInstance {
                 num_vars,
                 num_products: products.len(),
                 products,
-                result: batch.sum_prod_ntt.1.clone(),
+                result: batch.sum_prod.ntt.1.clone(),
             });
         };
 
@@ -229,21 +221,21 @@ impl<F: Field> BatchedSumHadamardProof<F> {
             let products_at_r = batch
                 .vec_trace
                 .iter()
-                .map(|trace_eval| (trace_eval.bit_ntt, trace_eval.key_ntt.0))
+                .map(|trace_eval| (trace_eval.poly_eval.ntt, trace_eval.rlwe_eval.ntt.0))
                 .collect::<Vec<_>>();
             hadamard_at_r.push(SumHadamardEval {
                 products_at_r,
-                result_at_r: batch.sum_prod_ntt.0,
+                result_at_r: batch.sum_prod.ntt.0,
             });
 
             let products_at_r = batch
                 .vec_trace
                 .iter()
-                .map(|trace_eval| (trace_eval.bit_ntt, trace_eval.key_ntt.1))
+                .map(|trace_eval| (trace_eval.poly_eval.ntt, trace_eval.rlwe_eval.ntt.1))
                 .collect::<Vec<_>>();
             hadamard_at_r.push(SumHadamardEval {
                 products_at_r,
-                result_at_r: batch.sum_prod_ntt.1,
+                result_at_r: batch.sum_prod.ntt.1,
             });
         };
 

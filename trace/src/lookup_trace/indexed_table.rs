@@ -102,7 +102,8 @@ impl<F: Field> IndexedLookupTrace<F> {
         let num_inputs = 1 << num_input_vars;
         let table_len = 1 << num_table_vars;
         let index = (0..num_inputs)
-            .map(|_| rng.random_range(0..table_len)).collect::<Vec<usize>>();
+            .map(|_| rng.random_range(0..table_len))
+            .collect::<Vec<usize>>();
 
         let mut input = vec![F::zero(); num_inputs];
         for i in 0..num_inputs {
@@ -263,5 +264,3 @@ impl<F: Field> IndexedLookupTraceMLE<F> {
         }
     }
 }
-
-

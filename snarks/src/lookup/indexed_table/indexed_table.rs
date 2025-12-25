@@ -1,9 +1,9 @@
 //! In our case, the polynomial is so small and the number of these small
-//! oracles is also small. For better efficiency when proving a single 
-//! bootstrapping operation, we instead send the polynomial directly to 
-//! the verifier and the verifier just evaluates the evaluation of the 
+//! oracles is also small. For better efficiency when proving a single
+//! bootstrapping operation, we instead send the polynomial directly to
+//! the verifier and the verifier just evaluates the evaluation of the
 //! random point on his own.
-//! 
+//!
 //! When proving multiple bootstrapping operations in a batch, we can use
 //! PCS to boost efficiency of the evaluation.
 
@@ -164,14 +164,16 @@ where
         res &= evaluate_input_at_r(&proof.index_commitment) == proof.input_piop_proof.index_at_rx;
         res &= evaluate_input_at_r(&proof.helper_input_commitment)
             == proof.input_piop_proof.helper_input_at_rx;
-        
+
         let evaluate_table_at_r = |poly: &PCS::EFPolynomial| poly.evaluate(&piop_subclaim2.point_r);
         res &= evaluate_table_at_r(&proof.multiplicity_commitment)
             == proof.table_piop_proof.multiplicity_at_ry;
         res &= evaluate_table_at_r(&proof.helper_table_commitment)
             == proof.table_piop_proof.helper_table_at_ry;
-        res &= eval_identity_function(&proof.table_instance_info.table_point, &piop_subclaim2.point_r)
-            == proof.table_piop_proof.table_at_ry;
+        res &= eval_identity_function(
+            &proof.table_instance_info.table_point,
+            &piop_subclaim2.point_r,
+        ) == proof.table_piop_proof.table_at_ry;
         res
     }
 }
@@ -185,7 +187,7 @@ mod test {
         multilinear::BrakedownPCS,
         utils::code::{ExpanderCode, ExpanderCodeSpec},
     };
-    use trace::lookup_trace::{indexed_table::IndexedLookupTrace};
+    use trace::lookup_trace::indexed_table::IndexedLookupTrace;
 
     type FF = BabyBear;
     type EF = BabyBearExetension;

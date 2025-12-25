@@ -7,7 +7,7 @@ use algebra::{
 use rand_distr::Distribution;
 use serde::Serialize;
 
-use crate::{ConvertToEF, PackableTrace};
+use crate::{ConvertToEF, PackableTrace, rlwe_trace::MonomialTrace};
 
 pub struct NTTTrace<F: Field> {
     pub log_coeff_count: usize,
@@ -15,6 +15,7 @@ pub struct NTTTrace<F: Field> {
     pub ntt_table: Vec<F>,
     pub coefficients: Vec<F>,
     pub evaluations: Vec<F>,
+    pub is_monomial: Option<MonomialTrace<F>>,
 }
 
 #[derive(Serialize)]
@@ -52,6 +53,7 @@ impl<F: Field> NTTTrace<F> {
             ntt_table,
             coefficients: Vec::with_capacity(1 << log_coeff_count),
             evaluations: Vec::with_capacity(1 << log_coeff_count),
+            is_monomial: None,
         }
     }
 
@@ -81,6 +83,10 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for NTTTrace<F>
             ntt_table: self.ntt_table.into_ef(),
             coefficients: self.coefficients.into_ef(),
             evaluations: self.evaluations.into_ef(),
+            is_monomial: match self.is_monomial {
+                Some(mono) => Some(mono.into_ef()),
+                None => None,
+            },
         }
     }
 
@@ -91,6 +97,29 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for NTTTrace<F>
             ntt_table: self.ntt_table.to_ef(),
             coefficients: self.coefficients.to_ef(),
             evaluations: self.evaluations.to_ef(),
+            is_monomial: match &self.is_monomial {
+                Some(mono) => Some(mono.to_ef()),
+                None => None,
+            },
+        }
+    }
+}
+
+impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for MonomialTrace<F> {
+    type Output = MonomialTrace<EF>;
+    fn into_ef(self) -> Self::Output {
+        MonomialTrace {
+            log_num_poly: self.log_num_poly,
+            degree: self.degree.into_ef(),
+            coefficient: self.coefficient.into_ef(),
+        }
+    }
+
+    fn to_ef(&self) -> Self::Output {
+        MonomialTrace {
+            log_num_poly: self.log_num_poly,
+            degree: self.degree.to_ef(),
+            coefficient: self.coefficient.to_ef(),
         }
     }
 }
@@ -124,6 +153,7 @@ impl<F: NTTField> NTTTrace<F> {
                 .root_powers(),
             coefficients,
             evaluations,
+            is_monomial: None,
         }
     }
 }

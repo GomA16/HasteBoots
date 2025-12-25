@@ -1,12 +1,12 @@
 //! In our case, the polynomial is so small and the number of these small
-//! oracles is also small. For better efficiency when proving a single 
-//! bootstrapping operation, we instead send the polynomial directly to 
-//! the verifier and the verifier just evaluates the evaluation of the 
+//! oracles is also small. For better efficiency when proving a single
+//! bootstrapping operation, we instead send the polynomial directly to
+//! the verifier and the verifier just evaluates the evaluation of the
 //! random point on his own.
-//! 
+//!
 //! When proving multiple bootstrapping operations in a batch, we can use
 //! PCS to boost efficiency of the evaluation.
-//! 
+//!
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 use helper::{FiatShamirTranscript, Transcript, utils::eval_identity_function};
 use pcs::PolynomialCommitmentScheme;
@@ -152,7 +152,7 @@ mod test {
         multilinear::BrakedownPCS,
         utils::code::{ExpanderCode, ExpanderCodeSpec},
     };
-    
+
     type FF = BabyBear;
     type EF = BabyBearExetension;
     type Hash = sha2::Sha256;

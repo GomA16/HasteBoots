@@ -81,10 +81,7 @@ pub struct IndexedLogUpVerifierSubclaim<F: Field> {
 }
 
 impl<F: Field> IndexedLogUpInputInstance<F> {
-    pub fn from(
-        trace: &IndexedLookupTraceMLE<F>,
-        helper: &IndexedLookupWitnessHelper<F>,
-    ) -> Self {
+    pub fn from(trace: &IndexedLookupTraceMLE<F>, helper: &IndexedLookupWitnessHelper<F>) -> Self {
         Self {
             num_input_vars: trace.num_input_vars,
             trace: trace.clone(),
@@ -122,10 +119,7 @@ impl<F: Field> IndexedLogUpInputInstance<F> {
 }
 
 impl<F: Field> IndexedLogUpTableInstance<F> {
-    pub fn from(
-        witness: &IndexedLookupWitness<F>,
-        helper: &IndexedLookupWitnessHelper<F>,
-    ) -> Self {
+    pub fn from(witness: &IndexedLookupWitness<F>, helper: &IndexedLookupWitnessHelper<F>) -> Self {
         Self {
             num_table_vars: witness.num_table_vars,
             witness: witness.clone(),
@@ -344,16 +338,17 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for IndexedLogUpInputIOP<F> {
     }
 
     fn verifier_compute_subclaim(
-            _info: &Self::Info,
-            proof: &Self::Proof,
-            subclaim: &mut SubClaim<F>,
-            randomness: &[F],
-            kernel_at_r: Option<F>,
-        ) {
+        _info: &Self::Info,
+        proof: &Self::Proof,
+        subclaim: &mut SubClaim<F>,
+        randomness: &[F],
+        kernel_at_r: Option<F>,
+    ) {
         assert!(kernel_at_r.is_some());
         let kernel_at_r = kernel_at_r.unwrap();
         subclaim.expected_evaluations -= proof.compute_helper_subclaim(randomness[0]);
-        subclaim.expected_evaluations -= proof.compute_helper_identity_subcliam(randomness[1], kernel_at_r);
+        subclaim.expected_evaluations -=
+            proof.compute_helper_identity_subcliam(randomness[1], kernel_at_r);
     }
 }
 
@@ -377,11 +372,11 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for IndexedLogUpTableIOP<F> {
     }
 
     fn prover_batch_sumcheck(
-            instance: &Self::Instance,
-            claim: &mut SumcheckClaim<F>,
-            randomness: &[F],
-            lagrange_kernel: Option<&LagrangeKernel<F>>,
-        ) -> Option<Self::ProverState> {
+        instance: &Self::Instance,
+        claim: &mut SumcheckClaim<F>,
+        randomness: &[F],
+        lagrange_kernel: Option<&LagrangeKernel<F>>,
+    ) -> Option<Self::ProverState> {
         assert!(lagrange_kernel.is_some());
         let kernel = lagrange_kernel.unwrap();
         assert_eq!(randomness.len(), 2);
@@ -391,30 +386,31 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for IndexedLogUpTableIOP<F> {
     }
 
     fn verifier_compute_subclaim(
-            _info: &Self::Info,
-            proof: &Self::Proof,
-            subclaim: &mut SubClaim<F>,
-            randomness: &[F],
-            kernel_at_r: Option<F>,
-        ) {
+        _info: &Self::Info,
+        proof: &Self::Proof,
+        subclaim: &mut SubClaim<F>,
+        randomness: &[F],
+        kernel_at_r: Option<F>,
+    ) {
         assert!(kernel_at_r.is_some());
         let kernel_at_r = kernel_at_r.unwrap();
         subclaim.expected_evaluations -= proof.compute_helper_subclaim(randomness[0]);
-        subclaim.expected_evaluations -= proof.compute_helper_identity_subcliam(randomness[1], kernel_at_r);
+        subclaim.expected_evaluations -=
+            proof.compute_helper_identity_subcliam(randomness[1], kernel_at_r);
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{SumcheckInstance};
+    use crate::SumcheckInstance;
     use algebra::{
         FieldUniformSampler,
         derive::{Field, Prime},
     };
     use helper::Transcript;
     use rand_distr::Distribution;
-    use trace::lookup_trace::indexed_table::{IndexedLookupTrace};
+    use trace::lookup_trace::indexed_table::IndexedLookupTrace;
 
     #[derive(Field, Prime)]
     #[modulus = 132120577]
@@ -428,26 +424,40 @@ mod test {
         let num_input_vars = 2;
         let num_table_vars = 5;
 
-        let lookup_trace = IndexedLookupTrace::<FF>::random(&mut rng, num_input_vars, num_table_vars);
+        let lookup_trace =
+            IndexedLookupTrace::<FF>::random(&mut rng, num_input_vars, num_table_vars);
         let lookup_mle: IndexedLookupTraceMLE<FF> = lookup_trace.into();
         let lookup_witness = lookup_mle.compute_witness();
 
         let uniform = FieldUniformSampler::<FF>::new();
         let random_value = uniform.sample(&mut rng);
         let random_s_hash = uniform.sample(&mut rng);
-        let lookup_helper = lookup_mle.compute_helper_functions(&lookup_witness, random_value, random_s_hash);
+        let lookup_helper =
+            lookup_mle.compute_helper_functions(&lookup_witness, random_value, random_s_hash);
 
-        let lookup_input_instance = IndexedLogUpInputInstance::<FF>::from(&lookup_mle, &lookup_helper);
+        let lookup_input_instance =
+            IndexedLogUpInputInstance::<FF>::from(&lookup_mle, &lookup_helper);
         let lookup_input_info = lookup_input_instance.info();
-        let lookup_table_instance = IndexedLogUpTableInstance::<FF>::from(&lookup_witness, &lookup_helper);
+        let lookup_table_instance =
+            IndexedLogUpTableInstance::<FF>::from(&lookup_witness, &lookup_helper);
         let lookup_table_info = lookup_table_instance.info();
 
         let mut prover_transcript = Transcript::<FF>::new();
-        let (proof1, _) = IndexedLogUpInputIOP::<FF>::prover(&mut prover_transcript, &lookup_input_instance);
-        let (proof2, _) = IndexedLogUpTableIOP::<FF>::prover(&mut prover_transcript, &lookup_table_instance);
+        let (proof1, _) =
+            IndexedLogUpInputIOP::<FF>::prover(&mut prover_transcript, &lookup_input_instance);
+        let (proof2, _) =
+            IndexedLogUpTableIOP::<FF>::prover(&mut prover_transcript, &lookup_table_instance);
         let mut verifier_transcript = Transcript::<FF>::new();
-        let (res1, _) = IndexedLogUpInputIOP::<FF>::verifier(&mut verifier_transcript, &lookup_input_info, &proof1);
-        let (res2, _) = IndexedLogUpTableIOP::<FF>::verifier(&mut verifier_transcript, &lookup_table_info, &proof2);
+        let (res1, _) = IndexedLogUpInputIOP::<FF>::verifier(
+            &mut verifier_transcript,
+            &lookup_input_info,
+            &proof1,
+        );
+        let (res2, _) = IndexedLogUpTableIOP::<FF>::verifier(
+            &mut verifier_transcript,
+            &lookup_table_info,
+            &proof2,
+        );
         assert!(res1 && res2);
     }
 }

@@ -7,9 +7,7 @@ use pcs::{
     utils::code::{ExpanderCode, ExpanderCodeSpec},
 };
 use piop::sparse_matrix_eval::sparse_row::SparseRowEvalInstance;
-use snarks::{
-    sparse_matrix_eval::SparseRowEvalSnarks,
-};
+use snarks::sparse_matrix_eval::SparseRowEvalSnarks;
 
 type FF = BabyBear;
 type EF = BabyBearExetension;

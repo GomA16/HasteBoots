@@ -1,4 +1,3 @@
-
 use core::time;
 
 use algebra::{BabyBear, BabyBearExetension};

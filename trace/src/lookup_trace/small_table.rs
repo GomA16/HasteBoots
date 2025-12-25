@@ -406,7 +406,6 @@ impl<F: Field> LookupTraceMLE<F> {
     }
 }
 
-
 impl<F: Field> PackableTrace<F> for LookupTraceMLE<F> {
     fn num_oracles(&self) -> usize {
         self.vec_input.len()
@@ -425,10 +424,8 @@ impl<F: Field> PackableTrace<F> for LookupTraceMLE<F> {
     }
 }
 
-impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for LookupTraceMLE<F> {
+impl<F: Field> EvaluableTrace<F> for LookupTraceMLE<F> {
     type TraceEval = LookupTraceEval<F>;
-    type TraceEvalEF = LookupTraceEval<EF>;
-
     fn evaluate(&self, point: &[F]) -> Self::TraceEval {
         let vec_input_at_r = self
             .vec_input
@@ -441,6 +438,10 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for Lookup
             vec_input_at_r,
         }
     }
+}
+
+impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for LookupTraceMLE<F> {
+    type TraceEvalEF = LookupTraceEval<EF>;
     fn evaluate_ef(&self, point: &[EF]) -> Self::TraceEvalEF {
         let vec_input_at_r = self
             .vec_input

@@ -328,10 +328,7 @@ where
         let mut open_point_2 = Vec::with_capacity(ntt_piop_state.point_r.len() + point_v.len());
         open_point_2.extend_from_slice(&ntt_piop_state.point_r);
         open_point_2.extend_from_slice(&point_v);
-        let open_points = vec![
-            open_point_1,
-            open_point_2,
-        ];
+        let open_points = vec![open_point_1, open_point_2];
         let eval_proof = PCS::batch_open(
             &params.pcs_params,
             &commitment,
@@ -475,10 +472,7 @@ where
         open_point_2.extend_from_slice(&ntt_subclaim.point_r);
         open_point_2.extend_from_slice(&point_v);
 
-        let open_points = vec![
-            open_point_1,
-            open_point_2,
-        ];
+        let open_points = vec![open_point_1, open_point_2];
         let open_evals = vec![open_eval_1, open_eval_2];
 
         // PCS Opening Phase
