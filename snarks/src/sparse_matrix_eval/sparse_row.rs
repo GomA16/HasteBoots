@@ -161,7 +161,7 @@ mod test {
     fn test_sparse_row_eval_snarks() {
         let mut rng = rand::rng();
         let num_x_vars = 4;
-        let num_y_vars = 4;
+        let num_y_vars = 10;
 
         let instance = SparseRowEvalInstance::<EF>::random(&mut rng, num_x_vars, num_y_vars);
         let snarks = SparseRowEvalSnarks::<

@@ -13,7 +13,7 @@
 //! their coefficient forms.
 use std::rc::Rc;
 
-use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
+use algebra::{AbstractExtensionField, AsInto, DenseMultilinearExtension, Field};
 use helper::utils::compute_oracle_evals;
 use helper::{FiatShamirTranscript, Transcript};
 use pcs::PolynomialCommitmentScheme;
@@ -21,10 +21,14 @@ use piop::hadamard::{BatchedSumHadamardProof, HadamardPIOP, SumHadamardInfo, Sum
 use piop::ntt::{
     BatchedNTTMatrixEvalProof, NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance,
 };
-use piop::{BatchedSumcheckPIOP, SumcheckInstance};
+use piop::sparse_matrix_eval::sparse_row::SparseRowEvalInstance;
+use piop::{BatchedSumcheckPIOP, LagrangeKernel, SumcheckInstance};
 use serde::Serialize;
-use trace::{AccTraceMLE, PackableTrace};
+use trace::{AccTraceMLE, PBSTraceMLE, PackableTrace};
 use trace::{ConvertToEF, EvaluableTraceEF};
+
+use crate::sparse_matrix_eval::SparseRowEvalSnarks;
+use crate::sparse_matrix_eval::sparse_row::SparseRowEvalSnarksProof;
 
 #[derive(Default)]
 pub struct MonomialHadamardSnarks<F, EF, S, PCS>
@@ -84,6 +88,7 @@ where
     pub ntt_infos: Vec<NTTMatrixEvalInfo<EF>>,
     pub ntt_proof: BatchedNTTMatrixEvalProof<EF>,
     pub eval_proof: PCS::Proof,
+    pub sparse_eval_proof: SparseRowEvalSnarksProof<F, EF, S, PCS>,
 }
 
 impl<F, EF, S, PCS> MonomialHadamardSnarks<F, EF, S, PCS>
@@ -110,7 +115,7 @@ where
         let (commitment, commitment_state) = PCS::commit(&params.pcs_params, &poly);
         trans.append_message(b"Commit Phase", &commitment);
 
-        // Extract the Hadamard trace from the Acc trace
+        // Extract all Hadamard trace from the PBS trace
         let hadamard_trace = trace_mle.extract_hadamard_trace();
         let hadamard_instance = SumHadamardInstance::from(&hadamard_trace.to_ef());
         let hadamard_info = hadamard_instance
@@ -166,7 +171,7 @@ where
         let (ntt_proof, ntt_state) = NTTMatrixEvalIOP::prover_batch_instance(trans, &instances);
         trans.append_message(b"[PIOP Phase]", &ntt_proof);
 
-        // Open the coeffcient matrix evaluation at point_r_v
+        // Open the coeffcient matrix evaluation `ntt_proof.coeff_eval_at_r_v[1]` at point_r_v_prime
         let mut point_r_v_prime =
             Vec::with_capacity(ntt_state.randomness.len() + point_v_prime.len());
         point_r_v_prime.extend_from_slice(&ntt_state.randomness);
@@ -179,8 +184,20 @@ where
             trans,
         );
 
-        // Open the sparse coefficient matrix evaluation at point_r_v using SparseMatrix
-        // let sparse_matrix_eval_instance = SparseRowEvalInstance
+        // Open the sparse coefficient matrix evaluation `ntt_proof.coeff_eval_at_r_v[0]` at point_r_v using SparseMatrix
+        let kernel_rx = LagrangeKernel::from_point(&point_v);
+        let kernel_ry = LagrangeKernel::from_point(&ntt_state.randomness);
+        let sparse_matrix_eval_instance = SparseRowEvalInstance::from_subclaim::<F>(
+            &trace_mle.monomial_representation,
+            &kernel_rx,
+            &kernel_ry,
+            ntt_proof.coeff_eval_at_r_v[0],
+        );
+
+        let sparse_eval_proof = SparseRowEvalSnarks::<F, EF, S, PCS>::prove_as_subprotocol(
+            trans,
+            &sparse_matrix_eval_instance,
+        );
 
         MonomialHadamardProof {
             log_coeff_count: trace_mle.log_coeff_count,
@@ -192,6 +209,7 @@ where
             ntt_infos: infos,
             ntt_proof,
             eval_proof,
+            sparse_eval_proof,
         }
     }
 
@@ -227,6 +245,7 @@ where
         trans.append_message(b"[PIOP Phase]", &proof.ntt_proof);
         res &= ntt_res;
 
+        // Verify the coeffcient matrix evaluation `ntt_proof.coeff_eval_at_r_v[1]` at point_r_v_prime
         let mut point_r_v_prime =
             Vec::with_capacity(ntt_subclaim.randomness.len() + point_v_prime.len());
         point_r_v_prime.extend_from_slice(&ntt_subclaim.randomness);
@@ -241,6 +260,13 @@ where
             trans,
         );
         res &= eval_res;
+
+        // Verify the coeffcient matrix evaluation `ntt_proof.coeff_eval_at_r_v[0]` at point_r_v
+        let sparse_eval_res = SparseRowEvalSnarks::<F, EF, S, PCS>::verify_as_subprotocol(
+            trans,
+            &proof.sparse_eval_proof,
+        );
+        res &= sparse_eval_res;
 
         res
     }

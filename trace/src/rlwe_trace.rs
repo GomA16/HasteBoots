@@ -29,12 +29,15 @@ pub struct PolynomialEval<F: Field> {
 }
 
 pub struct MonomialTrace<F: Field> {
+    // degree < 2^{log_coeff_max}
+    pub log_coeff_max: usize,
     pub log_num_poly: usize,
     pub degree: Vec<F>,
     pub coefficient: Vec<F>,
 }
 
 pub struct MonomialTraceMLE<F: Field> {
+    pub log_coeff_max: usize,
     pub log_num_poly: usize,
     pub degree: Rc<DenseMultilinearExtension<F>>,
     pub coefficient: Rc<DenseMultilinearExtension<F>>,
@@ -75,8 +78,9 @@ pub struct RLWEEval<F: Field> {
 }
 
 impl<F: Field> MonomialTrace<F> {
-    pub fn new(log_num_poly: usize) -> Self {
+    pub fn new(log_coeff_max: usize, log_num_poly: usize) -> Self {
         Self {
+            log_coeff_max,
             log_num_poly,
             degree: Vec::with_capacity(1 << log_num_poly),
             coefficient: Vec::with_capacity(1 << log_num_poly),
@@ -231,6 +235,7 @@ impl<F: Field> From<MonomialTrace<F>> for MonomialTraceMLE<F> {
     #[inline]
     fn from(trace: MonomialTrace<F>) -> Self {
         Self {
+            log_coeff_max: trace.log_coeff_max,
             log_num_poly: trace.log_num_poly,
             degree: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
                 trace.log_num_poly,
@@ -266,6 +271,7 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for MonomialTra
     }
     fn to_ef(&self) -> Self::Output {
         MonomialTraceMLE {
+            log_coeff_max: self.log_coeff_max,
             log_num_poly: self.log_num_poly,
             degree: Rc::new(self.degree.to_ef()),
             coefficient: Rc::new(self.coefficient.to_ef()),

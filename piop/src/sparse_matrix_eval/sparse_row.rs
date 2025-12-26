@@ -33,12 +33,19 @@
 //! - Index I[x] = col(x) for x in [M]
 //! We don't prove the indexed lookup argument here. Instead, we prove it in the
 //! snarks layer using the IndexedLogUpSnarks.
-use algebra::{DenseMultilinearExtension, Field, PolynomialInfo};
+use algebra::{
+    AbstractExtensionField, AsFrom, AsInto, DenseMultilinearExtension, Field, PolynomialInfo,
+};
 use helper::utils::eval_identity_function;
 use serde::Serialize;
+use sha2::digest::crypto_common::Key;
 use std::rc::Rc;
 use sumcheck::{Proof, prover::ProverState, verifier::SubClaim};
-use trace::lookup_trace::indexed_table::{IndexedLookupTrace, IndexedLookupTraceMLE};
+use trace::{
+    ConvertToEF,
+    lookup_trace::indexed_table::{IndexedLookupTrace, IndexedLookupTraceMLE},
+    rlwe_trace::MonomialTraceMLE,
+};
 
 use crate::{
     LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance, SumcheckPIOP, SumcheckPureProof,
@@ -55,15 +62,17 @@ pub struct SparseRowEvalInstance<F: Field> {
     pub num_x_vars: usize,
     // denoted by logN in the above description
     pub num_y_vars: usize,
-    pub point_ry: Vec<F>,
-    pub point_rx: Vec<F>,
+    /// lagrange kernel eq(k, r_x) with point rx
+    pub kernel_rx: LagrangeKernel<F>,
+    /// lagrange kernel eq(y, r_y) with point ry
+    pub kernel_ry: LagrangeKernel<F>,
+
     /// sparse representation
     pub col: Rc<DenseMultilinearExtension<F>>,
     pub val: Rc<DenseMultilinearExtension<F>>,
     /// helper MLE E_ry(k) = eq(to-bits(col(k)), ry)
     pub eval_mle_ry: Rc<DenseMultilinearExtension<F>>,
-    /// lagrange kernel eq(k, r_x)
-    pub kernel_rx: LagrangeKernel<F>,
+
     pub eval: F,
 }
 
@@ -103,8 +112,8 @@ impl<F: Field + Serialize> SumcheckInstance<F> for SparseRowEvalInstance<F> {
     fn info(&self) -> Self::Info {
         SparseRowEvalInstanceInfo {
             num_x_vars: self.num_x_vars,
-            point_rx: self.point_rx.clone(),
-            point_ry: self.point_ry.clone(),
+            point_rx: self.kernel_rx.point.clone(),
+            point_ry: self.kernel_ry.point.clone(),
             eval: self.eval,
         }
     }
@@ -136,13 +145,14 @@ impl<F: Field> SparseRowEvalInstance<F> {
         let num_nonzero = 1 << num_x_vars;
         let val = (0..num_nonzero).map(|_| F::random(rng)).collect::<Vec<F>>();
         let kernel_rx = LagrangeKernel::from_point(&point_rx);
+        let kernel_ry = LagrangeKernel::from_point(&point_ry);
 
         let lookup_trace = IndexedLookupTrace::<F>::random(rng, num_x_vars, num_y_vars);
         Self {
             num_x_vars,
             num_y_vars,
-            point_ry,
-            point_rx,
+            kernel_rx,
+            kernel_ry,
             col: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
                 num_x_vars,
                 lookup_trace.index,
@@ -154,7 +164,6 @@ impl<F: Field> SparseRowEvalInstance<F> {
                 num_x_vars,
                 lookup_trace.input,
             )),
-            kernel_rx,
             eval: F::zero(),
         }
     }
@@ -166,8 +175,8 @@ impl<F: Field> SparseRowEvalInstance<F> {
             num_table_vars: self.num_y_vars,
             index: Rc::clone(&self.col),
             input: Rc::clone(&self.eval_mle_ry),
-            table_point: self.point_ry.clone(),
-            table: self.kernel_rx.eq_at_point.clone(),
+            table_point: self.kernel_ry.point.clone(),
+            table: self.kernel_ry.eq_at_point.clone(),
         }
     }
 
@@ -180,6 +189,43 @@ impl<F: Field> SparseRowEvalInstance<F> {
             ],
             random_lambda,
         );
+    }
+}
+
+impl<EF: Field> SparseRowEvalInstance<EF> {
+    pub fn from_subclaim<F: Field>(
+        trace: &MonomialTraceMLE<F>,
+        kernel_rx: &LagrangeKernel<EF>,
+        kernel_ry: &LagrangeKernel<EF>,
+        eval: EF,
+    ) -> Self
+    where
+        EF: AbstractExtensionField<F>,
+    {
+        let num_x_vars = trace.log_num_poly;
+        let num_y_vars = trace.log_coeff_max;
+        debug_assert_eq!(num_x_vars, kernel_rx.point.len());
+        debug_assert_eq!(num_y_vars, kernel_ry.point.len());
+        // eval_mle_ry(k) = eq(to-bits(col(k)), ry)
+        let lookup = |x: &F| -> EF {
+            let idx: usize = x.value().as_into();
+            kernel_ry.eq_at_point.evaluations[idx]
+        };
+        let eval_mle_ry = trace.degree.iter().map(lookup).collect::<Vec<EF>>();
+
+        Self {
+            num_x_vars,
+            num_y_vars,
+            col: Rc::new(trace.degree.to_ef()),
+            val: Rc::new(trace.coefficient.to_ef()),
+            eval_mle_ry: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
+                num_x_vars,
+                eval_mle_ry,
+            )),
+            kernel_rx: kernel_rx.clone(),
+            kernel_ry: kernel_ry.clone(),
+            eval,
+        }
     }
 }
 
@@ -277,7 +323,7 @@ mod test {
     fn test_sparse_row_eval_piop() {
         let mut rng = rand::rng();
         let num_x_vars = 4;
-        let num_y_vars = 4;
+        let num_y_vars = 10;
 
         let instance = SparseRowEvalInstance::<FF>::random(&mut rng, num_x_vars, num_y_vars);
         let instance_info = instance.info();

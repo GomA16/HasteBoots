@@ -19,6 +19,7 @@ pub struct SumcheckClaim<F: Field> {
 
 /// When proving the \sum a(x)b(x) = c(x) on a hypercube, it can be reduced
 /// to a sumchek by applying a Lagrange kernel eq( , r) for a random point r.
+#[derive(Clone)]
 pub struct LagrangeKernel<F: Field> {
     pub point: Vec<F>,
     pub eq_at_point: Rc<DenseMultilinearExtension<F>>,

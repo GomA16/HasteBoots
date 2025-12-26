@@ -64,7 +64,7 @@ impl<F: NTTField> AccTrace<F> {
             initial_acc: RLWETrace::new(log_coeff_count, 0),
             final_acc: RLWETrace::new(log_coeff_count, 0),
             monomial: PolynomialTrace::new(log_coeff_count, log_num_round),
-            monomial_representation: MonomialTrace::new(log_num_round),
+            monomial_representation: MonomialTrace::new(log_coeff_count, log_num_round),
             input_acc: RLWETrace::new(log_coeff_count, log_num_round),
             output_acc: RLWETrace::new(log_coeff_count, log_num_round),
             monomial_times_acc: RLWETrace::new(log_coeff_count, log_num_round),
