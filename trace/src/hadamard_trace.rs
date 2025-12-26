@@ -10,7 +10,7 @@ use crate::lookup_trace::small_table::LookupTraceMLE as LookupTraceMLESmallTable
 use crate::rlwe_trace::{
     PolynomialEval, PolynomialTrace, PolynomialTraceMLE, RLWEEval, RLWETrace, RLWETraceMLE,
 };
-use crate::{ConvertToEF, EvaluableTraceEF, PackableTrace};
+use crate::{ConvertToEF, EvaluableTraceEF, PackableEval, PackableTrace};
 
 /// Store the traces of the multiplication between a bit polynomial and an RLWE ciphertext
 #[derive(Clone)]
@@ -59,58 +59,6 @@ pub struct SumHadamardTraceMLE<F: Field> {
 pub struct SumHadamardTraceEval<F: Field> {
     pub vec_hadamard: Vec<HadamardTraceEval<F>>,
     pub sum_prod: RLWEEval<F>,
-}
-
-impl<F: Field> SumHadamardTraceEval<F> {
-    #[inline]
-    pub fn pack_bit_ntt_to_vec(&self) -> Vec<F> {
-        self.vec_hadamard
-            .iter()
-            .map(|trace| &trace.bit.ntt)
-            .cloned()
-            .collect()
-    }
-
-    #[inline]
-    pub fn pack_bit_poly_to_vec(&self) -> Vec<F> {
-        self.vec_hadamard
-            .iter()
-            .map(|trace| &trace.bit.poly)
-            .cloned()
-            .collect()
-    }
-
-    #[inline]
-    pub fn pack_rlwe_ntt_to_vec(&self) -> Vec<F> {
-        self.vec_hadamard
-            .iter()
-            .flat_map(|trace| [trace.rlwe.ntt.0, trace.rlwe.ntt.1])
-            .collect()
-    }
-
-    #[inline]
-    pub fn pack_rlwe_poly_to_vec(&self) -> Vec<F> {
-        self.vec_hadamard
-            .iter()
-            .flat_map(|trace| [trace.rlwe.poly.0, trace.rlwe.poly.1])
-            .collect()
-    }
-
-    #[inline]
-    pub fn pack_all_ntt_to_vec(&self) -> Vec<F> {
-        let mut overall_vec = self.pack_bit_ntt_to_vec();
-        overall_vec.extend(self.pack_rlwe_ntt_to_vec());
-        overall_vec.extend(vec![self.sum_prod.ntt.0, self.sum_prod.ntt.1]);
-        overall_vec
-    }
-
-    #[inline]
-    pub fn pack_all_poly_to_vec(&self) -> Vec<F> {
-        let mut overall_vec = self.pack_bit_poly_to_vec();
-        overall_vec.extend(self.pack_rlwe_poly_to_vec());
-        overall_vec.extend(vec![self.sum_prod.poly.0, self.sum_prod.poly.1]);
-        overall_vec
-    }
 }
 
 impl<F: NTTField> From<HadamardTrace<F>> for HadamardTraceMLE<F> {
@@ -300,43 +248,8 @@ impl<F: Field> SumHadamardTrace<F> {
 
 impl<F: Field> SumHadamardTraceMLE<F> {
     #[inline]
-    pub fn num_vars(&self) -> usize {
-        self.log_coeff_count + self.log_num_poly
-    }
-
-    #[inline]
     pub fn num_bit_poly(&self) -> usize {
         self.num_hadamard
-    }
-
-    #[inline]
-    pub fn num_rlwe_poly(&self) -> usize {
-        self.num_hadamard * 2
-    }
-
-    #[inline]
-    pub fn num_all_poly(&self) -> usize {
-        // #bit_poly = num_trace
-        // #rlwe = num_trace * 2
-        // #sum_prod = 2
-        self.num_hadamard * 3 + 2
-    }
-
-    #[inline]
-    pub fn log_num_bit_poly(&self) -> usize {
-        self.num_bit_poly().next_power_of_two().trailing_zeros() as usize
-    }
-
-    #[inline]
-    pub fn log_num_rlwe_poly(&self) -> usize {
-        self.num_rlwe_poly().next_power_of_two().trailing_zeros() as usize
-    }
-
-    #[inline]
-    pub fn log_num_all_poly(&self) -> usize {
-        (self.num_bit_poly() + self.num_rlwe_poly() + 2)
-            .next_power_of_two()
-            .trailing_zeros() as usize
     }
 
     #[inline]
@@ -344,64 +257,6 @@ impl<F: Field> SumHadamardTraceMLE<F> {
         let num_lookup = self.num_bit_poly();
         let num_helper = (num_lookup + blk_size - 1) / blk_size;
         num_helper.next_power_of_two().trailing_zeros() as usize
-    }
-
-    #[inline]
-    pub fn generate_bit_vec(&self) -> Vec<F> {
-        self.vec_hadamard
-            .iter()
-            .flat_map(|trace| trace.bit.poly.iter())
-            .cloned()
-            .collect()
-    }
-
-    #[inline]
-    pub fn generate_rlwe_vec(&self) -> Vec<F> {
-        self.vec_hadamard
-            .iter()
-            .flat_map(|trace| trace.rlwe.poly.0.iter().chain(trace.rlwe.poly.1.iter()))
-            .cloned()
-            .collect()
-    }
-
-    #[inline]
-    pub fn generate_sum_prod_vec(&self) -> Vec<F> {
-        self.sum_prod
-            .poly
-            .0
-            .iter()
-            .cloned()
-            .chain(self.sum_prod.poly.1.iter().cloned())
-            .collect()
-    }
-
-    #[inline]
-    pub fn generate_bit_oracle(&self) -> DenseMultilinearExtension<F> {
-        let mut bit_polys = self.generate_bit_vec();
-        let num_vars = bit_polys.len().next_power_of_two().trailing_zeros() as usize;
-        let num_zeros = (1 << num_vars) - bit_polys.len();
-        bit_polys.extend(vec![F::zero(); num_zeros]);
-        DenseMultilinearExtension::from_evaluations_vec(num_vars, bit_polys)
-    }
-
-    #[inline]
-    pub fn generate_rlwe_oracle(&self) -> DenseMultilinearExtension<F> {
-        let mut rlwe_ntts = self.generate_rlwe_vec();
-        let num_vars = rlwe_ntts.len().next_power_of_two().trailing_zeros() as usize;
-        let num_zeros = (1 << num_vars) - rlwe_ntts.len();
-        rlwe_ntts.extend(vec![F::zero(); num_zeros]);
-        DenseMultilinearExtension::from_evaluations_vec(num_vars, rlwe_ntts)
-    }
-
-    #[inline]
-    pub fn generate_all_oracle(&self) -> DenseMultilinearExtension<F> {
-        let mut overall_vec = self.generate_bit_vec();
-        overall_vec.extend(self.generate_rlwe_vec());
-        overall_vec.extend(self.generate_sum_prod_vec());
-        let num_vars = overall_vec.len().next_power_of_two().trailing_zeros() as usize;
-        let num_zeros = (1 << num_vars) - overall_vec.len();
-        overall_vec.extend(vec![F::zero(); num_zeros]);
-        DenseMultilinearExtension::from_evaluations_vec(num_vars, overall_vec)
     }
 
     #[inline]
@@ -441,20 +296,98 @@ impl<F: Field> SumHadamardTraceMLE<F> {
     }
 }
 
+impl<F: Field> PackableTrace<F> for HadamardTraceMLE<F> {
+    fn num_vars(&self) -> usize {
+        self.log_coeff_count + self.log_num_poly
+    }
+
+    fn num_oracles(&self) -> usize {
+        3
+    }
+
+    fn pack_to_vec(&self) -> Vec<F> {
+        self.bit
+            .pack_to_vec()
+            .into_iter()
+            .chain(self.rlwe.pack_to_vec().into_iter())
+            .collect()
+    }
+}
+
+impl<F: Field> PackableEval<F> for HadamardTraceEval<F> {
+    #[inline]
+    fn num_evals(&self) -> usize {
+        3
+    }
+
+    #[inline]
+    fn pack_ntt_to_vec(&self) -> Vec<F> {
+        self.bit
+            .pack_ntt_to_vec()
+            .into_iter()
+            .chain(self.rlwe.pack_ntt_to_vec().into_iter())
+            .collect()
+    }
+
+    #[inline]
+    fn pack_poly_to_vec(&self) -> Vec<F> {
+        self.bit
+            .pack_poly_to_vec()
+            .into_iter()
+            .chain(self.rlwe.pack_poly_to_vec().into_iter())
+            .collect()
+    }
+
+    #[inline]
+    fn pack_to_vec(&self) -> Vec<F> {
+        unimplemented!()
+    }
+}
+
 impl<F: Field> PackableTrace<F> for SumHadamardTraceMLE<F> {
     fn num_vars(&self) -> usize {
         self.log_coeff_count + self.log_num_poly
     }
 
     fn num_oracles(&self) -> usize {
-        self.num_all_poly()
+        self.num_hadamard * self.vec_hadamard[0].num_oracles() + self.sum_prod.num_oracles()
     }
 
     fn pack_to_vec(&self) -> Vec<F> {
-        self.generate_bit_vec()
-            .into_iter()
-            .chain(self.generate_rlwe_vec().into_iter())
-            .chain(self.generate_sum_prod_vec().into_iter())
+        self.vec_hadamard
+            .iter()
+            .flat_map(|trace| trace.pack_to_vec().into_iter())
+            .chain(self.sum_prod.pack_to_vec().into_iter())
             .collect()
+    }
+}
+
+impl<F: Field> PackableEval<F> for SumHadamardTraceEval<F> {
+    #[inline]
+    fn num_evals(&self) -> usize {
+        self.vec_hadamard[0].num_evals() * self.vec_hadamard.len() + self.sum_prod.num_evals()
+    }
+
+    #[inline]
+    fn pack_ntt_to_vec(&self) -> Vec<F> {
+        self.vec_hadamard
+            .iter()
+            .flat_map(|trace| trace.pack_ntt_to_vec().into_iter())
+            .chain(self.sum_prod.pack_ntt_to_vec().into_iter())
+            .collect()
+    }
+
+    #[inline]
+    fn pack_poly_to_vec(&self) -> Vec<F> {
+        self.vec_hadamard
+            .iter()
+            .flat_map(|trace| trace.pack_poly_to_vec().into_iter())
+            .chain(self.sum_prod.pack_poly_to_vec().into_iter())
+            .collect()
+    }
+
+    #[inline]
+    fn pack_to_vec(&self) -> Vec<F> {
+        unimplemented!()
     }
 }

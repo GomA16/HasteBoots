@@ -364,6 +364,14 @@ impl<F: Field> PackableEval<F> for LookupWitnessEval<F> {
             .chain(std::iter::once(self.multiplicity_at_r))
             .collect::<Vec<F>>()
     }
+
+    fn pack_ntt_to_vec(&self) -> Vec<F> {
+        unimplemented!()
+    }
+
+    fn pack_poly_to_vec(&self) -> Vec<F> {
+        unimplemented!()
+    }
 }
 
 impl<F: Field> PackableEval<F> for LookupWitnessHelperEval<F> {
@@ -373,6 +381,14 @@ impl<F: Field> PackableEval<F> for LookupWitnessHelperEval<F> {
 
     fn pack_to_vec(&self) -> Vec<F> {
         self.helper_at_r.iter().cloned().collect::<Vec<F>>()
+    }
+
+    fn pack_ntt_to_vec(&self) -> Vec<F> {
+        unimplemented!()
+    }
+
+    fn pack_poly_to_vec(&self) -> Vec<F> {
+        unimplemented!()
     }
 }
 

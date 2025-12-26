@@ -64,6 +64,9 @@ pub trait PackableTrace<F: Field> {
 pub trait PackableEval<F: Field> {
     fn num_evals(&self) -> usize;
     fn pack_to_vec(&self) -> Vec<F>;
+    // These two functions are used when the polynomials are stored both in coefficient form and NTT form
+    fn pack_poly_to_vec(&self) -> Vec<F>;
+    fn pack_ntt_to_vec(&self) -> Vec<F>;
 }
 
 pub trait EvaluableTrace<F: Field> {

@@ -74,7 +74,7 @@ where
         basis: usize,
         trace: &SumHadamardTraceMLE<F>,
     ) -> Self {
-        let oracle_num_vars = trace.num_vars() + trace.log_num_all_poly();
+        let oracle_num_vars = trace.num_vars() + trace.log_num_oracles();
         let pcs_params = PCS::setup(oracle_num_vars, Some(code_spec.clone()));
         let helper_num_vars = trace.num_vars() + trace.log_num_helper_poly(blk_size);
         let pcs_params_ef = PCS::setup(helper_num_vars, Some(code_spec.clone()));
@@ -98,7 +98,7 @@ where
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
     pub log_coeff_count: usize,
-    pub log_num_all_poly: usize,
+    pub log_num_oracle: usize,
     pub log_num_helper_poly: usize,
     #[serde(skip)]
     pub pcs_params: PCS::Parameters,
@@ -215,7 +215,7 @@ where
     ) -> ExternalProductProof<F, EF, S, PCS> {
         let time = std::time::Instant::now();
         // Commit to the trace polynomial
-        let bit_poly = trace_mle.generate_all_oracle();
+        let bit_poly = trace_mle.generate_oracle();
         let (commitment, commitment_state) = PCS::commit(&params.pcs_params, &bit_poly);
         trans.append_message(b"[Commit Phase]", &commitment);
 
@@ -290,7 +290,7 @@ where
         let mut point_v = sumcheck_state.randomness[trace_mle.log_coeff_count..].to_vec();
         let point_bit_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
-            trace_mle.log_num_all_poly(),
+            trace_mle.log_num_oracles(),
         );
         let point_helper_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
@@ -310,7 +310,7 @@ where
         // Reduced subclaim from Hadamard: query the evluation polynomial at `open_point_1`,
         // which can be further proven by NTT PIOP
         let bit_poly = Rc::new(bit_poly.to_ef());
-        let bit_ntt_evals = trace_evals.pack_all_ntt_to_vec();
+        let bit_ntt_evals = trace_evals.pack_ntt_to_vec();
         let eval = compute_oracle_evals(&bit_ntt_evals, &point_bit_oracle);
 
         point_v.extend_from_slice(&point_bit_oracle);
@@ -353,7 +353,7 @@ where
 
         ExternalProductProof {
             log_coeff_count: trace_mle.log_coeff_count,
-            log_num_all_poly: trace_mle.log_num_all_poly(),
+            log_num_oracle: trace_mle.log_num_oracles(),
             log_num_helper_poly: lookup_trace.log_num_helper_oracles(params.blk_size),
             pcs_params: params.pcs_params.clone(),
             commitment,
@@ -440,7 +440,7 @@ where
         let mut point_v = sumcheck_subclaim.point[proof.log_coeff_count..].to_vec();
         let point_bit_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
-            proof.log_num_all_poly,
+            proof.log_num_oracle,
         );
         let point_helper_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
@@ -457,7 +457,7 @@ where
         open_point_ef.extend_from_slice(&sumcheck_subclaim.point);
         open_point_ef.extend_from_slice(&point_helper_oracle);
 
-        let bit_poly_evals = proof.trace_evals.pack_all_poly_to_vec();
+        let bit_poly_evals = proof.trace_evals.pack_poly_to_vec();
         let open_eval_1 = compute_oracle_evals(&bit_poly_evals, &point_bit_oracle);
 
         let helper_poly_evals = proof.helper_evals.pack_to_vec();

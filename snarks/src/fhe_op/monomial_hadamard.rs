@@ -226,11 +226,8 @@ where
         trans.append_message(b"Commit Phase", &proof.commitment);
         let mut res = true;
 
-        let (hadamard_res, hadamard_subclaim) = HadamardPIOP::verifier_batch(
-            trans,
-            &proof.hadamard_info,
-            &proof.hadamard_proof,
-        );
+        let (hadamard_res, hadamard_subclaim) =
+            HadamardPIOP::verifier_batch(trans, &proof.hadamard_info, &proof.hadamard_proof);
         res &= hadamard_res;
         trans.append_message(b"[PIOP Phase]", &proof.hadamard_proof);
 

@@ -22,8 +22,8 @@ use piop::hadamard::{BatchedSumHadamardProof, HadamardPIOP, SumHadamardInfo, Sum
 use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance, NTTMatrixEvalProof};
 use piop::{BatchedSumcheckPIOP, SumcheckInstance, SumcheckPIOP};
 use serde::Serialize;
-use trace::SumHadamardTraceMLE;
 use trace::{ConvertToEF, EvaluableTraceEF};
+use trace::{PackableEval, PackableTrace, SumHadamardTraceMLE};
 
 #[derive(Default)]
 pub struct HadamardSnarks<F, EF, S, PCS>
@@ -58,7 +58,7 @@ where
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
     pub fn new(code_spec: S, ntt_table: &Rc<Vec<EF>>, trace: &SumHadamardTraceMLE<F>) -> Self {
-        let num_oracle_vars = trace.num_vars() + trace.log_num_all_poly();
+        let num_oracle_vars = trace.num_vars() + trace.log_num_oracles();
         let pcs_params = PCS::setup(num_oracle_vars, Some(code_spec.clone()));
         HadamardParams {
             pcs_params,
@@ -74,7 +74,7 @@ where
     S: Clone,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
-    pub log_num_overall_poly: usize,
+    pub log_num_oracles: usize,
     pub pcs_params: PCS::Parameters,
     pub commitment: PCS::Commitment,
     pub hadamard_info: Vec<SumHadamardInfo<EF>>,
@@ -104,7 +104,7 @@ where
         trace_mle: &SumHadamardTraceMLE<F>,
         params: &HadamardParams<F, EF, S, PCS>,
     ) -> HadamardProof<F, EF, S, PCS> {
-        let bit_poly = trace_mle.generate_all_oracle();
+        let bit_poly = trace_mle.generate_oracle();
         let (commitment, commitment_state) = PCS::commit(&params.pcs_params, &bit_poly);
         trans.append_message(b"Commit Phase", &commitment);
 
@@ -131,11 +131,11 @@ where
         // This virtual NTT evaluation matrix normally corresponds to the coefficient matrix that is committed at the beginning.
         let point_bit_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
-            trace_mle.log_num_all_poly(),
+            trace_mle.log_num_oracles(),
         );
         // This is the coefficient matrix of the virtual NTT evaluation matrix
         let bit_poly = Rc::new(bit_poly.to_ef());
-        let bit_ntt_evals = hadamard_evals.pack_all_ntt_to_vec();
+        let bit_ntt_evals = hadamard_evals.pack_ntt_to_vec();
         // The evaluation can be computed via the evaluations of component NTT evaluation matrices
         let eval = compute_oracle_evals(&bit_ntt_evals, &point_bit_oracle);
 
@@ -166,7 +166,7 @@ where
         );
 
         HadamardProof {
-            log_num_overall_poly: trace_mle.log_num_all_poly(),
+            log_num_oracles: trace_mle.log_num_oracles(),
             pcs_params: params.pcs_params.clone(),
             commitment,
             hadamard_info,
@@ -181,11 +181,8 @@ where
         trans.append_message(b"Commit Phase", &proof.commitment);
         let mut res = true;
 
-        let (hadamard_res, hadamard_subclaim) = HadamardPIOP::verifier_batch(
-            trans,
-            &proof.hadamard_info,
-            &proof.hadamard_proof,
-        );
+        let (hadamard_res, hadamard_subclaim) =
+            HadamardPIOP::verifier_batch(trans, &proof.hadamard_info, &proof.hadamard_proof);
         res &= hadamard_res;
 
         trans.append_message(b"[PIOP Phase]", &proof.hadamard_proof);
@@ -194,7 +191,7 @@ where
         let mut point_v = hadamard_subclaim.point_r[proof.ntt_info.log_coeff_count..].to_vec();
         let point_bit_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
-            proof.log_num_overall_poly,
+            proof.log_num_oracles,
         );
         point_v.extend_from_slice(&point_bit_oracle);
 

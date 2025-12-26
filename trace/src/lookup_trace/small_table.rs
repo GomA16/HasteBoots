@@ -501,6 +501,14 @@ impl<F: Field> PackableEval<F> for LookupTraceEval<F> {
     fn pack_to_vec(&self) -> Vec<F> {
         self.vec_input_at_r.clone()
     }
+
+    fn pack_poly_to_vec(&self) -> Vec<F> {
+        unimplemented!()
+    }
+
+    fn pack_ntt_to_vec(&self) -> Vec<F> {
+        unimplemented!()
+    }
 }
 
 impl<F: Field> PackableEval<F> for LookupWitnessHelperEval<F> {
@@ -510,5 +518,13 @@ impl<F: Field> PackableEval<F> for LookupWitnessHelperEval<F> {
 
     fn pack_to_vec(&self) -> Vec<F> {
         self.helper_functions_at_r.clone()
+    }
+
+    fn pack_poly_to_vec(&self) -> Vec<F> {
+        unimplemented!()
+    }
+
+    fn pack_ntt_to_vec(&self) -> Vec<F> {
+        unimplemented!()
     }
 }

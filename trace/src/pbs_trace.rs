@@ -1,7 +1,9 @@
 use crate::{
-    AccTrace, AccTraceMLE, HadamardTrace, PackableTrace, SumHadamardTrace, SumHadamardTraceMLE,
+    AccTrace, AccTraceMLE, EvaluableTrace, EvaluableTraceEF, HadamardTrace, PackableEval,
+    PackableTrace, SumHadamardTrace, SumHadamardTraceEval, SumHadamardTraceMLE,
+    acc_trace::AccTraceEval,
 };
-use algebra::{Field, NTTField};
+use algebra::{AbstractExtensionField, Field, NTTField};
 use std::{iter::chain, rc::Rc};
 
 pub struct PBSParameters {
@@ -31,6 +33,11 @@ pub struct PBSTraceMLE<F: Field> {
     pub acc_trace: AccTraceMLE<F>,
     pub hadamard_trace: SumHadamardTraceMLE<F>,
     // pub params: PBSParameters,
+}
+
+pub struct PBSTraceEval<F: Field> {
+    pub acc_trace: AccTraceEval<F>,
+    pub hadamard_trace: SumHadamardTraceEval<F>,
 }
 
 impl PBSParameters {
@@ -78,7 +85,7 @@ impl<F: Field> PackableTrace<F> for PBSTraceMLE<F> {
     }
 
     fn num_oracles(&self) -> usize {
-        self.hadamard_trace.num_all_poly() + self.acc_trace.num_oracles()
+        self.hadamard_trace.num_oracles() + self.acc_trace.num_oracles()
     }
 
     fn pack_to_vec(&self) -> Vec<F> {
@@ -87,5 +94,15 @@ impl<F: Field> PackableTrace<F> for PBSTraceMLE<F> {
             .into_iter()
             .chain(self.acc_trace.pack_to_vec().into_iter())
             .collect()
+    }
+}
+
+impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for PBSTraceMLE<F> {
+    type TraceEvalEF = PBSTraceEval<EF>;
+    fn evaluate_ef(&self, point: &[EF]) -> PBSTraceEval<EF> {
+        PBSTraceEval {
+            acc_trace: self.acc_trace.evaluate_ef(point),
+            hadamard_trace: self.hadamard_trace.evaluate_ef(point),
+        }
     }
 }

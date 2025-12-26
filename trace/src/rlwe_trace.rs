@@ -5,7 +5,7 @@ use algebra::{
 };
 use serde::Serialize;
 
-use crate::{ConvertToEF, EvaluableTrace, EvaluableTraceEF, PackableTrace};
+use crate::{ConvertToEF, EvaluableTrace, EvaluableTraceEF, PackableEval, PackableTrace};
 #[derive(Clone)]
 pub struct PolynomialTrace<F: Field> {
     pub log_coeff_count: usize,
@@ -376,5 +376,55 @@ impl<F: Field> PackableTrace<F> for RLWETraceMLE<F> {
             .chain(self.poly.1.iter())
             .cloned()
             .collect::<Vec<F>>()
+    }
+}
+
+impl<F: Field> PackableEval<F> for RLWEEval<F> {
+    fn num_evals(&self) -> usize {
+        2
+    }
+
+    fn pack_to_vec(&self) -> Vec<F> {
+        unimplemented!()
+    }
+
+    fn pack_ntt_to_vec(&self) -> Vec<F> {
+        vec![self.ntt.0, self.ntt.1]
+    }
+
+    fn pack_poly_to_vec(&self) -> Vec<F> {
+        vec![self.poly.0, self.poly.1]
+    }
+}
+
+impl<F: Field> PackableTrace<F> for PolynomialTraceMLE<F> {
+    fn num_vars(&self) -> usize {
+        self.log_coeff_count + self.log_num_poly
+    }
+
+    fn num_oracles(&self) -> usize {
+        1
+    }
+
+    fn pack_to_vec(&self) -> Vec<F> {
+        self.poly.iter().cloned().collect::<Vec<F>>()
+    }
+}
+
+impl<F: Field> PackableEval<F> for PolynomialEval<F> {
+    fn num_evals(&self) -> usize {
+        1
+    }
+
+    fn pack_to_vec(&self) -> Vec<F> {
+        unimplemented!()
+    }
+
+    fn pack_poly_to_vec(&self) -> Vec<F> {
+        vec![self.poly]
+    }
+
+    fn pack_ntt_to_vec(&self) -> Vec<F> {
+        vec![self.ntt]
     }
 }

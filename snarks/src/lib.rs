@@ -7,7 +7,6 @@ pub mod lookup;
 pub mod ntt;
 pub mod sparse_matrix_eval;
 
-
 /// Oracle used in the NTT matrix evaluation PIOP
 pub struct EvalOracle<F, EF, S, PCS>
 where

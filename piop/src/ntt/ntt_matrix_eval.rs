@@ -650,11 +650,9 @@ mod test {
         let infos = instances.iter().map(|inst| inst.info()).collect::<Vec<_>>();
 
         let mut prover_trans = Transcript::<FF>::default();
-        let (proof, _) =
-            NTTMatrixEvalIOP::<FF>::prover_batch(&mut prover_trans, &instances);
+        let (proof, _) = NTTMatrixEvalIOP::<FF>::prover_batch(&mut prover_trans, &instances);
         let mut verifier_trans = Transcript::<FF>::default();
-        let (res, _) =
-            NTTMatrixEvalIOP::<FF>::verifier_batch(&mut verifier_trans, &infos, &proof);
+        let (res, _) = NTTMatrixEvalIOP::<FF>::verifier_batch(&mut verifier_trans, &infos, &proof);
         assert!(res);
     }
 }

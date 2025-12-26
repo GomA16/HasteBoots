@@ -439,11 +439,9 @@ mod test {
         let infos = instances.iter().map(|inst| inst.info()).collect::<Vec<_>>();
 
         let mut prover_transcript = Transcript::<FF>::new();
-        let (proof, _) =
-            HadamardPIOP::<FF>::prover_batch(&mut prover_transcript, &instances);
+        let (proof, _) = HadamardPIOP::<FF>::prover_batch(&mut prover_transcript, &instances);
         let mut verifier_transcript = Transcript::<FF>::new();
-        let (res, _) =
-            HadamardPIOP::<FF>::verifier_batch(&mut verifier_transcript, &infos, &proof);
+        let (res, _) = HadamardPIOP::<FF>::verifier_batch(&mut verifier_transcript, &infos, &proof);
         assert!(res);
     }
 }
