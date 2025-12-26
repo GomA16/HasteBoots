@@ -108,29 +108,38 @@ where
         let (commitment, commitment_state) = PCS::commit(&params.pcs_params, &bit_poly);
         trans.append_message(b"Commit Phase", &commitment);
 
+        // [Hadamard PIOP] extract hadamard instances
         let trace_ef = trace_mle.to_ef();
         let hadamard_instance = SumHadamardInstance::from(&trace_ef);
         let hadamard_info = hadamard_instance
             .iter()
             .map(SumcheckInstance::info)
             .collect::<Vec<_>>();
+        // [Hadamard PIOP] prove these instances using sumcheck-based protocol
         let (mut hadamard_piop_proof, hadamard_piop_state) =
             HadamardPIOP::prover_batch_without_evals(trans, &hadamard_instance);
         let hadamard_evals = trace_mle.evaluate_ef(&hadamard_piop_state.point_r);
         hadamard_piop_proof.append_eval(&hadamard_evals);
         trans.append_message(b"[PIOP Phase]", &hadamard_piop_proof);
+        //[Hadamard PIOP] reduce to queries on NTT evaluation matrix
 
+        // [NTT PIOP] compute the common query point on each NTT evaluation matrix
         let point_u = hadamard_piop_state.point_r[..trace_mle.log_coeff_count].to_vec();
         let mut point_v = hadamard_piop_state.point_r[trace_mle.log_coeff_count..].to_vec();
+
+        // [NTT PIOP] compute the combined query point on the (virtual) large NTT evaluation matrix
+        // This virtual NTT evaluation matrix normally corresponds to the coefficient matrix that is committed at the beginning.
         let point_bit_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
             trace_mle.log_num_all_poly(),
         );
-
+        // This is the coefficient matrix of the virtual NTT evaluation matrix
         let bit_poly = Rc::new(bit_poly.to_ef());
         let bit_ntt_evals = hadamard_evals.pack_all_ntt_to_vec();
+        // The evaluation can be computed via the evaluations of component NTT evaluation matrices
         let eval = compute_oracle_evals(&bit_ntt_evals, &point_bit_oracle);
 
+        // [NTT PIOP] obtain the NTT Matrix Evaluation Instance
         point_v.extend_from_slice(&point_bit_oracle);
         let ntt_instance = NTTMatrixEvalInstance::from_subclaim(
             &bit_poly,
@@ -139,9 +148,12 @@ where
             &point_v,
             eval,
         );
+        // [NTT PIOP] prove it using sumcheck-based protocol
         let (ntt_piop_proof, ntt_piop_state) = NTTMatrixEvalIOP::prover(trans, &ntt_instance);
         trans.append_message(b"[PIOP Phase]", &ntt_piop_proof);
+        // [NTT PIOP] reduce to the query on the coefficient matrix that is committed at the beginning
 
+        // [PCS] generate the evaluation proof for the query on the committed coefficient matrix
         let mut point_r_v = Vec::with_capacity(ntt_piop_state.randomness.len() + point_v.len());
         point_r_v.extend_from_slice(&ntt_piop_state.randomness);
         point_r_v.extend_from_slice(&point_v);
