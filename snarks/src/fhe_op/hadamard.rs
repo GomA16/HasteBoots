@@ -115,7 +115,7 @@ where
             .map(SumcheckInstance::info)
             .collect::<Vec<_>>();
         let (mut hadamard_piop_proof, hadamard_piop_state) =
-            HadamardPIOP::prover_batch_instance_without_evals(trans, &hadamard_instance);
+            HadamardPIOP::prover_batch_without_evals(trans, &hadamard_instance);
         let hadamard_evals = trace_mle.evaluate_ef(&hadamard_piop_state.point_r);
         hadamard_piop_proof.append_eval(&hadamard_evals);
         trans.append_message(b"[PIOP Phase]", &hadamard_piop_proof);
@@ -169,7 +169,7 @@ where
         trans.append_message(b"Commit Phase", &proof.commitment);
         let mut res = true;
 
-        let (hadamard_res, hadamard_subclaim) = HadamardPIOP::verifier_batch_instance(
+        let (hadamard_res, hadamard_subclaim) = HadamardPIOP::verifier_batch(
             trans,
             &proof.hadamard_info,
             &proof.hadamard_proof,

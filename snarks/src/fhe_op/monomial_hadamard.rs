@@ -29,7 +29,12 @@ use trace::{ConvertToEF, EvaluableTraceEF};
 
 use crate::sparse_matrix_eval::SparseRowEvalSnarks;
 use crate::sparse_matrix_eval::sparse_row::SparseRowEvalSnarksProof;
-
+// Snarks for Monomial * RLWE
+// Containing:
+// - PIOP for Hadamard Product: reduce to evaluations on NTT Matrix
+// - NTT Matrix Evaluation: reduce to evaluations on Coefficient Matrix
+// - Opening Proofs for Dense Coefficient Matrix
+// - Sparse Matrix Evaluation Proofs for Monomial Representation, which has Sparse Coefficient Matrix
 #[derive(Default)]
 pub struct MonomialHadamardSnarks<F, EF, S, PCS>
 where
@@ -123,7 +128,7 @@ where
             .map(SumcheckInstance::info)
             .collect::<Vec<_>>();
         let (mut hadamard_piop_proof, hadamard_piop_state) =
-            HadamardPIOP::prover_batch_instance_without_evals(trans, &hadamard_instance);
+            HadamardPIOP::prover_batch_without_evals(trans, &hadamard_instance);
 
         let acc_eval = trace_mle.evaluate_ef(&hadamard_piop_state.point_r);
         let hadamard_evals = acc_eval.extract_hadamard_eval();
@@ -168,7 +173,7 @@ where
         // Prove two NTT instances using [`BatchedSumcheckPIOP`]
         let infos = vec![ntt_sparse_instance.info(), ntt_normal_instance.info()];
         let instances = vec![ntt_sparse_instance, ntt_normal_instance];
-        let (ntt_proof, ntt_state) = NTTMatrixEvalIOP::prover_batch_instance(trans, &instances);
+        let (ntt_proof, ntt_state) = NTTMatrixEvalIOP::prover_batch(trans, &instances);
         trans.append_message(b"[PIOP Phase]", &ntt_proof);
 
         // Open the coeffcient matrix evaluation `ntt_proof.coeff_eval_at_r_v[1]` at point_r_v_prime
@@ -221,7 +226,7 @@ where
         trans.append_message(b"Commit Phase", &proof.commitment);
         let mut res = true;
 
-        let (hadamard_res, hadamard_subclaim) = HadamardPIOP::verifier_batch_instance(
+        let (hadamard_res, hadamard_subclaim) = HadamardPIOP::verifier_batch(
             trans,
             &proof.hadamard_info,
             &proof.hadamard_proof,
@@ -241,7 +246,7 @@ where
         point_v_prime.extend_from_slice(&point_bit_oracle);
 
         let (ntt_res, ntt_subclaim) =
-            NTTMatrixEvalIOP::verifier_batch_instance(trans, &proof.ntt_infos, &proof.ntt_proof);
+            NTTMatrixEvalIOP::verifier_batch(trans, &proof.ntt_infos, &proof.ntt_proof);
         trans.append_message(b"[PIOP Phase]", &proof.ntt_proof);
         res &= ntt_res;
 

@@ -5,7 +5,7 @@ use helper::Transcript;
 use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
-use snarks::external_product::{ExternalProductParams, ExternalProductSnarks};
+use snarks::fhe_op::external_product::{ExternalProductParams, ExternalProductSnarks};
 use trace::SumHadamardTraceMLE;
 // use trace::HadamardProdTraceMLE;
 use zkfhe::bfhe::{

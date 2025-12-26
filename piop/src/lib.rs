@@ -219,12 +219,12 @@ pub trait BatchedSumcheckPIOP<F: Field + Serialize>: SumcheckPIOP<F> {
     type BatchedProverState: SumcheckPureProverState<F>; // State stored for prover to generate evaluation proofs later.
     type BatchedVerifierSubclaim: SumcheckPureSubclaim<F>; // Subclaim stored for verifier to check evaluation proofs later.
 
-    fn prover_batch_instance(
+    fn prover_batch(
         trans: &mut Transcript<F>,
         instances: &[Self::Instance],
     ) -> (Self::BatchedProof, Self::BatchedProverState);
 
-    fn verifier_batch_instance(
+    fn verifier_batch(
         trans: &mut Transcript<F>,
         infos: &[Self::Info],
         proof: &Self::BatchedProof,
@@ -267,7 +267,7 @@ pub trait BatchedSumcheckPIOP<F: Field + Serialize>: SumcheckPIOP<F> {
         (res, subclaim)
     }
 
-    fn prover_batch_instance_without_evals(
+    fn prover_batch_without_evals(
         trans: &mut Transcript<F>,
         instances: &[Self::Instance],
     ) -> (Self::BatchedProof, Self::BatchedProverState) {

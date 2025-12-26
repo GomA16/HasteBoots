@@ -221,7 +221,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
         instance: &Self::Instance,
     ) -> (Self::Proof, Self::ProverState) {
         let info = instance.info();
-        trans.append_message(b"[NTT Matrix Evaluation Statement", &info);
+        trans.append_message(b"[Statement]", &info);
 
         let mut sumcheck_claim = SumcheckClaim::new(info.sumcheck_num_vars());
         let mut prover_state =
@@ -236,6 +236,8 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
         let fourier_eval_at_u_r = prover_state
             .fourier_at_u
             .evaluate(&sumcheck_state.randomness);
+        trans.append_message(b"[Oracle Evaluation]", &coeff_eval_at_r_v);
+        trans.append_message(b"[Oracle Evaluation]", &fourier_eval_at_u_r);
 
         let fourier_eval_subclaim = NTTFourierEvalInfo {
             log_coeff_count: instance.log_coeff_count,
@@ -271,7 +273,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
         info: &Self::Info,
         proof: &Self::Proof,
     ) -> (bool, Self::VerifierSubclaim) {
-        trans.append_message(b"[NTT Matrix Evaluation Statement", &info);
+        trans.append_message(b"[Statement]", &info);
 
         let mut res = true;
 
@@ -285,6 +287,9 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
 
         Self::verifier_compute_subclaim(info, proof, &mut sumcheck_subclaim, &[F::one()], None);
         res &= sumcheck_subclaim.expected_evaluations.is_zero();
+
+        trans.append_message(b"[Oracle Evaluation]", &proof.coeff_eval_at_r_v);
+        trans.append_message(b"[Oracle Evaluation]", &proof.fourier_eval_at_u_r);
 
         let ntt_fourier_eval_info = NTTFourierEvalInfo {
             log_coeff_count: info.point_u.len(),
@@ -379,12 +384,13 @@ impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
     type BatchedProverState = BatchedNTTMatrixEvalProverState<F>;
     type BatchedVerifierSubclaim = BatchedNTTMatrixVerifierSubclaim<F>;
 
-    fn prover_batch_instance(
+    fn prover_batch(
         trans: &mut Transcript<F>,
         instances: &[Self::Instance],
     ) -> (Self::BatchedProof, Self::BatchedProverState) {
         assert!(!instances.is_empty());
         let infos = instances.iter().map(|inst| inst.info()).collect::<Vec<_>>();
+        trans.append_message(b"[Statement]", &infos);
         let num_vars = infos[0].num_vars();
         let log_coeff_count = infos[0].log_coeff_count;
         let point_u = infos[0].point_u.clone();
@@ -414,6 +420,8 @@ impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
         let fourier_eval_at_u_r = prover_state
             .fourier_at_u
             .evaluate(&sumcheck_state.randomness);
+        trans.append_message(b"[Oracle Evaluation]", &coeff_eval_at_r_v);
+        trans.append_message(b"[Oracle Evaluation]", &fourier_eval_at_u_r);
 
         let fourier_eval_subclaim = NTTFourierEvalInfo {
             log_coeff_count: log_coeff_count,
@@ -493,11 +501,12 @@ impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
         }
     }
 
-    fn verifier_batch_instance(
+    fn verifier_batch(
         trans: &mut Transcript<F>,
         infos: &[Self::Info],
         proof: &Self::BatchedProof,
     ) -> (bool, Self::BatchedVerifierSubclaim) {
+        trans.append_message(b"[Statement]", &infos);
         let num_vars = infos[0].num_vars();
         let log_coeff_count = infos[0].log_coeff_count;
         let point_u = infos[0].point_u.clone();
@@ -529,6 +538,9 @@ impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
         );
         res &= sumcheck_subclaim.expected_evaluations.is_zero();
 
+        trans.append_message(b"[Oracle Evaluation]", &proof.coeff_eval_at_r_v);
+        trans.append_message(b"[Oracle Evaluation]", &proof.fourier_eval_at_u_r);
+
         let ntt_fourier_eval_info = NTTFourierEvalInfo {
             log_coeff_count,
             ntt_table,
@@ -549,7 +561,7 @@ impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
         )
     }
 
-    fn prover_batch_instance_without_evals(
+    fn prover_batch_without_evals(
         _trans: &mut Transcript<F>,
         _instances: &[Self::Instance],
     ) -> (Self::BatchedProof, Self::BatchedProverState) {
@@ -639,10 +651,10 @@ mod test {
 
         let mut prover_trans = Transcript::<FF>::default();
         let (proof, _) =
-            NTTMatrixEvalIOP::<FF>::prover_batch_instance(&mut prover_trans, &instances);
+            NTTMatrixEvalIOP::<FF>::prover_batch(&mut prover_trans, &instances);
         let mut verifier_trans = Transcript::<FF>::default();
         let (res, _) =
-            NTTMatrixEvalIOP::<FF>::verifier_batch_instance(&mut verifier_trans, &infos, &proof);
+            NTTMatrixEvalIOP::<FF>::verifier_batch(&mut verifier_trans, &infos, &proof);
         assert!(res);
     }
 }

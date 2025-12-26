@@ -370,11 +370,11 @@ impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for HadamardPIOP<F> {
     type BatchedProverState = HadamardProverState<F>;
     type BatchedVerifierSubclaim = HadamardVerifierSubclaim<F>;
 
-    fn prover_batch_instance(
+    fn prover_batch(
         trans: &mut Transcript<F>,
         instances: &[Self::Instance],
     ) -> (Self::BatchedProof, Self::BatchedProverState) {
-        let (mut proof, state) = Self::prover_batch_instance_without_evals(trans, instances);
+        let (mut proof, state) = Self::prover_batch_without_evals(trans, instances);
 
         proof.hadamard_at_r = instances
             .iter()
@@ -440,10 +440,10 @@ mod test {
 
         let mut prover_transcript = Transcript::<FF>::new();
         let (proof, _) =
-            HadamardPIOP::<FF>::prover_batch_instance(&mut prover_transcript, &instances);
+            HadamardPIOP::<FF>::prover_batch(&mut prover_transcript, &instances);
         let mut verifier_transcript = Transcript::<FF>::new();
         let (res, _) =
-            HadamardPIOP::<FF>::verifier_batch_instance(&mut verifier_transcript, &infos, &proof);
+            HadamardPIOP::<FF>::verifier_batch(&mut verifier_transcript, &infos, &proof);
         assert!(res);
     }
 }
