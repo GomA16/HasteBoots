@@ -24,7 +24,7 @@ use piop::hadamard::{
 use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance, NTTMatrixEvalProof};
 use piop::{SumcheckInstance, SumcheckPIOP};
 use serde::Serialize;
-use trace::SumHadamardTraceMLE;
+use trace::{AccTraceMLE, SumHadamardTraceMLE};
 use trace::{ConvertToEF, EvaluableTraceEF};
 
 #[derive(Default)]
@@ -59,12 +59,12 @@ where
     S: Clone,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
-    pub fn new(code_spec: S, ntt_table: Vec<F>, trace: &SumHadamardTraceMLE<F>) -> Self {
+    pub fn new(code_spec: S, ntt_table: &Rc<Vec<EF>>, trace: &SumHadamardTraceMLE<F>) -> Self {
         let num_oracle_vars = trace.num_vars() + trace.log_num_all_poly();
         let pcs_params = PCS::setup(num_oracle_vars, Some(code_spec.clone()));
         HadamardParams {
             pcs_params,
-            ntt_table: Rc::new(ntt_table.to_ef()),
+            ntt_table: ntt_table.clone(),
         }
     }
 }
@@ -140,8 +140,8 @@ where
         let (ntt_piop_proof, ntt_piop_state) = NTTMatrixEvalIOP::prover(trans, &ntt_instance);
         trans.append_message(b"[PIOP Phase]", &ntt_piop_proof);
 
-        let mut point_r_v = Vec::with_capacity(ntt_piop_state.point_r.len() + point_v.len());
-        point_r_v.extend_from_slice(&ntt_piop_state.point_r);
+        let mut point_r_v = Vec::with_capacity(ntt_piop_state.randomness.len() + point_v.len());
+        point_r_v.extend_from_slice(&ntt_piop_state.randomness);
         point_r_v.extend_from_slice(&point_v);
         let eval_proof = PCS::open(
             &params.pcs_params,
@@ -186,8 +186,8 @@ where
         trans.append_message(b"[PIOP Phase]", &proof.ntt_proof);
         res &= ntt_res;
 
-        let mut point_r_v = Vec::with_capacity(ntt_subclaim.point_r.len() + point_v.len());
-        point_r_v.extend_from_slice(&ntt_subclaim.point_r);
+        let mut point_r_v = Vec::with_capacity(ntt_subclaim.randomness.len() + point_v.len());
+        point_r_v.extend_from_slice(&ntt_subclaim.randomness);
         point_r_v.extend_from_slice(&point_v);
 
         let eval_res = PCS::verify(

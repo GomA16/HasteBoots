@@ -1,4 +1,5 @@
 use core::time;
+use std::rc::Rc;
 
 use algebra::transformation::AbstractNTT;
 use algebra::{AsInto, BabyBear, BabyBearExetension, FieldUniformSampler, NTTField};
@@ -11,7 +12,8 @@ use piop::{SumcheckInstance, SumcheckPIOP};
 use rand::Rng;
 use rand_distr::Distribution;
 use snarks::hadamard::{HadamardParams, HadamardSnarks};
-use trace::SumHadamardTraceMLE;
+use snarks::monomial_hadamard::{MonomialHadamardParams, MonomialHadamardSnarks};
+use trace::{AccTraceMLE, ConvertToEF, SumHadamardTraceMLE};
 // use trace::HadamardProdTraceMLE;
 use zkfhe::bfhe::{
     BABYBEAR_BINARY_128_BITS_PARAMETERS, CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator,
@@ -73,13 +75,28 @@ fn main() {
     // Generate SNARKs for nand
     println!("Starting verification of nand.\n");
     trace.finalize(params.lwe_dimension() as usize);
-    let trace_mle: SumHadamardTraceMLE<_> = trace.into();
-    let ntt_table = FF::get_ntt_table(trace_mle.log_coeff_count as u32)
+
+    // Two hadamard trace
+    let hadamard_trace = trace.hadamard_trace;
+    let hadamard_trace_mle: SumHadamardTraceMLE<_> = hadamard_trace.into();
+    let acc_trace = trace.acc_trace;
+    let acc_mle: AccTraceMLE<FF> = acc_trace.into();
+
+    let ntt_table = FF::get_ntt_table(hadamard_trace_mle.log_coeff_count as u32)
         .unwrap()
         .root_powers();
+    let ntt_table = Rc::new(ntt_table.to_ef());
+
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
-    let params = HadamardParams::new(code_spec, ntt_table, &trace_mle);
+    let params = HadamardParams::new(code_spec.clone(), &ntt_table, &hadamard_trace_mle);
     let snarks = HadamardSnarks::<
+        FF,
+        EF,
+        ExpanderCodeSpec,
+        BrakedownPCS<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>,
+    >::default();
+    let acc_params = MonomialHadamardParams::new(code_spec, &ntt_table, &acc_mle);
+    let acc_snarks = MonomialHadamardSnarks::<
         FF,
         EF,
         ExpanderCodeSpec,
@@ -88,16 +105,19 @@ fn main() {
 
     let mut prover_trans = Transcript::default();
     let time = std::time::Instant::now();
-    let proof = snarks.prove(&mut prover_trans, &trace_mle, &params);
+    let proof = snarks.prove(&mut prover_trans, &hadamard_trace_mle, &params);
+    let acc_proof = acc_snarks.prove(&mut prover_trans, &acc_mle, &acc_params);
     println!("Proofs generation done!\n");
     println!("Proof generation time: {:?}\n", time.elapsed());
 
     let mut verifier_trans = Transcript::default();
     let time = std::time::Instant::now();
     let res = snarks.verify(&mut verifier_trans, &proof);
+    let acc_res = acc_snarks.verify(&mut verifier_trans, &acc_proof);
+
     println!("Proofs verification done!\n");
     println!("Proof verification time: {:?}\n", time.elapsed());
-    assert!(res);
+    assert!(res && acc_res);
 }
 
 // fn main() {}

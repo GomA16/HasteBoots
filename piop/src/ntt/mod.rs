@@ -5,5 +5,6 @@ mod ntt_matrix_eval;
 pub use fourier_eval::{NTTFourierEvalIOP, NTTFourierEvalInfo, NTTFourierProof};
 pub use ntt_eval::{NTTEvalIOP, NTTEvalInstance};
 pub use ntt_matrix_eval::{
-    NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance, NTTMatrixEvalProof,
+    BatchedNTTMatrixEvalProof, NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance,
+    NTTMatrixEvalProof,
 };

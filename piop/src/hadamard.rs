@@ -9,6 +9,7 @@ use sumcheck::MLSumcheck;
 use sumcheck::Proof;
 use sumcheck::prover;
 use sumcheck::verifier::SubClaim;
+use trace::AccTraceMLE;
 use trace::SumHadamardTraceEval;
 use trace::SumHadamardTraceMLE;
 
@@ -134,15 +135,15 @@ impl<F: Field> SumHadamardInstance<F> {
 
 impl<F: Field> BatchedSumHadamardInstance<F> {
     pub fn from(trace: &SumHadamardTraceMLE<F>) -> Self {
-        let num_vars = trace.log_coeff_count + trace.log_num_round;
+        let num_vars = trace.log_coeff_count + trace.log_num_poly;
         let num_sum = 2;
         let mut vec_sum = Vec::with_capacity(num_sum);
 
         let mut add_into_batch = |batch: &SumHadamardTraceMLE<F>| {
             let products = batch
-                .vec_trace
+                .vec_hadamard
                 .iter()
-                .map(|trace| (trace.poly.ntt.clone(), trace.rlwe.ntt.0.clone()))
+                .map(|trace| (trace.bit.ntt.clone(), trace.rlwe.ntt.0.clone()))
                 .collect::<Vec<_>>();
             vec_sum.push(SumHadamardInstance {
                 num_vars,
@@ -152,9 +153,9 @@ impl<F: Field> BatchedSumHadamardInstance<F> {
             });
 
             let products = batch
-                .vec_trace
+                .vec_hadamard
                 .iter()
-                .map(|trace| (trace.poly.ntt.clone(), trace.rlwe.ntt.1.clone()))
+                .map(|trace| (trace.bit.ntt.clone(), trace.rlwe.ntt.1.clone()))
                 .collect::<Vec<_>>();
             vec_sum.push(SumHadamardInstance {
                 num_vars,
@@ -219,9 +220,9 @@ impl<F: Field> BatchedSumHadamardProof<F> {
 
         let mut add_into_batch = |batch: &SumHadamardTraceEval<F>| {
             let products_at_r = batch
-                .vec_trace
+                .vec_hadamard
                 .iter()
-                .map(|trace_eval| (trace_eval.poly_eval.ntt, trace_eval.rlwe_eval.ntt.0))
+                .map(|trace_eval| (trace_eval.bit.ntt, trace_eval.rlwe.ntt.0))
                 .collect::<Vec<_>>();
             hadamard_at_r.push(SumHadamardEval {
                 products_at_r,
@@ -229,9 +230,9 @@ impl<F: Field> BatchedSumHadamardProof<F> {
             });
 
             let products_at_r = batch
-                .vec_trace
+                .vec_hadamard
                 .iter()
-                .map(|trace_eval| (trace_eval.poly_eval.ntt, trace_eval.rlwe_eval.ntt.1))
+                .map(|trace_eval| (trace_eval.bit.ntt, trace_eval.rlwe.ntt.1))
                 .collect::<Vec<_>>();
             hadamard_at_r.push(SumHadamardEval {
                 products_at_r,

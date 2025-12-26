@@ -325,8 +325,8 @@ where
         println!("PIOP Phase time: {:?}", time.elapsed());
 
         let time = std::time::Instant::now();
-        let mut open_point_2 = Vec::with_capacity(ntt_piop_state.point_r.len() + point_v.len());
-        open_point_2.extend_from_slice(&ntt_piop_state.point_r);
+        let mut open_point_2 = Vec::with_capacity(ntt_piop_state.randomness.len() + point_v.len());
+        open_point_2.extend_from_slice(&ntt_piop_state.randomness);
         open_point_2.extend_from_slice(&point_v);
         let open_points = vec![open_point_1, open_point_2];
         let eval_proof = PCS::batch_open(
@@ -468,8 +468,8 @@ where
         println!("PIOP Phase time: {:?}", time.elapsed());
 
         let time = std::time::Instant::now();
-        let mut open_point_2 = Vec::with_capacity(ntt_subclaim.point_r.len() + point_v.len());
-        open_point_2.extend_from_slice(&ntt_subclaim.point_r);
+        let mut open_point_2 = Vec::with_capacity(ntt_subclaim.randomness.len() + point_v.len());
+        open_point_2.extend_from_slice(&ntt_subclaim.randomness);
         open_point_2.extend_from_slice(&point_v);
 
         let open_points = vec![open_point_1, open_point_2];

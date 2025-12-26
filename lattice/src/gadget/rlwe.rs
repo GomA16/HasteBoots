@@ -452,7 +452,7 @@ impl<F: NTTField> NTTGadgetRLWE<F> {
             trace.append_bit_ntt(decompose_space.as_slice());
 
             destination.add_ntt_rlwe_mul_ntt_polynomial_assign_fast(g_rlwe, decompose_space);
-            trace.append_key_ntt(g_rlwe.a_b_slice());
+            trace.append_rlwe_ntt(g_rlwe.a_b_slice());
         });
     }
 

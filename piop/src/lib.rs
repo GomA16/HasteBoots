@@ -196,6 +196,26 @@ pub trait SumcheckPIOP<F: Field + Serialize> {
     );
 }
 
+/// PIOP trait for sumcheck-based protocols targeting batched instances
+pub trait BatchedSumcheckPIOP<F: Field + Serialize> {
+    type Instance: SumcheckInstance<F>;
+    type Info: SumcheckInfo<F> + Serialize;
+    type BatchedProof; // Proof stored for verifier to check evaluation proofs.
+    type BatchedProverState; // State stored for prover to generate evaluation proofs later.
+    type BatchedVerifierSubclaim; // Subclaim stored for verifier to check evaluation proofs later.
+
+    fn prover_batch_instance(
+        trans: &mut Transcript<F>,
+        instances: &[Self::Instance],
+    ) -> (Self::BatchedProof, Self::BatchedProverState);
+
+    fn verifier_batch_instance(
+        trans: &mut Transcript<F>,
+        infos: &[Self::Info],
+        proof: &Self::BatchedProof,
+    ) -> (bool, Self::BatchedVerifierSubclaim);
+}
+
 impl<F: Field> SumcheckClaim<F> {
     pub fn new(num_vars: usize) -> Self {
         Self {

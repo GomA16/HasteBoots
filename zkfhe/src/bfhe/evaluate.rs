@@ -3,7 +3,7 @@ use fhe_core::{
     KeySwitchingKeyEnum, KeySwitchingRLWEKey, LWECiphertext, Parameters, RLWEBlindRotationKey,
     SecretKeyPack, lwe_modulus_switch,
 };
-use trace::{AccTrace, SumHadamardTrace};
+use trace::{AccTrace, PBSTrace, SumHadamardTrace};
 
 /// The evaluator of the homomorphic encryption scheme.
 #[derive(Debug, Clone)]
@@ -44,7 +44,7 @@ impl<Q: NTTField> EvaluationKey<Q> {
         &self,
         c: LWECiphertext<Q>,
         lut: Polynomial<Q>,
-    ) -> (LWECiphertext<Q>, SumHadamardTrace<Q>) {
+    ) -> (LWECiphertext<Q>, PBSTrace<Q>) {
         let parameters = self.parameters();
         let pre = parameters.process_before_blind_rotation();
 
@@ -56,7 +56,7 @@ impl<Q: NTTField> EvaluationKey<Q> {
             .next_power_of_two()
             .trailing_zeros() as usize;
         let mut acc_trace = AccTrace::<Q>::new(log_coeff_count, log_num_round);
-        let mut hadmard_trace = SumHadamardTrace::<Q>::new(
+        let mut hadamard_trace = SumHadamardTrace::<Q>::new(
             parameters.blind_rotation_basis().decompose_len() << 1,
             log_coeff_count,
             log_num_round,
@@ -67,7 +67,7 @@ impl<Q: NTTField> EvaluationKey<Q> {
             &c_prime,
             parameters.blind_rotation_basis(),
             &mut acc_trace,
-            &mut hadmard_trace,
+            &mut hadamard_trace,
         );
 
         acc.b_mut()[0] += Q::new(Q::MODULUS_VALUE >> 3u32);
@@ -79,7 +79,12 @@ impl<Q: NTTField> EvaluationKey<Q> {
 
         let output_lwe = ksk.key_switch_for_rlwe(acc);
 
-        (output_lwe, hadmard_trace)
+        let pbs_trace = PBSTrace {
+            acc_trace,
+            hadamard_trace,
+        };
+
+        (output_lwe, pbs_trace)
     }
 }
 
@@ -110,7 +115,7 @@ impl<Q: NTTField> Evaluator<Q> {
         &self,
         c: LWECiphertext<Q>,
         lut: Polynomial<Q>,
-    ) -> (LWECiphertext<Q>, SumHadamardTrace<Q>) {
+    ) -> (LWECiphertext<Q>, PBSTrace<Q>) {
         self.ek.bootstrap(c, lut)
     }
 
@@ -141,7 +146,7 @@ impl<Q: NTTField> Evaluator<Q> {
         &self,
         c0: &LWECiphertext<Q>,
         c1: &LWECiphertext<Q>,
-    ) -> (LWECiphertext<Q>, SumHadamardTrace<Q>) {
+    ) -> (LWECiphertext<Q>, PBSTrace<Q>) {
         let parameters = self.parameters();
 
         let add = c0.add_component_wise_ref(c1);
@@ -162,7 +167,7 @@ impl<Q: NTTField> Evaluator<Q> {
         &self,
         c0: &LWECiphertext<Q>,
         c1: &LWECiphertext<Q>,
-    ) -> (LWECiphertext<Q>, SumHadamardTrace<Q>) {
+    ) -> (LWECiphertext<Q>, PBSTrace<Q>) {
         let parameters = self.parameters();
 
         let add = c0.add_component_wise_ref(c1);
@@ -184,7 +189,7 @@ impl<Q: NTTField> Evaluator<Q> {
         &self,
         c0: &LWECiphertext<Q>,
         c1: &LWECiphertext<Q>,
-    ) -> (LWECiphertext<Q>, SumHadamardTrace<Q>) {
+    ) -> (LWECiphertext<Q>, PBSTrace<Q>) {
         let parameters = self.parameters();
 
         let add = c0.add_component_wise_ref(c1);
@@ -205,7 +210,7 @@ impl<Q: NTTField> Evaluator<Q> {
         &self,
         c0: &LWECiphertext<Q>,
         c1: &LWECiphertext<Q>,
-    ) -> (LWECiphertext<Q>, SumHadamardTrace<Q>) {
+    ) -> (LWECiphertext<Q>, PBSTrace<Q>) {
         let parameters = self.parameters();
 
         let add = c0.add_component_wise_ref(c1);
@@ -226,7 +231,7 @@ impl<Q: NTTField> Evaluator<Q> {
         &self,
         c0: &LWECiphertext<Q>,
         c1: &LWECiphertext<Q>,
-    ) -> (LWECiphertext<Q>, SumHadamardTrace<Q>) {
+    ) -> (LWECiphertext<Q>, PBSTrace<Q>) {
         let parameters = self.parameters();
 
         let mut sub = c0.sub_component_wise_ref(c1);
@@ -248,7 +253,7 @@ impl<Q: NTTField> Evaluator<Q> {
         &self,
         c0: &LWECiphertext<Q>,
         c1: &LWECiphertext<Q>,
-    ) -> (LWECiphertext<Q>, SumHadamardTrace<Q>) {
+    ) -> (LWECiphertext<Q>, PBSTrace<Q>) {
         let parameters = self.parameters();
 
         let mut sub = c0.sub_component_wise_ref(c1);
@@ -273,7 +278,7 @@ impl<Q: NTTField> Evaluator<Q> {
         c0: &LWECiphertext<Q>,
         c1: &LWECiphertext<Q>,
         c2: &LWECiphertext<Q>,
-    ) -> (LWECiphertext<Q>, SumHadamardTrace<Q>) {
+    ) -> (LWECiphertext<Q>, PBSTrace<Q>) {
         let parameters = self.parameters();
 
         let mut add = c0.add_component_wise_ref(c1);
@@ -298,7 +303,7 @@ impl<Q: NTTField> Evaluator<Q> {
         c0: &LWECiphertext<Q>,
         c1: &LWECiphertext<Q>,
         c2: &LWECiphertext<Q>,
-    ) -> (LWECiphertext<Q>, SumHadamardTrace<Q>) {
+    ) -> (LWECiphertext<Q>, PBSTrace<Q>) {
         let parameters = self.parameters();
 
         let not_c0 = self.not(c0);

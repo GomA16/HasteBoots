@@ -69,7 +69,10 @@ fn main() {
     // Generate SNARKs for nand
     println!("");
     println!("Starting verification of nand.\n");
+
     trace.finalize(params.lwe_dimension());
+
+    let trace = trace.hadamard_trace;
     let trace_mle: SumHadamardTraceMLE<_> = trace.into();
     let ntt_table = FF::get_ntt_table(trace_mle.log_coeff_count as u32)
         .unwrap()

@@ -7,6 +7,7 @@ pub mod ntt;
 // pub mod pbs;
 pub mod external_product;
 pub mod hadamard;
+pub mod monomial_hadamard;
 pub mod sparse_matrix_eval;
 
 /// Oracle used in the NTT matrix evaluation PIOP

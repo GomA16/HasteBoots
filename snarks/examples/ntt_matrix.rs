@@ -7,8 +7,8 @@ use pcs::{
     multilinear::BrakedownPCS,
     utils::code::{ExpanderCode, ExpanderCodeSpec},
 };
-use snarks::ntt::NTTMatrixEvalSnarks;
-use trace::NTTTrace;
+use snarks::ntt::{NTTMatrixEvalSnarks, ntt_matrix_eval::NTTMatrixEvalSnarksParams};
+use trace::{NTTTrace, NTTTraceMLE};
 
 type FF = BabyBear;
 type EF = BabyBearExetension;
@@ -21,34 +21,28 @@ fn main() {
     let log_num_ntt = 14;
 
     let ntt_trace = NTTTrace::<FF>::random(log_coeff_count, log_num_ntt, &mut rng);
-    let ntt_trace_info = ntt_trace.info_ef::<EF>();
+    let trace_mle: NTTTraceMLE<FF> = ntt_trace.into();
 
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
-    let mut snarks = NTTMatrixEvalSnarks::<
+    let snarks = NTTMatrixEvalSnarks::<
         FF,
         EF,
         ExpanderCodeSpec,
         BrakedownPCS<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>,
     >::default();
-
-    let oracle = snarks.setup(&ntt_trace, code_spec.clone());
+    let params = NTTMatrixEvalSnarksParams::new(code_spec.clone(), &trace_mle);
 
     let prover_trans = &mut Transcript::<EF>::default();
-    let start = Instant::now();
-    let proof = snarks.prover(prover_trans, ntt_trace, &ntt_trace_info, &oracle);
-    println!("Proving time: {:?}", start.elapsed());
+    let proof = snarks.prover(prover_trans, &trace_mle, &params);
 
     let proof_length = bincode::serde::encode_to_vec(&proof, standard())
         .unwrap()
         .len();
 
     let verifier_trans = &mut Transcript::<EF>::default();
-
-    let start = Instant::now();
-    let res = snarks.verifier(verifier_trans, &ntt_trace_info, &proof);
-    println!("Verification time: {:?}", start.elapsed());
-
+    let res = snarks.verifier(verifier_trans, &proof);
     assert!(res);
+
     println!("Proof size: {} bytes", proof_length);
     println!(
         "Proof size in piop: {} bytes",

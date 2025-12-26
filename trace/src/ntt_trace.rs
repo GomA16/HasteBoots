@@ -7,7 +7,10 @@ use algebra::{
 use rand_distr::Distribution;
 use serde::Serialize;
 
-use crate::{ConvertToEF, PackableTrace, rlwe_trace::MonomialTrace};
+use crate::{
+    ConvertToEF, PackableTrace,
+    rlwe_trace::{MonomialTrace, MonomialTraceMLE},
+};
 
 pub struct NTTTrace<F: Field> {
     pub log_coeff_count: usize,
@@ -26,14 +29,6 @@ pub struct NTTTraceInfo<F: Field> {
     pub ntt_table: Rc<Vec<F>>,
 }
 
-pub struct BatchedNTTTraceMLE<F: Field> {
-    pub log_coeff_count: usize,
-    pub log_num_ntt: usize,
-    pub ntt_table: Rc<Vec<F>>,
-    pub coefficients: Vec<Rc<DenseMultilinearExtension<F>>>,
-    pub evaluations: Vec<Rc<DenseMultilinearExtension<F>>>,
-}
-
 /// NTT instance to be proved
 pub struct NTTTraceMLE<F: Field> {
     pub log_coeff_count: usize,
@@ -41,6 +36,7 @@ pub struct NTTTraceMLE<F: Field> {
     pub ntt_table: Rc<Vec<F>>,
     pub coefficients: Rc<DenseMultilinearExtension<F>>,
     pub evaluations: Rc<DenseMultilinearExtension<F>>,
+    pub is_monomial: Option<MonomialTraceMLE<F>>,
 }
 
 impl<F: Field> NTTTrace<F> {
@@ -74,52 +70,23 @@ impl<F: Field> NTTTrace<F> {
     }
 }
 
-impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for NTTTrace<F> {
-    type Output = NTTTrace<EF>;
+impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for NTTTraceMLE<F> {
+    type Output = NTTTraceMLE<EF>;
     fn into_ef(self) -> Self::Output {
-        NTTTrace {
-            log_coeff_count: self.log_coeff_count,
-            log_num_ntt: self.log_num_ntt,
-            ntt_table: self.ntt_table.into_ef(),
-            coefficients: self.coefficients.into_ef(),
-            evaluations: self.evaluations.into_ef(),
-            is_monomial: match self.is_monomial {
-                Some(mono) => Some(mono.into_ef()),
-                None => None,
-            },
-        }
+        unimplemented!()
     }
 
     fn to_ef(&self) -> Self::Output {
-        NTTTrace {
+        NTTTraceMLE {
             log_coeff_count: self.log_coeff_count,
             log_num_ntt: self.log_num_ntt,
-            ntt_table: self.ntt_table.to_ef(),
-            coefficients: self.coefficients.to_ef(),
-            evaluations: self.evaluations.to_ef(),
+            ntt_table: Rc::new(self.ntt_table.to_ef()),
+            coefficients: Rc::new(self.coefficients.to_ef()),
+            evaluations: Rc::new(self.evaluations.to_ef()),
             is_monomial: match &self.is_monomial {
                 Some(mono) => Some(mono.to_ef()),
                 None => None,
             },
-        }
-    }
-}
-
-impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for MonomialTrace<F> {
-    type Output = MonomialTrace<EF>;
-    fn into_ef(self) -> Self::Output {
-        MonomialTrace {
-            log_num_poly: self.log_num_poly,
-            degree: self.degree.into_ef(),
-            coefficient: self.coefficient.into_ef(),
-        }
-    }
-
-    fn to_ef(&self) -> Self::Output {
-        MonomialTrace {
-            log_num_poly: self.log_num_poly,
-            degree: self.degree.to_ef(),
-            coefficient: self.coefficient.to_ef(),
         }
     }
 }
@@ -158,84 +125,6 @@ impl<F: NTTField> NTTTrace<F> {
     }
 }
 
-impl<F: Field> BatchedNTTTraceMLE<F> {
-    #[inline]
-    pub fn to_random_trace(&self, randomness: &[F]) -> NTTTraceMLE<F> {
-        let size = 1 << self.log_coeff_count;
-        let mut rand_coeffs = vec![F::zero(); size];
-        let mut rand_evals = vec![F::zero(); size];
-
-        let add_assign = |acc: &mut [F], vec: &[F], r: F| {
-            for (a, b) in acc.iter_mut().zip(vec.iter()) {
-                *a += r.mul(*b);
-            }
-        };
-
-        self.coefficients
-            .iter()
-            .zip(randomness.iter())
-            .for_each(|(coeffs, r)| add_assign(&mut rand_coeffs, coeffs.as_slice(), *r));
-        self.evaluations
-            .iter()
-            .zip(randomness.iter())
-            .for_each(|(evals, r)| add_assign(&mut rand_evals, evals.as_slice(), *r));
-
-        NTTTraceMLE {
-            log_coeff_count: self.log_coeff_count,
-            log_num_ntt: self.log_num_ntt,
-            ntt_table: self.ntt_table.clone(),
-            coefficients: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
-                self.log_coeff_count + self.log_num_ntt,
-                rand_coeffs,
-            )),
-            evaluations: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
-                self.log_coeff_count + self.log_num_ntt,
-                rand_evals,
-            )),
-        }
-        .into()
-    }
-
-    #[inline]
-    pub fn to_random_ef_instance<EF: AbstractExtensionField<F>>(
-        &self,
-        randomness: &[EF],
-    ) -> NTTTraceMLE<EF> {
-        let size = 1 << self.log_coeff_count;
-        let mut rand_coeffs = vec![EF::zero(); size];
-        let mut rand_evals = vec![EF::zero(); size];
-
-        let add_assign = |acc: &mut [EF], vec: &[F], r: EF| {
-            for (a, b) in acc.iter_mut().zip(vec.iter()) {
-                *a += r.mul(*b);
-            }
-        };
-
-        self.coefficients
-            .iter()
-            .zip(randomness.iter())
-            .for_each(|(coeffs, r)| add_assign(&mut rand_coeffs, coeffs.as_slice(), *r));
-        self.evaluations
-            .iter()
-            .zip(randomness.iter())
-            .for_each(|(evals, r)| add_assign(&mut rand_evals, evals.as_slice(), *r));
-
-        NTTTraceMLE::<EF> {
-            log_coeff_count: self.log_coeff_count,
-            log_num_ntt: self.log_num_ntt,
-            ntt_table: Rc::new(self.ntt_table.to_ef()),
-            coefficients: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
-                self.log_coeff_count + self.log_num_ntt,
-                rand_coeffs,
-            )),
-            evaluations: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
-                self.log_coeff_count + self.log_num_ntt,
-                rand_evals,
-            )),
-        }
-    }
-}
-
 impl<F: Field> From<NTTTrace<F>> for NTTTraceMLE<F> {
     /// Convert NTT trace to NTT instance
     #[inline]
@@ -255,6 +144,10 @@ impl<F: Field> From<NTTTrace<F>> for NTTTraceMLE<F> {
             ntt_table,
             coefficients,
             evaluations,
+            is_monomial: match trace.is_monomial {
+                Some(mono) => Some(MonomialTraceMLE::from(mono)),
+                None => None,
+            },
         }
     }
 }
@@ -270,23 +163,5 @@ impl<F: Field> PackableTrace<F> for NTTTraceMLE<F> {
 
     fn pack_to_vec(&self) -> Vec<F> {
         self.coefficients.evaluations.clone()
-    }
-}
-
-impl<F: Field> BatchedNTTTraceMLE<F> {
-    fn num_vars(&self) -> usize {
-        self.log_coeff_count + self.log_num_ntt
-    }
-
-    fn num_oracles(&self) -> usize {
-        self.coefficients.len()
-    }
-
-    fn pack_to_vec(&self) -> Vec<F> {
-        self.coefficients
-            .iter()
-            .flat_map(|mle| mle.iter())
-            .cloned()
-            .collect::<Vec<F>>()
     }
 }

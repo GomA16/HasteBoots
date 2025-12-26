@@ -5,7 +5,7 @@ use algebra::{
 };
 use serde::Serialize;
 
-use crate::{ConvertToEF, EvaluableTrace, EvaluableTraceEF};
+use crate::{ConvertToEF, EvaluableTrace, EvaluableTraceEF, PackableTrace};
 #[derive(Clone)]
 pub struct PolynomialTrace<F: Field> {
     pub log_coeff_count: usize,
@@ -14,6 +14,7 @@ pub struct PolynomialTrace<F: Field> {
     pub ntt: Vec<F>,
 }
 
+#[derive(Clone)]
 pub struct PolynomialTraceMLE<F: Field> {
     pub log_coeff_count: usize,
     pub log_num_poly: usize,
@@ -21,7 +22,7 @@ pub struct PolynomialTraceMLE<F: Field> {
     pub ntt: Rc<DenseMultilinearExtension<F>>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct PolynomialEval<F: Field> {
     pub poly: F,
     pub ntt: F,
@@ -53,6 +54,7 @@ pub struct RLWETrace<F: Field> {
     pub ntt: (Vec<F>, Vec<F>),
 }
 
+#[derive(Clone)]
 pub struct RLWETraceMLE<F: Field> {
     pub log_coeff_count: usize,
     pub log_num_poly: usize,
@@ -66,7 +68,7 @@ pub struct RLWETraceMLE<F: Field> {
     ),
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct RLWEEval<F: Field> {
     pub poly: (F, F),
     pub ntt: (F, F),
@@ -87,7 +89,8 @@ impl<F: Field> MonomialTrace<F> {
     }
 }
 
-impl<F: NTTField> PolynomialTrace<F> {
+impl<F: Field> PolynomialTrace<F> {
+    #[inline]
     pub fn new(log_coeff_count: usize, log_num_poly: usize) -> Self {
         Self {
             log_coeff_count,
@@ -97,6 +100,18 @@ impl<F: NTTField> PolynomialTrace<F> {
         }
     }
 
+    #[inline]
+    pub fn finalize(&mut self, num_poly: usize) {
+        if !num_poly.is_power_of_two() {
+            let num_zeros = ((1 << self.log_num_poly) - num_poly) * (1 << self.log_coeff_count);
+            self.poly.extend(vec![F::zero(); num_zeros]);
+            self.ntt.extend(vec![F::zero(); num_zeros]);
+        }
+    }
+}
+
+impl<F: NTTField> PolynomialTrace<F> {
+    #[inline]
     pub fn append_poly(&mut self, poly: &[F]) {
         self.poly.extend_from_slice(poly);
 
@@ -109,22 +124,45 @@ impl<F: NTTField> PolynomialTrace<F> {
     }
 }
 
-impl<F: NTTField> RLWETrace<F> {
-    pub fn new(log_coeff_count: usize, log_num_round: usize) -> Self {
+impl<F: Field> RLWETrace<F> {
+    #[inline]
+    pub fn new(log_coeff_count: usize, log_num_poly: usize) -> Self {
         Self {
             log_coeff_count,
-            log_num_poly: log_num_round,
+            log_num_poly,
             poly: (
-                Vec::with_capacity(1 << (log_coeff_count + log_num_round)),
-                Vec::with_capacity(1 << (log_coeff_count + log_num_round)),
+                Vec::with_capacity(1 << (log_coeff_count + log_num_poly)),
+                Vec::with_capacity(1 << (log_coeff_count + log_num_poly)),
             ),
             ntt: (
-                Vec::with_capacity(1 << (log_coeff_count + log_num_round)),
-                Vec::with_capacity(1 << (log_coeff_count + log_num_round)),
+                Vec::with_capacity(1 << (log_coeff_count + log_num_poly)),
+                Vec::with_capacity(1 << (log_coeff_count + log_num_poly)),
             ),
         }
     }
 
+    #[inline]
+    pub fn append(&mut self, rlwe: (&[F], &[F]), ntt_rlwe: (&[F], &[F])) {
+        self.poly.0.extend_from_slice(rlwe.0);
+        self.poly.1.extend_from_slice(rlwe.1);
+        self.ntt.0.extend_from_slice(ntt_rlwe.0);
+        self.ntt.1.extend_from_slice(ntt_rlwe.1);
+    }
+
+    #[inline]
+    pub fn finalize(&mut self, num_poly: usize) {
+        if !num_poly.is_power_of_two() {
+            let num_zeros = ((1 << self.log_num_poly) - num_poly) * (1 << self.log_coeff_count);
+            self.poly.0.extend(vec![F::zero(); num_zeros]);
+            self.poly.1.extend(vec![F::zero(); num_zeros]);
+            self.ntt.0.extend(vec![F::zero(); num_zeros]);
+            self.ntt.1.extend(vec![F::zero(); num_zeros]);
+        }
+    }
+}
+
+impl<F: NTTField> RLWETrace<F> {
+    #[inline]
     pub fn append_poly(&mut self, rlwe: (&[F], &[F])) {
         self.poly.0.extend_from_slice(rlwe.0);
         self.poly.1.extend_from_slice(rlwe.1);
@@ -138,13 +176,6 @@ impl<F: NTTField> RLWETrace<F> {
 
         self.ntt.0.extend_from_slice(&ntt_a);
         self.ntt.1.extend_from_slice(&ntt_b);
-    }
-
-    pub fn append(&mut self, rlwe: (&[F], &[F]), ntt_rlwe: (&[F], &[F])) {
-        self.poly.0.extend_from_slice(rlwe.0);
-        self.poly.1.extend_from_slice(rlwe.1);
-        self.ntt.0.extend_from_slice(ntt_rlwe.0);
-        self.ntt.1.extend_from_slice(ntt_rlwe.1);
     }
 }
 
@@ -320,5 +351,24 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for RLWETr
                 self.ntt.1.evaluate_ext(point),
             ),
         }
+    }
+}
+
+impl<F: Field> PackableTrace<F> for RLWETraceMLE<F> {
+    fn num_vars(&self) -> usize {
+        self.log_coeff_count + self.log_num_poly
+    }
+
+    fn num_oracles(&self) -> usize {
+        2
+    }
+
+    fn pack_to_vec(&self) -> Vec<F> {
+        self.poly
+            .0
+            .iter()
+            .chain(self.poly.1.iter())
+            .cloned()
+            .collect::<Vec<F>>()
     }
 }

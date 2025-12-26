@@ -293,9 +293,9 @@ impl<F: Field> LogUpProof<F> {
         random_value: F,
     ) -> Self {
         let phi_at_r = trace_eval
-            .vec_trace
+            .vec_hadamard
             .iter()
-            .map(|x| x.poly_eval.poly + random_value)
+            .map(|x| x.bit.poly + random_value)
             .collect::<Vec<_>>();
         let proof = LogUpProof {
             poly_info: PolynomialInfo::default(),

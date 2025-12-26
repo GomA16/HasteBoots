@@ -66,6 +66,7 @@ fn main() {
     let blk_size = 3;
     let randomness = DefaultFieldU32::random(&mut rng);
 
+    let trace = trace.hadamard_trace;
     let trace_mle: SumHadamardTraceMLE<_> = trace.into();
     let range = 1 << params.blind_rotation_basis().bits() as usize;
     let lookup_trace_mle = trace_mle.extract_lookup_trace_mle_normal_table(range);
@@ -93,7 +94,7 @@ fn main() {
     println!("range is {}\n", range);
     println!(
         "num_vars is {} and num_round is {}",
-        trace_mle.log_coeff_count, trace_mle.log_num_round
+        trace_mle.log_coeff_count, trace_mle.log_num_poly
     );
 }
 

@@ -1,4 +1,6 @@
-use crate::{AccTrace, AccTraceMLE, HadamardTrace, SumHadamardTrace, SumHadamardTraceMLE};
+use crate::{
+    AccTrace, AccTraceMLE, HadamardTrace, PackableTrace, SumHadamardTrace, SumHadamardTraceMLE,
+};
 use algebra::{Field, NTTField};
 use std::{iter::chain, rc::Rc};
 
@@ -17,16 +19,18 @@ pub struct PBSParameters {
     pub basis: usize,
 }
 
-pub struct PBSTrace<F: NTTField> {
+pub struct PBSTrace<F: Field> {
     pub acc_trace: AccTrace<F>,
     pub hadamard_trace: SumHadamardTrace<F>,
-    pub params: PBSParameters,
+    // pub params: PBSParameters,
 }
 
-pub struct PBSTraceMLE<F: NTTField> {
+pub struct PBSTraceMLE<F: Field> {
+    pub log_coeff_count: usize,
+    pub log_num_round: usize,
     pub acc_trace: AccTraceMLE<F>,
     pub hadamard_trace: SumHadamardTraceMLE<F>,
-    pub params: PBSParameters,
+    // pub params: PBSParameters,
 }
 
 impl PBSParameters {
@@ -52,30 +56,36 @@ impl PBSParameters {
 impl<F: NTTField> From<PBSTrace<F>> for PBSTraceMLE<F> {
     fn from(trace: PBSTrace<F>) -> Self {
         Self {
+            log_coeff_count: trace.acc_trace.log_coeff_count,
+            log_num_round: trace.acc_trace.log_num_round,
             acc_trace: AccTraceMLE::from(trace.acc_trace),
             hadamard_trace: SumHadamardTraceMLE::from(trace.hadamard_trace),
-            params: trace.params,
+            // params: trace.params,
         }
     }
 }
 
-// TODO: use
-impl<F: NTTField> PBSTraceMLE<F> {
-    pub fn num_vars(&self) -> usize {
-        self.params.log_coeff_count + self.params.log_num_round
+impl<F: Field> PBSTrace<F> {
+    pub fn finalize(&mut self, num_round: usize) {
+        self.acc_trace.finalize(num_round);
+        self.hadamard_trace.finalize(num_round);
+    }
+}
+
+impl<F: Field> PackableTrace<F> for PBSTraceMLE<F> {
+    fn num_vars(&self) -> usize {
+        self.log_coeff_count + self.log_num_round
     }
 
-    // pub fn get_key_ntt_oracle(&self) -> Vec<F> {
-    // }
-
-    pub fn num_bit_poly(&self) -> usize {
-        self.params.decomposed_len * 2
+    fn num_oracles(&self) -> usize {
+        self.hadamard_trace.num_all_poly() + self.acc_trace.num_oracles()
     }
 
-    // helper functions for lookup
-    pub fn helper_num_vars(&self, blk_size: usize) -> usize {
-        let total = self.num_bit_poly() + 1;
-        let num_blks = (total + blk_size - 1) / blk_size;
-        self.num_vars() + num_blks.next_power_of_two().trailing_zeros() as usize
+    fn pack_to_vec(&self) -> Vec<F> {
+        self.hadamard_trace
+            .pack_to_vec()
+            .into_iter()
+            .chain(self.acc_trace.pack_to_vec().into_iter())
+            .collect()
     }
 }
