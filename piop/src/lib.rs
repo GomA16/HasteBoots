@@ -77,6 +77,20 @@ pub trait SumcheckInfo<F: Field> {
             self.num_sumchecks(),
         )
     }
+    fn sample_randomness_for_sumcheck_batch(
+        &self,
+        trans: &mut Transcript<F>,
+        num_batches: usize,
+    ) -> Vec<Vec<F>> {
+        trans
+            .get_vec_challenge(
+                b"Sample random coefficients for a batch of sumchecks",
+                self.num_sumchecks() * num_batches,
+            )
+            .chunks_exact(self.num_sumchecks())
+            .map(Vec::from)
+            .collect()
+    }
 }
 
 pub trait SumcheckPureProof<F: Field> {
@@ -158,7 +172,7 @@ pub trait SumcheckPIOP<F: Field + Serialize> {
         let mut sumcheck_claim = SumcheckClaim::new(info.num_vars());
         let lagrange_kernel = Some(&LagrangeKernel::random(trans, instance.num_vars()));
         let randomness_batch = info.sample_randomness_for_sumcheck(trans);
-        Self::prover_batch_sumcheck(
+        Self::prover_add_sumcheck(
             instance,
             &mut sumcheck_claim,
             &randomness_batch,
@@ -179,7 +193,7 @@ pub trait SumcheckPIOP<F: Field + Serialize> {
     /// - `randomness`: The randomness used to batch the sumcheck protocols.
     /// - `lagrange_kernel`: (Optional) The Lagrange kernel used to reduce
     ///   the sum of products into a standard sumcheck.
-    fn prover_batch_sumcheck(
+    fn prover_add_sumcheck(
         instance: &Self::Instance,
         claim: &mut SumcheckClaim<F>,
         randomness: &[F],
@@ -197,12 +211,12 @@ pub trait SumcheckPIOP<F: Field + Serialize> {
 }
 
 /// PIOP trait for sumcheck-based protocols targeting batched instances
-pub trait BatchedSumcheckPIOP<F: Field + Serialize> {
-    type Instance: SumcheckInstance<F>;
-    type Info: SumcheckInfo<F> + Serialize;
-    type BatchedProof; // Proof stored for verifier to check evaluation proofs.
-    type BatchedProverState; // State stored for prover to generate evaluation proofs later.
-    type BatchedVerifierSubclaim; // Subclaim stored for verifier to check evaluation proofs later.
+pub trait BatchedSumcheckPIOP<F: Field + Serialize>: SumcheckPIOP<F> {
+    // type Instance: SumcheckInstance<F>;
+    // type Info: SumcheckInfo<F> + Serialize;
+    type BatchedProof: SumcheckPureProof<F>; // Proof stored for verifier to check evaluation proofs.
+    type BatchedProverState: SumcheckPureProverState<F>; // State stored for prover to generate evaluation proofs later.
+    type BatchedVerifierSubclaim: SumcheckPureSubclaim<F>; // Subclaim stored for verifier to check evaluation proofs later.
 
     fn prover_batch_instance(
         trans: &mut Transcript<F>,
@@ -213,7 +227,98 @@ pub trait BatchedSumcheckPIOP<F: Field + Serialize> {
         trans: &mut Transcript<F>,
         infos: &[Self::Info],
         proof: &Self::BatchedProof,
-    ) -> (bool, Self::BatchedVerifierSubclaim);
+    ) -> (bool, Self::BatchedVerifierSubclaim) {
+        let mut res = true;
+        trans.append_message(b"[Statement]", &infos);
+
+        let num_vars = infos[0].num_vars();
+        let num_sum_checks = infos[0].num_sumchecks();
+        infos.iter().for_each(|info| {
+            debug_assert_eq!(info.num_vars(), num_vars);
+            debug_assert_eq!(info.num_sumchecks(), num_sum_checks);
+        });
+
+        let kernel_point = LagrangeKernel::random_point(trans, num_vars);
+        let randomness = infos[0].sample_randomness_for_sumcheck_batch(trans, infos.len());
+        let mut sumcheck_subclaim = MLSumcheck::verify(
+            trans,
+            proof.get_poly_info(),
+            MLSumcheck::extract_sum(&proof.get_sumcheck_proof()),
+            &proof.get_sumcheck_proof(),
+        )
+        .expect("[SumcheckIOP - Verifier] Fail to verify the sumcheck");
+
+        let kernel_at_r = Some(eval_identity_function(
+            &kernel_point,
+            &sumcheck_subclaim.point,
+        ));
+
+        Self::verifier_batch_compute_subclaim(
+            infos,
+            proof,
+            &mut sumcheck_subclaim,
+            &randomness,
+            kernel_at_r,
+        );
+        res &= sumcheck_subclaim.expected_evaluations.is_zero();
+
+        let subclaim = Self::BatchedVerifierSubclaim::from_sumcheck(sumcheck_subclaim);
+        (res, subclaim)
+    }
+
+    fn prover_batch_instance_without_evals(
+        trans: &mut Transcript<F>,
+        instances: &[Self::Instance],
+    ) -> (Self::BatchedProof, Self::BatchedProverState) {
+        let infos = instances.iter().map(|inst| inst.info()).collect::<Vec<_>>();
+        trans.append_message(b"[Statement]", &infos);
+        let num_vars = infos[0].num_vars();
+        let num_sum_checks = infos[0].num_sumchecks();
+        infos.iter().for_each(|info| {
+            debug_assert_eq!(info.num_vars(), num_vars);
+            debug_assert_eq!(info.num_sumchecks(), num_sum_checks);
+        });
+
+        let mut sumcheck_claim = SumcheckClaim::new(num_vars);
+        let lagrange_kernel = Some(&LagrangeKernel::random(trans, num_vars));
+        let randomness = infos[0].sample_randomness_for_sumcheck_batch(trans, instances.len());
+
+        Self::prover_batch_add_sumcheck(
+            instances,
+            &mut sumcheck_claim,
+            &randomness,
+            lagrange_kernel,
+        );
+        let (sumcheck_proof, prover_state) = MLSumcheck::prove(trans, &sumcheck_claim.poly)
+            .expect("[HadamardIOP] Fail to generate sumcheck proof");
+
+        let proof = Self::BatchedProof::from_sumcheck(&sumcheck_claim, sumcheck_proof);
+        let state = Self::BatchedProverState::from_sumcheck(prover_state);
+        (proof, state)
+    }
+
+    fn prover_batch_add_sumcheck(
+        instances: &[Self::Instance],
+        claim: &mut SumcheckClaim<F>,
+        randomness: &Vec<Vec<F>>,
+        lagrange_kernel: Option<&LagrangeKernel<F>>,
+    ) -> Option<Self::BatchedProverState> {
+        instances
+            .iter()
+            .zip(randomness.iter())
+            .for_each(|(instance, r)| {
+                Self::prover_add_sumcheck(instance, claim, r, lagrange_kernel);
+            });
+        None
+    }
+
+    fn verifier_batch_compute_subclaim(
+        infos: &[Self::Info],
+        proof: &Self::BatchedProof,
+        subclaim: &mut SubClaim<F>,
+        randomness: &Vec<Vec<F>>,
+        kernel_at_r: Option<F>,
+    );
 }
 
 impl<F: Field> SumcheckClaim<F> {

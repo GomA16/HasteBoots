@@ -265,7 +265,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
 
         let lagrange_kernel = Some(&LagrangeKernel::random(trans, instance.num_vars));
         let randomness_batch = info.sample_randomness_for_sumcheck(trans);
-        Self::prover_batch_sumcheck(
+        Self::prover_add_sumcheck(
             instance,
             &mut sumcheck_claim,
             &randomness_batch,
@@ -306,7 +306,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
         (proof, state)
     }
 
-    fn prover_batch_sumcheck(
+    fn prover_add_sumcheck(
         instance: &Self::Instance,
         claim: &mut crate::SumcheckClaim<F>,
         randomness: &[F],

@@ -19,6 +19,7 @@ use crate::{
     },
 };
 
+// NTT Evaluation IOP for evaluating an NTT matrix at a given point (u, v)
 pub struct NTTMatrixEvalIOP<F: Field> {
     _marker: std::marker::PhantomData<F>,
 }
@@ -69,6 +70,11 @@ pub struct NTTMatrixEvalInfo<F: Field> {
     pub point_v: Vec<F>,
     pub evaluations_at_u_v: F,
 }
+
+// #[derive(Serialize)]
+// pub struct NTTMatrixEvalOracleQueries<F: Field> {
+//     pub coeff_eval_at_r_v: F,
+// }
 
 #[derive(Serialize)]
 pub struct NTTMatrixEvalProof<F: Field> {
@@ -219,7 +225,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
 
         let mut sumcheck_claim = SumcheckClaim::new(info.sumcheck_num_vars());
         let mut prover_state =
-            Self::prover_batch_sumcheck(instance, &mut sumcheck_claim, &[F::one()], None).unwrap();
+            Self::prover_add_sumcheck(instance, &mut sumcheck_claim, &[F::one()], None).unwrap();
         let (sumcheck_proof, sumcheck_state) = MLSumcheck::prove(trans, &sumcheck_claim.poly)
             .expect("[NTTMatrixEvalIOP] Fail to generate sumcheck proof");
         prover_state.randomness = sumcheck_state.randomness.clone();
@@ -299,7 +305,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
         )
     }
 
-    fn prover_batch_sumcheck(
+    fn prover_add_sumcheck(
         instance: &Self::Instance,
         claim: &mut SumcheckClaim<F>,
         randomness: &[F],
@@ -342,9 +348,33 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
     }
 }
 
+impl<F: Field> SumcheckPureProof<F> for BatchedNTTMatrixEvalProof<F> {
+    fn from_sumcheck(_sumcheck_claim: &SumcheckClaim<F>, _proof: Proof<F>) -> Self {
+        unimplemented!("from_sumcheck is not implemented for BatchedNTTMatrixEvalProof");
+    }
+
+    fn get_poly_info(&self) -> &PolynomialInfo {
+        &self.poly_info
+    }
+
+    fn get_sumcheck_proof(&self) -> &Proof<F> {
+        &self.sumcheck_proof
+    }
+}
+
+impl<F: Field> SumcheckPureProverState<F> for BatchedNTTMatrixEvalProverState<F> {
+    fn from_sumcheck(_sumcheck_prover_state: sumcheck::prover::ProverState<F>) -> Self {
+        unimplemented!("from_sumcheck is not implemented for BatchedNTTMatrixEvalProverState");
+    }
+}
+
+impl<F: Field> SumcheckPureSubclaim<F> for BatchedNTTMatrixVerifierSubclaim<F> {
+    fn from_sumcheck(_sumcheck_subclaim: SubClaim<F>) -> Self {
+        unimplemented!("from_sumcheck is not implemented for BatchedNTTMatrixVerifierSubclaim");
+    }
+}
+
 impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
-    type Instance = NTTMatrixEvalInstance<F>;
-    type Info = NTTMatrixEvalInfo<F>;
     type BatchedProof = BatchedNTTMatrixEvalProof<F>;
     type BatchedProverState = BatchedNTTMatrixEvalProverState<F>;
     type BatchedVerifierSubclaim = BatchedNTTMatrixVerifierSubclaim<F>;
@@ -367,42 +397,28 @@ impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
         });
 
         let mut sumcheck_claim = SumcheckClaim::new(num_vars);
-        let num_sumchecks = instances.len();
-        let randomness = trans.get_vec_challenge(
-            b"Sample random point for a batch of sumchecks over products",
-            num_sumchecks,
-        );
+        let randomness = infos[0].sample_randomness_for_sumcheck_batch(trans, instances.len());
 
-        let fourier_at_u = Rc::new(init_fourier_table(
-            &point_u,
-            instances[0].ntt_table.as_slice(),
-        ));
-        let coeffs_at_v_back = instances
-            .iter()
-            .map(|inst| Rc::new(inst.coefficients.fix_variables_back(&inst.point_v)))
-            .collect::<Vec<_>>();
-
-        for (inst, coeff, &r) in izip!(instances.iter(), coeffs_at_v_back.iter(), randomness.iter())
-        {
-            sumcheck_claim
-                .poly
-                .add_product([Rc::clone(&fourier_at_u), Rc::clone(coeff)], r);
-            sumcheck_claim.sum += inst.evaluations_at_u_v * r;
-        }
-
+        let mut prover_state =
+            Self::prover_batch_add_sumcheck(instances, &mut sumcheck_claim, &randomness, None)
+                .unwrap();
         let (sumcheck_proof, sumcheck_state) = MLSumcheck::prove(trans, &sumcheck_claim.poly)
             .expect("[NTTMatrixEvalIOP] Fail to generate sumcheck proof");
+        prover_state.randomness = sumcheck_state.randomness.clone();
 
-        let coeff_eval_at_r_v = coeffs_at_v_back
+        let coeff_eval_at_r_v = prover_state
+            .coeffs_at_v_back
             .iter()
             .map(|coeff| coeff.evaluate(&sumcheck_state.randomness))
             .collect::<Vec<_>>();
-        let fourier_eval_at_u_r = fourier_at_u.evaluate(&sumcheck_state.randomness);
+        let fourier_eval_at_u_r = prover_state
+            .fourier_at_u
+            .evaluate(&sumcheck_state.randomness);
 
         let fourier_eval_subclaim = NTTFourierEvalInfo {
             log_coeff_count: log_coeff_count,
             ntt_table,
-            point_u: point_u,
+            point_u,
             point_v: sumcheck_state.randomness.clone(),
             eval: fourier_eval_at_u_r,
         };
@@ -416,12 +432,65 @@ impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
             fourier_eval_at_u_r,
             fourier_eval_proof,
         };
-        let state = Self::BatchedProverState {
+        (proof, prover_state)
+    }
+
+    fn prover_batch_add_sumcheck(
+        instances: &[Self::Instance],
+        claim: &mut SumcheckClaim<F>,
+        randomness: &Vec<Vec<F>>,
+        lagrange_kernel: Option<&LagrangeKernel<F>>,
+    ) -> Option<Self::BatchedProverState> {
+        assert!(!instances.is_empty());
+        assert!(
+            lagrange_kernel.is_none(),
+            "Lagrange kernel is not supported in NTTMatrixEvalIOP"
+        );
+
+        let fourier_at_u = Rc::new(init_fourier_table(
+            &instances[0].point_u,
+            instances[0].ntt_table.as_slice(),
+        ));
+        let coeffs_at_v_back = instances
+            .iter()
+            .map(|inst| Rc::new(inst.coefficients.fix_variables_back(&inst.point_v)))
+            .collect::<Vec<_>>();
+
+        for (inst, coeff, &r) in izip!(
+            instances.iter(),
+            coeffs_at_v_back.iter(),
+            randomness.iter().flatten()
+        ) {
+            claim
+                .poly
+                .add_product([Rc::clone(&fourier_at_u), Rc::clone(coeff)], r);
+            claim.sum += inst.evaluations_at_u_v * r;
+        }
+
+        Some(Self::BatchedProverState {
             fourier_at_u,
             coeffs_at_v_back,
-            randomness: sumcheck_state.randomness,
-        };
-        (proof, state)
+            randomness: Vec::with_capacity(instances[0].log_coeff_count),
+        })
+    }
+
+    fn verifier_batch_compute_subclaim(
+        _infos: &[Self::Info],
+        proof: &Self::BatchedProof,
+        subclaim: &mut SubClaim<F>,
+        randomness: &Vec<Vec<F>>,
+        kernel_at_r: Option<F>,
+    ) {
+        assert!(
+            kernel_at_r.is_none(),
+            "Lagrange kernel is not used in NTTMatrixEvalIOP"
+        );
+
+        for (&coeff_eval_at_r_v, &r) in
+            izip!(proof.coeff_eval_at_r_v.iter(), randomness.iter().flatten())
+        {
+            subclaim.expected_evaluations -= coeff_eval_at_r_v * proof.fourier_eval_at_u_r * r;
+        }
     }
 
     fn verifier_batch_instance(
@@ -440,11 +509,7 @@ impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
             debug_assert_eq!(inst.log_coeff_count, log_coeff_count);
         });
 
-        let num_sumchecks = infos.len();
-        let randomness = trans.get_vec_challenge(
-            b"Sample random point for a batch of sumchecks over products",
-            num_sumchecks,
-        );
+        let randomness = infos[0].sample_randomness_for_sumcheck_batch(trans, infos.len());
 
         let mut res = true;
         let mut sumcheck_subclaim = MLSumcheck::verify(
@@ -455,10 +520,13 @@ impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
         )
         .expect("[NTTEvalIOP - Verifier] Fail to verify the sumcheck");
 
-        for (&coeff_eval_at_r_v, &r) in izip!(proof.coeff_eval_at_r_v.iter(), randomness.iter()) {
-            sumcheck_subclaim.expected_evaluations -=
-                coeff_eval_at_r_v * proof.fourier_eval_at_u_r * r;
-        }
+        Self::verifier_batch_compute_subclaim(
+            &infos,
+            proof,
+            &mut sumcheck_subclaim,
+            &randomness,
+            None,
+        );
         res &= sumcheck_subclaim.expected_evaluations.is_zero();
 
         let ntt_fourier_eval_info = NTTFourierEvalInfo {
@@ -479,6 +547,15 @@ impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
                 coeff_eval_at_r_v: proof.coeff_eval_at_r_v.clone(),
             },
         )
+    }
+
+    fn prover_batch_instance_without_evals(
+        _trans: &mut Transcript<F>,
+        _instances: &[Self::Instance],
+    ) -> (Self::BatchedProof, Self::BatchedProverState) {
+        unimplemented!(
+            "prover_batch_instance_without_evals is not implemented for NTTMatrixEvalIOP"
+        );
     }
 }
 #[cfg(test)]

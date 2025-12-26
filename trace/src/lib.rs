@@ -11,7 +11,7 @@ pub use acc_trace::{AccTrace, AccTraceMLE};
 pub use hadamard_trace::{
     HadamardTrace, HadamardTraceMLE, SumHadamardTrace, SumHadamardTraceEval, SumHadamardTraceMLE,
 };
-pub use ntt_trace::{NTTTrace, NTTTraceInfo, NTTTraceMLE};
+pub use ntt_trace::{NTTTrace, NTTTraceMLE};
 pub use pbs_trace::{PBSTrace, PBSTraceMLE};
 
 pub trait ConvertToEF<F: Field, EF: AbstractExtensionField<F>> {

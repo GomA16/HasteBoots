@@ -21,14 +21,6 @@ pub struct NTTTrace<F: Field> {
     pub is_monomial: Option<MonomialTrace<F>>,
 }
 
-#[derive(Serialize)]
-pub struct NTTTraceInfo<F: Field> {
-    pub log_coeff_count: usize,
-    pub log_num_ntt: usize,
-    #[serde(skip)]
-    pub ntt_table: Rc<Vec<F>>,
-}
-
 /// NTT instance to be proved
 pub struct NTTTraceMLE<F: Field> {
     pub log_coeff_count: usize,
@@ -59,14 +51,6 @@ impl<F: Field> NTTTrace<F> {
             self.log_coeff_count + self.log_num_ntt,
             self.coefficients.clone(),
         )
-    }
-
-    pub fn info_ef<EF: AbstractExtensionField<F>>(&self) -> NTTTraceInfo<EF> {
-        NTTTraceInfo {
-            log_coeff_count: self.log_coeff_count,
-            log_num_ntt: self.log_num_ntt,
-            ntt_table: Rc::new(self.ntt_table.iter().map(|x| EF::from_base(*x)).collect()),
-        }
     }
 }
 

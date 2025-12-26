@@ -321,7 +321,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for IndexedLogUpInputIOP<F> {
         (proof, state)
     }
 
-    fn prover_batch_sumcheck(
+    fn prover_add_sumcheck(
         instance: &Self::Instance,
         claim: &mut SumcheckClaim<F>,
         randomness: &[F],
@@ -371,7 +371,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for IndexedLogUpTableIOP<F> {
         (proof, state)
     }
 
-    fn prover_batch_sumcheck(
+    fn prover_add_sumcheck(
         instance: &Self::Instance,
         claim: &mut SumcheckClaim<F>,
         randomness: &[F],

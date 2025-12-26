@@ -1,17 +1,14 @@
-use core::time;
-
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 use helper::utils::compute_oracle_evals;
 use helper::{FiatShamirTranscript, Transcript};
 use pcs::PolynomialCommitmentScheme;
-use pcs::utils::code;
 use piop::lookup::small_table::LogUpInstanceInfo;
 use piop::lookup::small_table::{LogUpIOP, LogUpInstance, LogUpProof};
 use piop::{SumcheckInstance, SumcheckPIOP};
 use serde::Serialize;
 use trace::ConvertToEF;
 use trace::lookup_trace::small_table::{
-    LookupTrace, LookupTraceEval, LookupTraceMLE, LookupWitnessHelper, LookupWitnessHelperEval,
+    LookupTraceEval, LookupTraceMLE, LookupWitnessHelper, LookupWitnessHelperEval,
 };
 use trace::{EvaluableTrace, EvaluableTraceEF, PackableEval, PackableTrace};
 

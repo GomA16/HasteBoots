@@ -17,6 +17,7 @@ use crate::SumcheckPureSubclaim;
 use crate::ntt::fourier_eval::NTTFourierProof;
 use crate::ntt::{NTTFourierEvalIOP, NTTFourierEvalInfo};
 
+// NTT Evaluation IOP for evaluating a NTT result at a given point (u)
 pub struct NTTEvalIOP<F: Field> {
     _marker: std::marker::PhantomData<F>,
 }
@@ -154,7 +155,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTEvalIOP<F> {
 
         let mut sumcheck_claim = SumcheckClaim::new(instance.log_coeff_count);
         let prover_state =
-            Self::prover_batch_sumcheck(instance, &mut sumcheck_claim, &[F::one()], None).unwrap();
+            Self::prover_add_sumcheck(instance, &mut sumcheck_claim, &[F::one()], None).unwrap();
         let (sumcheck_proof, sumcheck_state) = MLSumcheck::<F>::prove(trans, &sumcheck_claim.poly)
             .expect("[NTTPolyIOP - Prover] Fail to generate sumcheck proof");
 
@@ -230,7 +231,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTEvalIOP<F> {
         )
     }
 
-    fn prover_batch_sumcheck(
+    fn prover_add_sumcheck(
         instance: &Self::Instance,
         claim: &mut SumcheckClaim<F>,
         randomness: &[F],

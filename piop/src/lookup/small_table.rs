@@ -253,7 +253,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for LogUpIOP<F> {
         (proof, state)
     }
 
-    fn prover_batch_sumcheck(
+    fn prover_add_sumcheck(
         instance: &Self::Instance,
         claim: &mut crate::SumcheckClaim<F>,
         randomness: &[F],

@@ -1,12 +1,10 @@
-use crate::EvalOracle;
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 use helper::{FiatShamirTranscript, Transcript};
 use pcs::PolynomialCommitmentScheme;
 use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance, NTTMatrixEvalProof};
 use piop::{SumcheckInstance, SumcheckPIOP};
 use serde::Serialize;
-use std::rc::Rc;
-use trace::{ConvertToEF, NTTTrace, NTTTraceInfo, NTTTraceMLE, PackableTrace};
+use trace::{ConvertToEF, NTTTraceMLE, PackableTrace};
 
 pub struct NTTMatrixEvalSnarksParams<F, EF, S, PCS>
 where
@@ -88,7 +86,7 @@ where
         let point_u = trans.get_vec_challenge(b"random point", trace.log_coeff_count);
         let point_v = trans.get_vec_challenge(b"random point", trace.log_num_ntt);
         let trace_ef: NTTTraceMLE<EF> = trace.to_ef();
-        let ntt_eval_instance = &NTTMatrixEvalInstance::from(&trace_ef.into(), &point_u, &point_v);
+        let ntt_eval_instance = &NTTMatrixEvalInstance::from(&trace_ef, &point_u, &point_v);
 
         let (piop_proof, piop_state) = NTTMatrixEvalIOP::prover(trans, ntt_eval_instance);
 
@@ -122,7 +120,8 @@ where
 
         let mut res = true;
 
-        let point_u = trans.get_vec_challenge(b"random point", proof.instance_info.log_coeff_count);
+        let _point_u =
+            trans.get_vec_challenge(b"random point", proof.instance_info.log_coeff_count);
         let point_v = trans.get_vec_challenge(b"random point", proof.instance_info.log_num_ntt);
 
         let (piop_res, piop_subclaim) =

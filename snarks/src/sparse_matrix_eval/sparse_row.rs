@@ -8,7 +8,7 @@
 //! PCS to boost efficiency of the evaluation.
 //!
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
-use helper::{FiatShamirTranscript, Transcript, utils::eval_identity_function};
+use helper::{FiatShamirTranscript, Transcript};
 use pcs::PolynomialCommitmentScheme;
 use piop::{
     SumcheckInstance, SumcheckPIOP,
@@ -18,7 +18,7 @@ use piop::{
 };
 use serde::Serialize;
 
-use crate::lookup::indexed_table::indexed_table::{IndexedLogUpSnarks, IndexedLogUpSnarksProof};
+use crate::lookup::indexed_table::{IndexedLogUpSnarks, IndexedLogUpSnarksProof};
 
 #[derive(Default)]
 pub struct SparseRowEvalSnarks<F, EF, S, PCS>

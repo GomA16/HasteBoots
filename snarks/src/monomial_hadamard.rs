@@ -11,30 +11,20 @@
 //! evaluations of these polynomials at some random points.
 //! All these queries are answered by the NTT PIOP, reducing to the queries of
 //! their coefficient forms.
-use core::num;
 use std::rc::Rc;
 
-use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field, PolynomialInfo};
+use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 use helper::utils::compute_oracle_evals;
 use helper::{FiatShamirTranscript, Transcript};
 use pcs::PolynomialCommitmentScheme;
-use piop::hadamard::{
-    BatchedSumHadamardInfo, BatchedSumHadamardInstance, BatchedSumHadamardProof, HadamardPIOP,
-};
+use piop::hadamard::{BatchedSumHadamardProof, HadamardPIOP, SumHadamardInfo, SumHadamardInstance};
 use piop::ntt::{
-    BatchedNTTMatrixEvalProof, NTTFourierEvalIOP, NTTFourierEvalInfo, NTTFourierProof,
-    NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance, NTTMatrixEvalProof,
+    BatchedNTTMatrixEvalProof, NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance,
 };
-use piop::sparse_matrix_eval::sparse_row::SparseRowEvalInstance;
-use piop::{BatchedSumcheckPIOP, SumcheckClaim, SumcheckInstance, SumcheckPIOP};
+use piop::{BatchedSumcheckPIOP, SumcheckInstance};
 use serde::Serialize;
-use sumcheck::{MLSumcheck, Proof};
-use trace::{
-    AccTrace, AccTraceMLE, PBSTraceMLE, PackableTrace, SumHadamardTraceMLE, hadamard_trace,
-};
+use trace::{AccTraceMLE, PackableTrace};
 use trace::{ConvertToEF, EvaluableTraceEF};
-
-use crate::ntt;
 
 #[derive(Default)]
 pub struct MonomialHadamardSnarks<F, EF, S, PCS>
@@ -89,7 +79,7 @@ where
     pub log_num_oracles: usize,
     pub pcs_params: PCS::Parameters,
     pub commitment: PCS::Commitment,
-    pub hadamard_info: BatchedSumHadamardInfo<EF>,
+    pub hadamard_info: Vec<SumHadamardInfo<EF>>,
     pub hadamard_proof: BatchedSumHadamardProof<EF>,
     pub ntt_infos: Vec<NTTMatrixEvalInfo<EF>>,
     pub ntt_proof: BatchedNTTMatrixEvalProof<EF>,
@@ -122,9 +112,13 @@ where
 
         // Extract the Hadamard trace from the Acc trace
         let hadamard_trace = trace_mle.extract_hadamard_trace();
-        let hadamard_instance = BatchedSumHadamardInstance::from(&hadamard_trace.to_ef());
+        let hadamard_instance = SumHadamardInstance::from(&hadamard_trace.to_ef());
+        let hadamard_info = hadamard_instance
+            .iter()
+            .map(SumcheckInstance::info)
+            .collect::<Vec<_>>();
         let (mut hadamard_piop_proof, hadamard_piop_state) =
-            HadamardPIOP::prover_without_evals(trans, &hadamard_instance);
+            HadamardPIOP::prover_batch_instance_without_evals(trans, &hadamard_instance);
 
         let acc_eval = trace_mle.evaluate_ef(&hadamard_piop_state.point_r);
         let hadamard_evals = acc_eval.extract_hadamard_eval();
@@ -193,7 +187,7 @@ where
             log_num_oracles: trace_mle.log_num_oracles(),
             pcs_params: params.pcs_params.clone(),
             commitment,
-            hadamard_info: hadamard_instance.info(),
+            hadamard_info,
             hadamard_proof: hadamard_piop_proof,
             ntt_infos: infos,
             ntt_proof,
@@ -209,12 +203,15 @@ where
         trans.append_message(b"Commit Phase", &proof.commitment);
         let mut res = true;
 
-        let (hadamard_res, hadamard_subclaim) =
-            HadamardPIOP::verifier(trans, &proof.hadamard_info, &proof.hadamard_proof);
+        let (hadamard_res, hadamard_subclaim) = HadamardPIOP::verifier_batch_instance(
+            trans,
+            &proof.hadamard_info,
+            &proof.hadamard_proof,
+        );
         res &= hadamard_res;
         trans.append_message(b"[PIOP Phase]", &proof.hadamard_proof);
 
-        let point_u = hadamard_subclaim.point_r[..proof.log_coeff_count].to_vec();
+        let _point_u = hadamard_subclaim.point_r[..proof.log_coeff_count].to_vec();
         let point_v = hadamard_subclaim.point_r[proof.log_coeff_count..].to_vec();
         let point_bit_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",

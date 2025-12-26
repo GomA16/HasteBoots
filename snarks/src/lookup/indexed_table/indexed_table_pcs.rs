@@ -1,5 +1,3 @@
-use std::ops::Index;
-
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 use helper::{FiatShamirTranscript, Transcript};
 use pcs::PolynomialCommitmentScheme;
@@ -10,7 +8,6 @@ use piop::{
         IndexedLogUpTableIOP, IndexedLogUpTableInstanceInfo, IndexedLogUpTableProof,
     },
 };
-use rand::rand_core::le;
 use serde::Serialize;
 use trace::lookup_trace::indexed_table::IndexedLookupTraceMLE;
 
@@ -200,9 +197,9 @@ where
         trans.append_message(b"[Commit Phase]", &proof.index_commitment);
         trans.append_message(b"[Commit Phase]", &proof.multiplicity_commitment);
 
-        let random_value =
+        let _random_value =
             trans.get_challenge(b"[Challenge] random value used in the rational identity");
-        let random_s_hash = trans.get_challenge(b"[Challenge] random value used for hashing.");
+        let _random_s_hash = trans.get_challenge(b"[Challenge] random value used for hashing.");
 
         trans.append_message(b"[Commit Phase]", &proof.helper_input_commitment);
         trans.append_message(b"[Commit Phase]", &proof.helper_table_commitment);

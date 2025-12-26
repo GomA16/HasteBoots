@@ -35,7 +35,7 @@ pub struct NTTFourierEvalInfo<F: Field> {
     pub eval: F,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Default)]
 pub struct NTTFourierProof<F: Field> {
     /// each delegation is a sumcheck proof
     pub sumcheck_proofs: Vec<Proof<F>>,

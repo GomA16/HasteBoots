@@ -15,17 +15,17 @@ use std::rc::Rc;
 
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field, PolynomialInfo};
 use bincode::config::standard;
-use bincode::{Decode, Encode};
 use helper::utils::{compute_oracle_evals, eval_identity_function};
 use helper::{FiatShamirTranscript, Transcript};
 use pcs::PolynomialCommitmentScheme;
-use piop::hadamard::{
-    BatchedSumHadamardInfo, BatchedSumHadamardInstance, BatchedSumHadamardProof, HadamardPIOP,
-};
+use piop::hadamard::{BatchedSumHadamardProof, HadamardPIOP, SumHadamardInfo, SumHadamardInstance};
 use piop::lookup::small_table::{LogUpIOP, LogUpInstance, LogUpInstanceInfo, LogUpProof};
 use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance, NTTMatrixEvalProof};
-use piop::{LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance, SumcheckPIOP};
-use serde::{Serialize, ser};
+use piop::{
+    BatchedSumcheckPIOP, LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance,
+    SumcheckPIOP,
+};
+use serde::Serialize;
 use sumcheck::{MLSumcheck, Proof};
 use trace::lookup_trace::small_table::LookupWitnessHelperEval;
 use trace::{ConvertToEF, EvaluableTraceEF, PackableTrace, SumHadamardTraceEval};
@@ -112,7 +112,7 @@ where
     pub sumcheck_proof: Proof<EF>,
     pub lookup_info: LogUpInstanceInfo<EF>,
     pub lookup_proof: LogUpProof<EF>,
-    pub hadamard_info: BatchedSumHadamardInfo<EF>,
+    pub hadamard_info: Vec<SumHadamardInfo<EF>>,
     pub hadamard_proof: BatchedSumHadamardProof<EF>,
     pub ntt_info: NTTMatrixEvalInfo<EF>,
     pub ntt_proof: NTTMatrixEvalProof<EF>,
@@ -142,7 +142,7 @@ where
         >,
 {
     pub fn piop_proof_len(&self) -> usize {
-        bincode::serde::encode_to_vec(&self.sumcheck_poly_info, standard())
+        bincode::serde::encode_to_vec(self.sumcheck_poly_info, standard())
             .unwrap()
             .len()
             + bincode::serde::encode_to_vec(&self.sumcheck_proof, standard())
@@ -238,24 +238,28 @@ where
         let time = std::time::Instant::now();
         let trace_ef = trace_mle.to_ef();
         let lookup_trace_ef = lookup_trace.to_ef();
-        let hadamard_instance = BatchedSumHadamardInstance::from(&trace_ef);
+        let hadamard_instance = SumHadamardInstance::from(&trace_ef);
         let lookup_instance = LogUpInstance::from(&lookup_trace_ef, &lookup_helper);
-        let hadamard_instance_info = hadamard_instance.info();
+        let hadamard_instance_info = hadamard_instance
+            .iter()
+            .map(SumcheckInstance::info)
+            .collect::<Vec<_>>();
         trans.append_message(b"[Hadamard Statement]", &hadamard_instance_info);
         let lookup_instance_info = lookup_instance.info();
         trans.append_message(b"[Lookup Statement]", &lookup_instance_info);
 
         assert_eq!(
-            hadamard_instance_info.sumcheck_num_vars(),
+            hadamard_instance_info[0].sumcheck_num_vars(),
             lookup_instance_info.sumcheck_num_vars()
         );
-        let sumcheck_num_vars = hadamard_instance_info.sumcheck_num_vars();
+        let sumcheck_num_vars = hadamard_instance_info[0].sumcheck_num_vars();
         let mut sumcheck_claim = SumcheckClaim::new(sumcheck_num_vars);
         let lagrange_kernel = Some(&LagrangeKernel::random(trans, sumcheck_num_vars));
 
         // Combine all sumcheck from Hadamard protocol into one
-        let randomness_hadamard = hadamard_instance_info.sample_randomness_for_sumcheck(trans);
-        HadamardPIOP::prover_batch_sumcheck(
+        let randomness_hadamard = hadamard_instance_info[0]
+            .sample_randomness_for_sumcheck_batch(trans, hadamard_instance.len());
+        HadamardPIOP::prover_batch_add_sumcheck(
             &hadamard_instance,
             &mut sumcheck_claim,
             &randomness_hadamard,
@@ -263,7 +267,7 @@ where
         );
         // Combine all sumcheck form Lookup protocol into one
         let randomness_lookup = lookup_instance_info.sample_randomness_for_sumcheck(trans);
-        LogUpIOP::prover_batch_sumcheck(
+        LogUpIOP::prover_add_sumcheck(
             &lookup_instance,
             &mut sumcheck_claim,
             &randomness_lookup,
@@ -380,7 +384,7 @@ where
         trans.append_message(b"[Commit Phase]", &proof.commitment);
         let mut res = true;
 
-        let random_value =
+        let _random_value =
             trans.get_challenge(b"[Challenge] random value used in the rational identity");
 
         let time = std::time::Instant::now();
@@ -389,14 +393,15 @@ where
         trans.append_message(b"[Lookup Statement]", &proof.lookup_info);
 
         assert_eq!(
-            proof.hadamard_info.sumcheck_num_vars(),
+            proof.hadamard_info[0].sumcheck_num_vars(),
             proof.lookup_info.sumcheck_num_vars()
         );
-        let sumcheck_num_vars = proof.hadamard_info.sumcheck_num_vars();
+        let sumcheck_num_vars = proof.hadamard_info[0].sumcheck_num_vars();
         let lagrange_point = LagrangeKernel::random_point(trans, sumcheck_num_vars);
 
         // Combine all sumcheck from Hadamard protocol into one
-        let randomness_hadamard = proof.hadamard_info.sample_randomness_for_sumcheck(trans);
+        let randomness_hadamard = proof.hadamard_info[0]
+            .sample_randomness_for_sumcheck_batch(trans, proof.hadamard_info.len());
         // Combine all sumcheck form Lookup protocol into one
         let randomness_lookup = proof.lookup_info.sample_randomness_for_sumcheck(trans);
 
@@ -413,7 +418,7 @@ where
 
         trans.append_message(b"[Hadamard Evals]", &proof.hadamard_proof);
         trans.append_message(b"[Lookup Evals]", &proof.lookup_proof);
-        HadamardPIOP::verifier_compute_subclaim(
+        HadamardPIOP::verifier_batch_compute_subclaim(
             &proof.hadamard_info,
             &proof.hadamard_proof,
             &mut sumcheck_subclaim,

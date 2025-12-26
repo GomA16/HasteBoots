@@ -6,8 +6,7 @@ use pcs::{
     multilinear::BrakedownPCS,
     utils::code::{ExpanderCode, ExpanderCodeSpec},
 };
-use rand::rand_core::le;
-use snarks::lookup::indexed_table::indexed_table::IndexedLogUpSnarks;
+use snarks::lookup::indexed_table::IndexedLogUpSnarks;
 use trace::lookup_trace::indexed_table::{IndexedLookupTrace, IndexedLookupTraceMLE};
 
 type FF = BabyBear;
