@@ -23,6 +23,8 @@ pub struct PBSParameters {
 }
 
 pub struct PBSTrace<F: Field> {
+    pub log_coeff_count: usize,
+    pub log_num_round: usize,
     pub acc_trace: AccTrace<F>,
     pub hadamard_trace: SumHadamardTrace<F>,
     // pub params: PBSParameters,
@@ -62,7 +64,7 @@ impl PBSParameters {
     }
 }
 
-impl<F: NTTField> From<PBSTrace<F>> for PBSTraceMLE<F> {
+impl<F: Field> From<PBSTrace<F>> for PBSTraceMLE<F> {
     fn from(trace: PBSTrace<F>) -> Self {
         Self {
             log_coeff_count: trace.acc_trace.log_coeff_count,
@@ -82,6 +84,27 @@ impl<F: Field> PBSTrace<F> {
 }
 
 impl<F: Field> PackableTrace<F> for PBSTraceMLE<F> {
+    #[inline]
+    fn num_vars(&self) -> usize {
+        self.log_coeff_count + self.log_num_round
+    }
+
+    #[inline]
+    fn num_oracles(&self) -> usize {
+        self.hadamard_trace.num_oracles() + self.acc_trace.num_oracles()
+    }
+
+    #[inline]
+    fn pack_to_vec(&self) -> Vec<F> {
+        self.hadamard_trace
+            .pack_to_vec()
+            .into_iter()
+            .chain(self.acc_trace.pack_to_vec().into_iter())
+            .collect()
+    }
+}
+
+impl<F: Field> PackableTrace<F> for PBSTrace<F> {
     #[inline]
     fn num_vars(&self) -> usize {
         self.log_coeff_count + self.log_num_round
@@ -133,11 +156,59 @@ impl<F: Field> PackableEval<F> for PBSTraceEval<F> {
 }
 
 impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for PBSTraceMLE<F> {
+    type TraceMLEEF = PBSTraceMLE<EF>;
     type TraceEvalEF = PBSTraceEval<EF>;
     fn evaluate_ef(&self, point: &[EF]) -> PBSTraceEval<EF> {
         PBSTraceEval {
             acc_trace: self.acc_trace.evaluate_ef(point),
             hadamard_trace: self.hadamard_trace.evaluate_ef(point),
+        }
+    }
+    
+    fn evaluate_ef_with_lookup(
+            &self,
+            point: &[EF],
+            trace_ef: &Self::TraceMLEEF,
+            hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+            eval_table: &[EF],
+        ) -> Self::TraceEvalEF {
+        PBSTraceEval {
+            acc_trace: self.acc_trace.evaluate_ef_with_lookup(
+                point,
+                &trace_ef.acc_trace,
+                hash_table,
+                eval_table,
+            ),
+            hadamard_trace: self.hadamard_trace.evaluate_ef_with_lookup(
+                point,
+                &trace_ef.hadamard_trace,
+                hash_table,
+                eval_table,
+            ),
+        }
+    }
+}
+
+impl<F: Field> EvaluableTrace<F> for PBSTraceMLE<F> {
+    type TraceEval = PBSTraceEval<F>;
+    fn evaluate(&self, point: &[F]) -> PBSTraceEval<F> {
+        PBSTraceEval {
+            acc_trace: self.acc_trace.evaluate(point),
+            hadamard_trace: self.hadamard_trace.evaluate(point),
+        }
+    }
+
+    fn evaluate_with_lookup(
+        &self,
+        point: &[F],
+        poly: &algebra::ListOfProductsOfPolynomials<F>,
+        eval_table: &[F],
+    ) -> Self::TraceEval {
+        PBSTraceEval {
+            acc_trace: self.acc_trace.evaluate_with_lookup(point, poly, eval_table),
+            hadamard_trace: self
+                .hadamard_trace
+                .evaluate_with_lookup(point, poly, eval_table),
         }
     }
 }

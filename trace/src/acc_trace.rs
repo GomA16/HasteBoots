@@ -125,7 +125,7 @@ impl<F: Field> AccTrace<F> {
     }
 }
 
-impl<F: NTTField> From<AccTrace<F>> for AccTraceMLE<F> {
+impl<F: Field> From<AccTrace<F>> for AccTraceMLE<F> {
     #[inline]
     fn from(trace: AccTrace<F>) -> Self {
         Self {
@@ -144,6 +144,30 @@ impl<F: NTTField> From<AccTrace<F>> for AccTraceMLE<F> {
 }
 
 impl<F: Field> PackableTrace<F> for AccTraceMLE<F> {
+    fn num_vars(&self) -> usize {
+        self.log_coeff_count + self.log_num_round
+    }
+
+    fn num_oracles(&self) -> usize {
+        // input_acc
+        // monomial_times_acc
+        // monomial will be committed in other places
+        // other polynomials are derived from these:
+        // external_product_input = monomial_times_acc - input_acc
+        // output_acc = input_acc + sum_prod of SumHadamardTrace
+        self.input_acc.num_oracles() + self.monomial_times_acc.num_oracles()
+    }
+
+    fn pack_to_vec(&self) -> Vec<F> {
+        self.input_acc
+            .pack_to_vec()
+            .into_iter()
+            .chain(self.monomial_times_acc.pack_to_vec())
+            .collect()
+    }
+}
+
+impl<F: Field> PackableTrace<F> for AccTrace<F> {
     fn num_vars(&self) -> usize {
         self.log_coeff_count + self.log_num_round
     }
@@ -236,12 +260,117 @@ impl<F: Field> AccTraceMLE<F> {
 }
 
 impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for AccTraceMLE<F> {
+    type TraceMLEEF = AccTraceMLE<EF>;
     type TraceEvalEF = AccTraceEval<EF>;
     fn evaluate_ef(&self, point: &[EF]) -> Self::TraceEvalEF {
         let input_acc = self.input_acc.evaluate_ef(point);
         let monomial = self.monomial.evaluate_ef(point);
         let monomial_times_acc = self.monomial_times_acc.evaluate_ef(point);
         let rlwe_sub = |a: &RLWEEval<EF>, b: &RLWEEval<EF>| -> RLWEEval<EF> {
+            let c_poly = (a.poly.0 - b.poly.0, a.poly.1 - b.poly.1);
+            let c_ntt = (a.ntt.0 - b.ntt.0, a.ntt.1 - b.ntt.1);
+            RLWEEval {
+                poly: c_poly,
+                ntt: c_ntt,
+            }
+        };
+        let external_product_input = rlwe_sub(&monomial_times_acc, &input_acc);
+        AccTraceEval {
+            log_coeff_count: self.log_coeff_count,
+            log_num_round: self.log_num_round,
+            input_acc,
+            monomial,
+            monomial_times_acc,
+            external_product_input,
+        }
+    }
+
+    fn evaluate_ef_with_lookup(
+        &self,
+        point: &[EF],
+        trace_ef: &Self::TraceMLEEF,
+        hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+        eval_table: &[EF],
+    ) -> Self::TraceEvalEF {
+        let input_acc = self.input_acc.evaluate_ef_with_lookup(
+            point,
+            &trace_ef.input_acc,
+            hash_table,
+            eval_table,
+        );
+        let monomial = self.monomial.evaluate_ef_with_lookup(
+            point,
+            &trace_ef.monomial,
+            hash_table,
+            eval_table,
+        );
+        let monomial_times_acc = self.monomial_times_acc.evaluate_ef_with_lookup(
+            point,
+            &trace_ef.monomial_times_acc,
+            hash_table,
+            eval_table,
+        );
+        let rlwe_sub = |a: &RLWEEval<EF>, b: &RLWEEval<EF>| -> RLWEEval<EF> {
+            let c_poly = (a.poly.0 - b.poly.0, a.poly.1 - b.poly.1);
+            let c_ntt = (a.ntt.0 - b.ntt.0, a.ntt.1 - b.ntt.1);
+            RLWEEval {
+                poly: c_poly,
+                ntt: c_ntt,
+            }
+        };
+        let external_product_input = rlwe_sub(&monomial_times_acc, &input_acc);
+        AccTraceEval {
+            log_coeff_count: self.log_coeff_count,
+            log_num_round: self.log_num_round,
+            input_acc,
+            monomial,
+            monomial_times_acc,
+            external_product_input,
+        }
+    }
+}
+
+impl<F: Field> EvaluableTrace<F> for AccTraceMLE<F> {
+    type TraceEval = AccTraceEval<F>;
+    fn evaluate(&self, point: &[F]) -> Self::TraceEval {
+        let input_acc = self.input_acc.evaluate(point);
+        let monomial = self.monomial.evaluate(point);
+        let monomial_times_acc = self.monomial_times_acc.evaluate(point);
+        let rlwe_sub = |a: &RLWEEval<F>, b: &RLWEEval<F>| -> RLWEEval<F> {
+            let c_poly = (a.poly.0 - b.poly.0, a.poly.1 - b.poly.1);
+            let c_ntt = (a.ntt.0 - b.ntt.0, a.ntt.1 - b.ntt.1);
+            RLWEEval {
+                poly: c_poly,
+                ntt: c_ntt,
+            }
+        };
+        let external_product_input = rlwe_sub(&monomial_times_acc, &input_acc);
+        AccTraceEval {
+            log_coeff_count: self.log_coeff_count,
+            log_num_round: self.log_num_round,
+            input_acc,
+            monomial,
+            monomial_times_acc,
+            external_product_input,
+        }
+    }
+
+    fn evaluate_with_lookup(
+        &self,
+        point: &[F],
+        hash_table: &algebra::ListOfProductsOfPolynomials<F>,
+        eval_table: &[F],
+    ) -> Self::TraceEval {
+        let input_acc = self
+            .input_acc
+            .evaluate_with_lookup(point, hash_table, eval_table);
+        let monomial = self
+            .monomial
+            .evaluate_with_lookup(point, hash_table, eval_table);
+        let monomial_times_acc = self
+            .monomial_times_acc
+            .evaluate_with_lookup(point, hash_table, eval_table);
+        let rlwe_sub = |a: &RLWEEval<F>, b: &RLWEEval<F>| -> RLWEEval<F> {
             let c_poly = (a.poly.0 - b.poly.0, a.poly.1 - b.poly.1);
             let c_ntt = (a.ntt.0 - b.ntt.0, a.ntt.1 - b.ntt.1);
             RLWEEval {

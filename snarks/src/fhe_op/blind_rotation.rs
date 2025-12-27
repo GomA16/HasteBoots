@@ -1,3 +1,4 @@
+use core::time;
 use std::rc::Rc;
 
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field, PolynomialInfo};
@@ -17,7 +18,7 @@ use sumcheck::{MLSumcheck, Proof};
 use trace::lookup_trace::small_table::LookupWitnessHelperEval;
 use trace::pbs_trace::PBSTraceEval;
 use trace::{
-    ConvertToEF, EvaluableTraceEF, PBSTraceMLE, PackableTrace, SumHadamardTraceEval, pbs_trace,
+    ConvertToEF, EvaluableTraceEF, PBSTrace, PBSTraceMLE, PackableTrace, SumHadamardTraceEval, pbs_trace
 };
 use trace::{EvaluableTrace, PackableEval, SumHadamardTraceMLE};
 
@@ -62,7 +63,7 @@ where
         ntt_table: Vec<F>,
         blk_size: usize,
         basis: usize,
-        trace: &PBSTraceMLE<F>,
+        trace: &PBSTrace<F>,
     ) -> Self {
         let oracle_num_vars = trace.num_vars() + trace.log_num_oracles();
         let pcs_params = PCS::setup(oracle_num_vars, Some(code_spec.clone()));
@@ -201,19 +202,20 @@ where
         &self,
         trans: &mut Transcript<EF>,
         // trace_mle: &SumHadamardTraceMLE<F>,
-        pbs_trace: &PBSTraceMLE<F>,
+        pbs_trace: PBSTrace<F>,
         params: &BlindRotationParams<F, EF, S, PCS>,
     ) -> BlindRotationProof<F, EF, S, PCS> {
         let time = std::time::Instant::now();
         // [Commit Phase] commit to the trace polynomial
         let bit_poly = pbs_trace.generate_oracle();
+        let pbs_trace_mle = PBSTraceMLE::from(pbs_trace);
         let (commitment, commitment_state) = PCS::commit(&params.pcs_params, &bit_poly);
         trans.append_message(b"[Commit Phase]", &commitment);
 
         // [Commit Phase] commit to the helper polynomial for lookup
         let random_value =
             trans.get_challenge(b"[Challenge] random value used in the rational identity");
-        let lookup_trace = pbs_trace
+        let lookup_trace = pbs_trace_mle
             .hadamard_trace
             .extract_lookup_trace_mle_small_table(params.basis);
         let lookup_witness = lookup_trace.compute_witness_pure();
@@ -229,11 +231,11 @@ where
 
         // [PIOP Phase] extract the Hadamard instances
         let time = std::time::Instant::now();
-        let trace_ef = pbs_trace.to_ef();
+        let pbs_ef = pbs_trace_mle.to_ef();
         let lookup_trace_ef = lookup_trace.to_ef();
-        let hadamard_instance = SumHadamardInstance::from(&trace_ef.hadamard_trace);
+        let hadamard_instance = SumHadamardInstance::from(&pbs_ef.hadamard_trace);
         let acc_hadamard_instance =
-            SumHadamardInstance::from(&trace_ef.acc_trace.extract_hadamard_trace());
+            SumHadamardInstance::from(&pbs_ef.acc_trace.extract_hadamard_trace());
         let hadamard_instance = [hadamard_instance, acc_hadamard_instance]
             .into_iter()
             .flatten()
@@ -280,9 +282,27 @@ where
             .expect("[External Product PIOP] Fail to generate sumcheck proof.");
         trans.append_message(b"[Sumcheck Protocol]", &sumcheck_proof);
 
+        
+        let eval_table = sumcheck_state.fast_evaluate();
+        
+        let time = std::time::Instant::now();
+        let trace_evals = pbs_trace_mle.evaluate_ef_with_lookup(
+            &sumcheck_state.randomness,
+            &pbs_ef,
+            &sumcheck_claim.poly,
+            &eval_table,
+        );
+        let helper_evals = lookup_helper.evaluate_with_lookup(
+            &sumcheck_state.randomness,
+            &sumcheck_claim.poly,
+            &eval_table,
+        );
+        println!("PIOP Phase: Helper Evaluation Phase time: {:?}", time.elapsed());
+        
+
         // [PIOP Phase] evaluate the polynomials and append them into proof
-        let trace_evals = pbs_trace.evaluate_ef(&sumcheck_state.randomness);
-        let helper_evals = lookup_helper.evaluate(&sumcheck_state.randomness);
+        // let trace_evals = pbs_trace_mle.evaluate_ef(&sumcheck_state.randomness);
+        // let helper_evals = lookup_helper.evaluate(&sumcheck_state.randomness);
         let hadamard_eval_proof = BatchedSumHadamardProof::from_pbs_trace_eval(&trace_evals);
         let lookup_eval_proof = LogUpProof::from_hadamard_trace_eval(
             &trace_evals.hadamard_trace,
@@ -293,12 +313,12 @@ where
         trans.append_message(b"[Lookup Evals]", &lookup_eval_proof);
 
         let point_u =
-            sumcheck_state.randomness[..pbs_trace.hadamard_trace.log_coeff_count].to_vec();
+            sumcheck_state.randomness[..pbs_trace_mle.hadamard_trace.log_coeff_count].to_vec();
         let mut point_v =
-            sumcheck_state.randomness[pbs_trace.hadamard_trace.log_coeff_count..].to_vec();
+            sumcheck_state.randomness[pbs_trace_mle.hadamard_trace.log_coeff_count..].to_vec();
         let point_bit_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
-            pbs_trace.log_num_oracles(),
+            pbs_trace_mle.log_num_oracles(),
         );
         let point_helper_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
@@ -359,8 +379,8 @@ where
         println!("PCS Opening Phase time: {:?}", time.elapsed());
 
         BlindRotationProof {
-            log_coeff_count: pbs_trace.log_coeff_count,
-            log_num_oracle: pbs_trace.log_num_oracles(),
+            log_coeff_count: pbs_trace_mle.log_coeff_count,
+            log_num_oracle: pbs_trace_mle.log_num_oracles(),
             log_num_helper_poly: lookup_trace.log_num_helper_oracles(params.blk_size),
             pcs_params: params.pcs_params.clone(),
             commitment,

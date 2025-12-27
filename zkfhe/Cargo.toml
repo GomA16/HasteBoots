@@ -64,6 +64,10 @@ name = "zk_hadamard"
 path = "examples/zk_nand_op/zk_hadamard.rs"
 
 [[example]]
+name = "zk_monomial"
+path = "examples/zk_nand_op/zk_monomial_hadamard.rs"
+
+[[example]]
 name = "zk_external_product"
 path = "examples/zk_nand_op/zk_external_product.rs"
 

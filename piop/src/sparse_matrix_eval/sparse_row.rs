@@ -249,7 +249,7 @@ impl<F: Field> SumcheckPureProof<F> for SparseRowEvalProof<F> {
 }
 
 impl<F: Field> SumcheckPureProverState<F> for SparseRowProverState<F> {
-    fn from_sumcheck(sumcheck_prover_state: ProverState<F>) -> Self {
+    fn from_sumcheck(sumcheck_prover_state: ProverState<F>, claim: SumcheckClaim<F>) -> Self {
         SparseRowProverState {
             sumcheck_point_r: sumcheck_prover_state.randomness.clone(),
         }

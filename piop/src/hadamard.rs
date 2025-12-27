@@ -1,3 +1,4 @@
+use algebra::AbstractExtensionField;
 use algebra::DenseMultilinearExtension;
 use algebra::Field;
 use algebra::PolynomialInfo;
@@ -6,6 +7,8 @@ use helper::Transcript;
 use helper::utils::eval_identity_function;
 use itertools::izip;
 use serde::Serialize;
+use std::collections::HashMap;
+use std::collections::btree_map::Range;
 use std::rc::Rc;
 use sumcheck::MLSumcheck;
 use sumcheck::Proof;
@@ -42,6 +45,8 @@ pub struct SumHadamardInstance<F: Field> {
 
 pub struct HadamardProverState<F: Field> {
     pub point_r: Vec<F>,
+    pub flattened_mle_evals: Vec<F>,
+    raw_pointers_lookup_table: HashMap<*const DenseMultilinearExtension<F>, usize>,
 }
 
 pub struct HadamardVerifierSubclaim<F: Field> {
@@ -99,6 +104,23 @@ impl<F: Field> SumHadamardInstance<F> {
         SumHadamardEval {
             products_at_r,
             result_at_r: self.result.evaluate(point_r),
+        }
+    }
+
+    pub fn from_flatten_mle_evals(&self, state: &HadamardProverState<F>) -> SumHadamardEval<F> {
+        let lookup = |m: &Rc<DenseMultilinearExtension<F>>| {
+            let m_ptr: *const DenseMultilinearExtension<F> = Rc::as_ptr(m);
+            let index = state.raw_pointers_lookup_table.get(&m_ptr).unwrap();
+            state.flattened_mle_evals[*index]
+        };
+
+        let mut products_at_r = Vec::with_capacity(self.num_products);
+        for (a, b) in &self.products {
+            products_at_r.push((lookup(a), lookup(b)));
+        }
+        SumHadamardEval {
+            products_at_r,
+            result_at_r: lookup(&self.result),
         }
     }
 
@@ -196,8 +218,6 @@ impl<F: Field> SumHadamardEval<F> {
     }
 }
 
-impl<F: Field> SumHadamardProof<F> {}
-
 impl<F: Field> BatchedSumHadamardProof<F> {
     pub fn from_hadamard_trace_eval(trace_eval: &SumHadamardTraceEval<F>) -> Self {
         let mut proof = BatchedSumHadamardProof {
@@ -249,6 +269,25 @@ impl<F: Field> BatchedSumHadamardProof<F> {
         add_into_batch(trace_eval);
 
         self.hadamard_at_r.extend(hadamard_at_r);
+    }
+
+    // export evaluations in proof into TraceEval structure
+    pub fn export_eval(
+        &self,
+        idx_start: usize,
+        idx_end: usize,
+        trace_eval: &mut SumHadamardTraceEval<F>,
+    ) {
+        let num_sum = 2;
+        assert_eq!(idx_end - idx_start, num_sum);
+        let [eval_0, eval_2] = &self.hadamard_at_r[idx_start..idx_end] else {
+            panic!("Invalid index range for exporting hadamard eval");
+        };
+        trace_eval.sum_prod.ntt = (eval_0.result_at_r, eval_2.result_at_r);
+        for (i, eval) in trace_eval.vec_hadamard.iter_mut().enumerate() {
+            eval.bit.ntt = eval_0.products_at_r[i].0;
+            eval.rlwe.ntt = (eval_0.products_at_r[i].1, eval_2.products_at_r[i].1);
+        }
     }
 }
 
@@ -317,9 +356,30 @@ impl<F: Field> SumcheckPureProof<F> for BatchedSumHadamardProof<F> {
 }
 
 impl<F: Field> SumcheckPureProverState<F> for HadamardProverState<F> {
-    fn from_sumcheck(sumcheck_prover_state: prover::ProverState<F>) -> Self {
+    // Computation Opmitization:
+    // Flattened MLE evaluations in prover_state are tables of size 2,
+    // which are the evluations of f(r_1, ..., r_n-1, X) for X in {0,1}.
+    // To avoid repeated computations, prover can directly compute all
+    // f(r_1, ..., r_n) from these tables.
+    fn from_sumcheck(
+        sumcheck_prover_state: prover::ProverState<F>,
+        claim: SumcheckClaim<F>,
+    ) -> Self {
+        // f(r) = f(0) + r_n * (f(1) - f(0))
+        let fast_compute = |mle: &DenseMultilinearExtension<F>| {
+            mle.evaluations[0]
+                + *sumcheck_prover_state.randomness.last().unwrap()
+                    * (mle.evaluations[1] - mle.evaluations[0])
+        };
+        let flattened_mle_evals = sumcheck_prover_state
+            .flattened_ml_extensions
+            .iter()
+            .map(fast_compute)
+            .collect::<Vec<_>>();
         HadamardProverState {
             point_r: sumcheck_prover_state.randomness,
+            flattened_mle_evals,
+            raw_pointers_lookup_table: claim.poly.raw_pointers_lookup_table,
         }
     }
 }
@@ -346,6 +406,12 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for HadamardPIOP<F> {
         let (mut proof, state) = Self::prover_without_evals(trans, instance);
 
         proof.hadamard_at_r = instance.eval_at_point(&state.point_r);
+
+        // proof.hadamard_at_r = instance.from_flatten_mle_evals(&state);
+
+        // let fast_eval = instance.from_flatten_mle_evals(&state);
+        // assert_eq!(proof.hadamard_at_r.result_at_r, fast_eval.result_at_r);
+
         (proof, state)
     }
 
@@ -388,9 +454,14 @@ impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for HadamardPIOP<F> {
     ) -> (Self::BatchedProof, Self::BatchedProverState) {
         let (mut proof, state) = Self::prover_batch_without_evals(trans, instances);
 
+        // proof.hadamard_at_r = instances
+        //     .iter()
+        //     .map(|instance| instance.eval_at_point(&state.point_r))
+        //     .collect::<Vec<_>>();
+
         proof.hadamard_at_r = instances
             .iter()
-            .map(|instance| instance.eval_at_point(&state.point_r))
+            .map(|instance| instance.from_flatten_mle_evals(&state))
             .collect::<Vec<_>>();
 
         (proof, state)

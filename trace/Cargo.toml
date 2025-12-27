@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 algebra = { path = "../algebra" }
 helper = { path = "../helper" }
+sumcheck = { path = "../sumcheck" }
 
 rand = { workspace = true }
 rand_distr = { workspace = true }

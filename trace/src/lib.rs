@@ -1,4 +1,4 @@
-use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
+use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials};
 
 pub mod acc_trace;
 pub mod hadamard_trace;
@@ -13,6 +13,7 @@ pub use hadamard_trace::{
 };
 pub use ntt_trace::{NTTTrace, NTTTraceMLE};
 pub use pbs_trace::{PBSTrace, PBSTraceMLE};
+use sumcheck::prover::ProverState;
 
 pub trait ConvertToEF<F: Field, EF: AbstractExtensionField<F>> {
     type Output;
@@ -63,9 +64,33 @@ pub trait PackableEval<F: Field> {
 pub trait EvaluableTrace<F: Field> {
     type TraceEval;
     fn evaluate(&self, point: &[F]) -> Self::TraceEval;
+    // Lookup evaluation if it has be computed in ProverState of the sumcheck protocol.
+    // Otherwise, evaluate it normally.
+    fn evaluate_with_lookup(
+        &self,
+        point: &[F],
+        hash_table: &ListOfProductsOfPolynomials<F>,
+        eval_table: &[F],
+    ) -> Self::TraceEval;
 }
 
 pub trait EvaluableTraceEF<F: Field, EF: AbstractExtensionField<F>> {
+    type TraceMLEEF;
     type TraceEvalEF;
     fn evaluate_ef(&self, point: &[EF]) -> Self::TraceEvalEF;
+    // Lookup evaluation if it has be computed in ProverState of the sumcheck protocol.
+    // Otherwise, evaluate it normally.
+    // [Optimized with base field * extension field evaluations]
+    fn evaluate_ef_with_lookup(
+        &self,
+        point: &[EF],
+        trace_ef: &Self::TraceMLEEF,
+        hash_table: &ListOfProductsOfPolynomials<EF>,
+        eval_table: &[EF],
+    ) -> Self::TraceEvalEF;
+}
+
+pub trait LookupableTraceEF<F: Field, EF: AbstractExtensionField<F>> {
+    type TraceEvalEF;
+    
 }

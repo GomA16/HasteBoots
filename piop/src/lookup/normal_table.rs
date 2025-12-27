@@ -232,7 +232,7 @@ impl<F: Field> SumcheckPureProof<F> for LogUpProof<F> {
 }
 
 impl<F: Field> SumcheckPureProverState<F> for LogUpProverState<F> {
-    fn from_sumcheck(sumcheck_prover_state: ProverState<F>) -> Self {
+    fn from_sumcheck(sumcheck_prover_state: ProverState<F>, claim: SumcheckClaim<F>) -> Self {
         LogUpProverState {
             point_r: sumcheck_prover_state.randomness,
         }

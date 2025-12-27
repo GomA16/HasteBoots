@@ -264,7 +264,7 @@ impl<F: Field> SumcheckPureProof<F> for IndexedLogUpTableProof<F> {
 }
 
 impl<F: Field> SumcheckPureProverState<F> for IndexedLogUpProverState<F> {
-    fn from_sumcheck(sumcheck_prover_state: ProverState<F>) -> Self {
+    fn from_sumcheck(sumcheck_prover_state: ProverState<F>, _claim: SumcheckClaim<F>) -> Self {
         IndexedLogUpProverState {
             point_r: sumcheck_prover_state.randomness.clone(),
         }

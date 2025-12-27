@@ -385,6 +385,7 @@ impl<F: Field> PackableEval<F> for LookupWitnessHelperEval<F> {
 }
 
 impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for LookupWitness<F> {
+    type TraceMLEEF = LookupWitness<EF>;
     type TraceEvalEF = LookupWitnessEval<EF>;
     fn evaluate_ef(&self, point: &[EF]) -> Self::TraceEvalEF {
         let vec_input_at_r = self
@@ -401,6 +402,37 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for Lookup
             multiplicity_at_r,
         }
     }
+
+    fn evaluate_ef_with_lookup(
+        &self,
+        point: &[EF],
+        trace_ef: &Self::TraceMLEEF,
+        hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+        eval_table: &[EF],
+    ) -> Self::TraceEvalEF {
+        let vec_input_at_r = self
+            .trace
+            .vec_input
+            .iter()
+            .zip(trace_ef.trace.vec_input.iter())
+            .map(|(input, input_ef)| {
+                hash_table.lookup_mle_eval_ef(input, input_ef, eval_table, point)
+            })
+            .collect::<Vec<EF>>();
+        let table_at_r =
+            hash_table.lookup_mle_eval_ef(&self.table, &trace_ef.table, eval_table, point);
+        let multiplicity_at_r = hash_table.lookup_mle_eval_ef(
+            &self.multiplicity,
+            &trace_ef.multiplicity,
+            eval_table,
+            point,
+        );
+        LookupWitnessEval {
+            vec_input_at_r,
+            table_at_r,
+            multiplicity_at_r,
+        }
+    }
 }
 
 impl<F: Field> EvaluableTrace<F> for LookupWitnessHelper<F> {
@@ -410,6 +442,20 @@ impl<F: Field> EvaluableTrace<F> for LookupWitnessHelper<F> {
             .helper_functions
             .iter()
             .map(|hf| hf.evaluate(point))
+            .collect::<Vec<F>>();
+        LookupWitnessHelperEval { helper_at_r }
+    }
+
+    fn evaluate_with_lookup(
+        &self,
+        point: &[F],
+        hash_table: &algebra::ListOfProductsOfPolynomials<F>,
+        eval_table: &[F],
+    ) -> Self::TraceEval {
+        let helper_at_r = self
+            .helper_functions
+            .iter()
+            .map(|hf| hash_table.lookup_mle_eval(hf, eval_table, point))
             .collect::<Vec<F>>();
         LookupWitnessHelperEval { helper_at_r }
     }

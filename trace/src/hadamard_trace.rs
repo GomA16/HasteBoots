@@ -3,6 +3,7 @@ use std::rc::Rc;
 use algebra::{
     AbstractExtensionField, DenseMultilinearExtension, Field, NTTField, transformation::AbstractNTT,
 };
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::Serialize;
 
 use crate::lookup_trace::normal_table::LookupTraceMLE as LookupTraceMLENormalTable;
@@ -10,7 +11,9 @@ use crate::lookup_trace::small_table::LookupTraceMLE as LookupTraceMLESmallTable
 use crate::rlwe_trace::{
     PolynomialEval, PolynomialTrace, PolynomialTraceMLE, RLWEEval, RLWETrace, RLWETraceMLE,
 };
-use crate::{ConvertToEF, EvaluableTraceEF, PackableEval, PackableTrace};
+use crate::{
+    ConvertToEF, EvaluableTrace, EvaluableTraceEF, LookupableTraceEF, PackableEval, PackableTrace,
+};
 
 /// Store the traces of the multiplication between a bit polynomial and an RLWE ciphertext
 #[derive(Clone)]
@@ -55,13 +58,13 @@ pub struct SumHadamardTraceMLE<F: Field> {
     pub sum_prod: RLWETraceMLE<F>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Default)]
 pub struct SumHadamardTraceEval<F: Field> {
     pub vec_hadamard: Vec<HadamardTraceEval<F>>,
     pub sum_prod: RLWEEval<F>,
 }
 
-impl<F: NTTField> From<HadamardTrace<F>> for HadamardTraceMLE<F> {
+impl<F: Field> From<HadamardTrace<F>> for HadamardTraceMLE<F> {
     #[inline]
     fn from(trace: HadamardTrace<F>) -> Self {
         Self {
@@ -73,7 +76,7 @@ impl<F: NTTField> From<HadamardTrace<F>> for HadamardTraceMLE<F> {
     }
 }
 
-impl<F: NTTField> From<SumHadamardTrace<F>> for SumHadamardTraceMLE<F> {
+impl<F: Field> From<SumHadamardTrace<F>> for SumHadamardTraceMLE<F> {
     #[inline]
     fn from(trace: SumHadamardTrace<F>) -> Self {
         Self {
@@ -130,6 +133,7 @@ impl<F: Field> SumHadamardTraceMLE<F> {
 }
 
 impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for HadamardTraceMLE<F> {
+    type TraceMLEEF = HadamardTraceMLE<EF>;
     type TraceEvalEF = HadamardTraceEval<EF>;
 
     #[inline]
@@ -139,9 +143,81 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for Hadama
             rlwe: self.rlwe.evaluate_ef(point),
         }
     }
+
+    fn evaluate_ef_with_lookup(
+            &self,
+            point: &[EF],
+            trace_ef: &Self::TraceMLEEF,
+            hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+            eval_table: &[EF],
+        ) -> Self::TraceEvalEF {
+        Self::TraceEvalEF {
+            bit: self.bit.evaluate_ef_with_lookup(point, &trace_ef.bit, hash_table, eval_table),
+            rlwe: self.rlwe.evaluate_ef_with_lookup(point, &trace_ef.rlwe, hash_table, eval_table),
+        }
+    }
+}
+
+impl<F: Field> EvaluableTrace<F> for HadamardTraceMLE<F> {
+    type TraceEval = HadamardTraceEval<F>;
+
+    #[inline]
+    fn evaluate(&self, point: &[F]) -> Self::TraceEval {
+        Self::TraceEval {
+            bit: self.bit.evaluate(point),
+            rlwe: self.rlwe.evaluate(point),
+        }
+    }
+
+    fn evaluate_with_lookup(
+        &self,
+        point: &[F],
+        hash_table: &algebra::ListOfProductsOfPolynomials<F>,
+        eval_table: &[F],
+    ) -> Self::TraceEval {
+        Self::TraceEval {
+            bit: self.bit.evaluate_with_lookup(point, hash_table, eval_table),
+            rlwe: self.rlwe.evaluate_with_lookup(point, hash_table, eval_table),
+        }
+    }
+}
+
+impl<F: Field> EvaluableTrace<F> for SumHadamardTraceMLE<F> {
+    type TraceEval = SumHadamardTraceEval<F>;
+
+    #[inline]
+    fn evaluate(&self, point: &[F]) -> Self::TraceEval {
+        Self::TraceEval {
+            vec_hadamard: self
+                .vec_hadamard
+                .iter()
+                .map(|trace| trace.evaluate(point))
+                .collect(),
+            sum_prod: self.sum_prod.evaluate(point),
+        }
+    }
+
+    fn evaluate_with_lookup(
+        &self,
+        point: &[F],
+        hash_table: &algebra::ListOfProductsOfPolynomials<F>,
+        eval_table: &[F],
+    ) -> Self::TraceEval {
+        Self::TraceEval {
+            vec_hadamard: self
+                .vec_hadamard
+                .iter()
+                .map(|trace| trace.evaluate_with_lookup(point, hash_table, eval_table))
+                .collect(),
+            sum_prod: self
+                .sum_prod
+                .evaluate_with_lookup(point, hash_table, eval_table),
+        }
+    }
 }
 
 impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for SumHadamardTraceMLE<F> {
+    type TraceMLEEF = SumHadamardTraceMLE<EF>;
     type TraceEvalEF = SumHadamardTraceEval<EF>;
 
     #[inline]
@@ -153,6 +229,39 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for SumHad
                 .map(|trace| trace.evaluate_ef(point))
                 .collect(),
             sum_prod: self.sum_prod.evaluate_ef(point),
+        }
+    }
+
+    #[inline]
+    fn evaluate_ef_with_lookup(
+            &self,
+            point: &[EF],
+            trace_ef: &Self::TraceMLEEF,
+            hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+            eval_table: &[EF],
+        ) -> Self::TraceEvalEF {
+        Self::TraceEvalEF {
+            vec_hadamard: self
+                .vec_hadamard
+                .iter()
+                .zip(trace_ef.vec_hadamard.iter())
+                .map(|(trace, trace_ef)| {
+                    trace.evaluate_ef_with_lookup(
+                        point,
+                        trace_ef,
+                        hash_table,
+                        eval_table,
+                    )
+                })
+                .collect(),
+            sum_prod: self
+                .sum_prod
+                .evaluate_ef_with_lookup(
+                    point,
+                    &trace_ef.sum_prod,
+                    hash_table,
+                    eval_table,
+                ),
         }
     }
 }
@@ -235,6 +344,18 @@ impl<F: Field> SumHadamardTrace<F> {
         }
         self.sum_prod.finalize(num_round);
     }
+    
+    #[inline]
+    pub fn num_bit_poly(&self) -> usize {
+        self.num_hadamard
+    }
+
+    #[inline]
+    pub fn log_num_helper_poly(&self, blk_size: usize) -> usize {
+        let num_lookup = self.num_bit_poly();
+        let num_helper = (num_lookup + blk_size - 1) / blk_size;
+        num_helper.next_power_of_two().trailing_zeros() as usize
+    }
 }
 
 impl<F: Field> SumHadamardTraceMLE<F> {
@@ -305,6 +426,24 @@ impl<F: Field> PackableTrace<F> for HadamardTraceMLE<F> {
     }
 }
 
+impl<F: Field> PackableTrace<F> for HadamardTrace<F> {
+    fn num_vars(&self) -> usize {
+        self.log_coeff_count + self.log_num_poly
+    }
+
+    fn num_oracles(&self) -> usize {
+        3
+    }
+
+    fn pack_to_vec(&self) -> Vec<F> {
+        self.bit
+            .pack_to_vec()
+            .into_iter()
+            .chain(self.rlwe.pack_to_vec().into_iter())
+            .collect()
+    }
+}
+
 impl<F: Field> PackableEval<F> for HadamardTraceEval<F> {
     #[inline]
     fn num_evals(&self) -> usize {
@@ -350,6 +489,26 @@ impl<F: Field> PackableTrace<F> for SumHadamardTraceMLE<F> {
             .flat_map(|trace| trace.pack_to_vec().into_iter())
             .chain(self.sum_prod.pack_to_vec().into_iter())
             .collect()
+    }
+}
+
+impl<F: Field> PackableTrace<F> for SumHadamardTrace<F> {
+    fn num_vars(&self) -> usize {
+        self.log_coeff_count + self.log_num_poly
+    }
+
+    fn num_oracles(&self) -> usize {
+        self.num_hadamard * self.vec_hadamard[0].num_oracles() + self.sum_prod.num_oracles()
+    }
+
+    fn pack_to_vec(&self) -> Vec<F> {
+        let mut result = self
+            .vec_hadamard
+            .par_iter()
+            .flat_map(|trace| trace.pack_to_vec())
+            .collect::<Vec<F>>();
+        result.extend(self.sum_prod.pack_to_vec());
+        result
     }
 }
 

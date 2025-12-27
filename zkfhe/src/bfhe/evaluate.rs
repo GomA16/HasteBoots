@@ -80,6 +80,8 @@ impl<Q: NTTField> EvaluationKey<Q> {
         let output_lwe = ksk.key_switch_for_rlwe(acc);
 
         let pbs_trace = PBSTrace {
+            log_coeff_count,
+            log_num_round,
             acc_trace,
             hadamard_trace,
         };

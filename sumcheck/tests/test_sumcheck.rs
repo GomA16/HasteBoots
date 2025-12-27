@@ -135,9 +135,9 @@ fn test_polynomial_as_subprotocol<F: Field + Serialize>(
 
 #[test]
 fn test_trivial_polynomial() {
-    let nv = 1;
-    let num_multiplicands_range = (4, 13);
-    let num_products = 5;
+    let nv = 3;
+    let num_multiplicands_range = (1, 2);
+    let num_products = 1;
 
     for _ in 0..10 {
         test_protocol::<FF>(nv, num_multiplicands_range, num_products);

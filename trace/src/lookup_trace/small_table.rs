@@ -434,15 +434,56 @@ impl<F: Field> EvaluableTrace<F> for LookupTraceMLE<F> {
             vec_input_at_r,
         }
     }
+
+    fn evaluate_with_lookup(
+        &self,
+        point: &[F],
+        hash_table: &algebra::ListOfProductsOfPolynomials<F>,
+        eval_table: &[F],
+    ) -> Self::TraceEval {
+        let vec_input_at_r = self
+            .vec_input
+            .iter()
+            .map(|input| hash_table.lookup_mle_eval(input, eval_table, point))
+            .collect::<Vec<F>>();
+        LookupTraceEval {
+            num_vars: self.num_vars,
+            range: self.range,
+            vec_input_at_r,
+        }
+    }
 }
 
 impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for LookupTraceMLE<F> {
+    type TraceMLEEF = LookupTraceMLE<EF>;
     type TraceEvalEF = LookupTraceEval<EF>;
     fn evaluate_ef(&self, point: &[EF]) -> Self::TraceEvalEF {
         let vec_input_at_r = self
             .vec_input
             .iter()
             .map(|input| input.evaluate_ext(point))
+            .collect::<Vec<EF>>();
+        LookupTraceEval {
+            num_vars: self.num_vars,
+            range: self.range,
+            vec_input_at_r,
+        }
+    }
+
+    fn evaluate_ef_with_lookup(
+        &self,
+        point: &[EF],
+        trace_ef: &Self::TraceMLEEF,
+        hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+        eval_table: &[EF],
+    ) -> Self::TraceEvalEF {
+        let vec_input_at_r = self
+            .vec_input
+            .iter()
+            .zip(trace_ef.vec_input.iter())
+            .map(|(input, input_ef)| {
+                hash_table.lookup_mle_eval_ef(input, input_ef, eval_table, point)
+            })
             .collect::<Vec<EF>>();
         LookupTraceEval {
             num_vars: self.num_vars,
@@ -478,6 +519,26 @@ impl<F: Field> EvaluableTrace<F> for LookupWitnessHelper<F> {
             .helper_functions
             .iter()
             .map(|input| input.evaluate(point))
+            .collect::<Vec<F>>();
+        LookupWitnessHelperEval {
+            block_size: self.block_size,
+            num_blocks: self.num_blocks,
+            random_value: self.random_value,
+            sum: self.sum,
+            helper_functions_at_r,
+        }
+    }
+
+    fn evaluate_with_lookup(
+        &self,
+        point: &[F],
+        hash_table: &algebra::ListOfProductsOfPolynomials<F>,
+        eval_table: &[F],
+    ) -> Self::TraceEval {
+        let helper_functions_at_r = self
+            .helper_functions
+            .iter()
+            .map(|hf| hash_table.lookup_mle_eval(hf, eval_table, point))
             .collect::<Vec<F>>();
         LookupWitnessHelperEval {
             block_size: self.block_size,

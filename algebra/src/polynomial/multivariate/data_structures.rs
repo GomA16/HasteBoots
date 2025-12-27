@@ -5,7 +5,7 @@ use std::{collections::HashMap, rc::Rc};
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 
-use crate::Field;
+use crate::{AbstractExtensionField, Field};
 
 use super::DenseMultilinearExtension;
 
@@ -36,7 +36,8 @@ pub struct ListOfProductsOfPolynomials<F: Field> {
     pub linear_ops: Vec<Vec<(F, F)>>,
     /// Stores multilinear extensions in which product multiplicand can refer to.
     pub flattened_ml_extensions: Vec<Rc<DenseMultilinearExtension<F>>>,
-    raw_pointers_lookup_table: HashMap<*const DenseMultilinearExtension<F>, usize>,
+    /// HashMap for raw pointers to index in flattened_ml_extensions
+    pub raw_pointers_lookup_table: HashMap<*const DenseMultilinearExtension<F>, usize>,
 }
 
 /// Extract the max number of multiplicands and number of variables of the list of products.
@@ -158,5 +159,42 @@ impl<F: Field> ListOfProductsOfPolynomials<F> {
                 },
             )
             .reduce(|| F::zero(), |acc, v| acc + v)
+    }
+
+    /// Lookup the evaluation of the provided MLE at the given point.
+    #[inline]
+    pub fn lookup_mle_eval(
+        &self,
+        mle: &Rc<DenseMultilinearExtension<F>>,
+        eval_table: &[F],
+        point: &[F],
+    ) -> F {
+        let m_ptr: *const DenseMultilinearExtension<F> = Rc::as_ptr(mle);
+        if let Some(index) = self.raw_pointers_lookup_table.get(&m_ptr) {
+            eval_table[*index]
+        } else {
+            mle.evaluate(point)
+        }
+    }
+}
+
+impl<EF: Field> ListOfProductsOfPolynomials<EF> {
+    /// Lookup the evaluation of the provided MLE at the given point in the extension field.
+    #[inline]
+    pub fn lookup_mle_eval_ef<F: Field>(
+        &self,
+        mle: &Rc<DenseMultilinearExtension<F>>,
+        mle_ef: &Rc<DenseMultilinearExtension<EF>>,
+        eval_table: &[EF],
+        point: &[EF],
+    ) -> EF 
+    where EF: AbstractExtensionField<F>,
+    {
+        let m_ptr: *const DenseMultilinearExtension<EF> = Rc::as_ptr(mle_ef);
+        if let Some(index) = self.raw_pointers_lookup_table.get(&m_ptr) {
+            eval_table[*index]
+        } else {
+            mle.evaluate_ext(point)
+        }
     }
 }

@@ -22,7 +22,7 @@ use piop::hadamard::{BatchedSumHadamardProof, HadamardPIOP, SumHadamardInfo, Sum
 use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance, NTTMatrixEvalProof};
 use piop::{BatchedSumcheckPIOP, SumcheckInstance, SumcheckPIOP};
 use serde::Serialize;
-use trace::{ConvertToEF, EvaluableTraceEF};
+use trace::{ConvertToEF, EvaluableTraceEF, SumHadamardTrace, SumHadamardTraceEval};
 use trace::{PackableEval, PackableTrace, SumHadamardTraceMLE};
 
 #[derive(Default)]
@@ -57,7 +57,7 @@ where
     S: Clone,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
-    pub fn new(code_spec: S, ntt_table: &Rc<Vec<EF>>, trace: &SumHadamardTraceMLE<F>) -> Self {
+    pub fn new(code_spec: S, ntt_table: &Rc<Vec<EF>>, trace: &SumHadamardTrace<F>) -> Self {
         let num_oracle_vars = trace.num_vars() + trace.log_num_oracles();
         let pcs_params = PCS::setup(num_oracle_vars, Some(code_spec.clone()));
         HadamardParams {
@@ -101,14 +101,15 @@ where
     pub fn prove(
         &self,
         trans: &mut Transcript<EF>,
-        trace_mle: &SumHadamardTraceMLE<F>,
+        trace: SumHadamardTrace<F>,
         params: &HadamardParams<F, EF, S, PCS>,
     ) -> HadamardProof<F, EF, S, PCS> {
-        let bit_poly = trace_mle.generate_oracle();
+        let bit_poly = trace.generate_oracle();
         let (commitment, commitment_state) = PCS::commit(&params.pcs_params, &bit_poly);
         trans.append_message(b"Commit Phase", &commitment);
 
         // [Hadamard PIOP] extract hadamard instances
+        let trace_mle: SumHadamardTraceMLE<F> = trace.into();
         let trace_ef = trace_mle.to_ef();
         let hadamard_instance = SumHadamardInstance::from(&trace_ef);
         let hadamard_info = hadamard_instance
@@ -117,9 +118,13 @@ where
             .collect::<Vec<_>>();
         // [Hadamard PIOP] prove these instances using sumcheck-based protocol
         let (mut hadamard_piop_proof, hadamard_piop_state) =
-            HadamardPIOP::prover_batch_without_evals(trans, &hadamard_instance);
-        let hadamard_evals = trace_mle.evaluate_ef(&hadamard_piop_state.point_r);
-        hadamard_piop_proof.append_eval(&hadamard_evals);
+            HadamardPIOP::prover_batch(trans, &hadamard_instance);
+        let time = std::time::Instant::now();
+        let mut hadamard_evals: SumHadamardTraceEval<EF> = SumHadamardTraceEval::default();
+        hadamard_piop_proof.export_eval(0, 2, &mut hadamard_evals);
+        // let hadamard_evals = trace_mle.evaluate_ef(&hadamard_piop_state.point_r);
+        // hadamard_piop_proof.append_eval(&hadamard_evals);
+        println!("Hadamard evals computation time: {:?}\n", time.elapsed());
         trans.append_message(b"[PIOP Phase]", &hadamard_piop_proof);
         //[Hadamard PIOP] reduce to queries on NTT evaluation matrix
 

@@ -105,7 +105,7 @@ pub trait SumcheckPureSubclaim<F: Field> {
 }
 
 pub trait SumcheckPureProverState<F: Field> {
-    fn from_sumcheck(sumcheck_prover_state: ProverState<F>) -> Self;
+    fn from_sumcheck(sumcheck_prover_state: ProverState<F>, claim: SumcheckClaim<F>) -> Self;
 }
 
 /// PIOP trait for sumcheck-based protocols
@@ -183,7 +183,7 @@ pub trait SumcheckPIOP<F: Field + Serialize> {
             .expect("[SumcheckIOP] Fail to generate sumcheck proof");
 
         let proof = Self::Proof::from_sumcheck(&sumcheck_claim, sumcheck_proof);
-        let state = Self::ProverState::from_sumcheck(prover_state);
+        let state = Self::ProverState::from_sumcheck(prover_state, sumcheck_claim);
         (proof, state)
     }
 
@@ -300,7 +300,7 @@ pub trait BatchedSumcheckPIOP<F: Field + Serialize>: SumcheckPIOP<F> {
             .expect("[HadamardIOP] Fail to generate sumcheck proof");
 
         let proof = Self::BatchedProof::from_sumcheck(&sumcheck_claim, sumcheck_proof);
-        let state = Self::BatchedProverState::from_sumcheck(prover_state);
+        let state = Self::BatchedProverState::from_sumcheck(prover_state, sumcheck_claim);
         (proof, state)
     }
 
