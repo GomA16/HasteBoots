@@ -1,4 +1,10 @@
-use core::time;
+//! Blind Rotation SNARKs proving FHE operation (X^{a_i} - 1) * ACC * RGSW(s_i)
+//!
+//! This mainly consists of two parts:
+//! 1. Proving the correctness of Mid = (X^{a_i} - 1) * ACC_Input
+//!     This is separately proven in `monomial_hadamard.rs`
+//! 2. Proving the correctness of ACC_Output = Mid * RGSW(s_i)
+//!     This is separately proven in `external_product.rs`
 use std::rc::Rc;
 
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field, PolynomialInfo};
