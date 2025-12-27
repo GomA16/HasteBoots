@@ -53,3 +53,20 @@ all-features = true
 # enable unstable features in the documentation
 rustdoc-args = ["--cfg", "docsrs"]
 # RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features --no-deps
+
+
+[[example]]
+name = "zk_blind_rotation"
+path = "examples/zk_nand_op/zk_blind_rotation.rs"
+
+[[example]]
+name = "zk_hadamard"
+path = "examples/zk_nand_op/zk_hadamard.rs"
+
+[[example]]
+name = "zk_external_product"
+path = "examples/zk_nand_op/zk_external_product.rs"
+
+[[example]]
+name = "zk_lookup"
+path = "examples/zk_nand_op/zk_lookup.rs"

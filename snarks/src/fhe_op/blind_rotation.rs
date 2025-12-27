@@ -15,6 +15,7 @@ use piop::{
 use serde::Serialize;
 use sumcheck::{MLSumcheck, Proof};
 use trace::lookup_trace::small_table::LookupWitnessHelperEval;
+use trace::pbs_trace::PBSTraceEval;
 use trace::{
     ConvertToEF, EvaluableTraceEF, PBSTraceMLE, PackableTrace, SumHadamardTraceEval, pbs_trace,
 };
@@ -61,11 +62,11 @@ where
         ntt_table: Vec<F>,
         blk_size: usize,
         basis: usize,
-        trace: &SumHadamardTraceMLE<F>,
+        trace: &PBSTraceMLE<F>,
     ) -> Self {
         let oracle_num_vars = trace.num_vars() + trace.log_num_oracles();
         let pcs_params = PCS::setup(oracle_num_vars, Some(code_spec.clone()));
-        let helper_num_vars = trace.num_vars() + trace.log_num_helper_poly(blk_size);
+        let helper_num_vars = trace.num_vars() + trace.hadamard_trace.log_num_helper_poly(blk_size);
         let pcs_params_ef = PCS::setup(helper_num_vars, Some(code_spec.clone()));
 
         BlindRotationParams {
@@ -111,7 +112,7 @@ where
     pub eval_ef_proof: PCS::ProofEF,
     // Redudant fields for ease of implementation
     #[serde(skip)]
-    pub trace_evals: SumHadamardTraceEval<EF>,
+    pub trace_evals: PBSTraceEval<EF>,
     #[serde(skip)]
     pub helper_evals: LookupWitnessHelperEval<EF>,
 }
@@ -228,9 +229,16 @@ where
 
         // [PIOP Phase] extract the Hadamard instances
         let time = std::time::Instant::now();
-        let trace_ef = pbs_trace.hadamard_trace.to_ef();
+        let trace_ef = pbs_trace.to_ef();
         let lookup_trace_ef = lookup_trace.to_ef();
-        let hadamard_instance = SumHadamardInstance::from(&trace_ef);
+        let hadamard_instance = SumHadamardInstance::from(&trace_ef.hadamard_trace);
+        let acc_hadamard_instance =
+            SumHadamardInstance::from(&trace_ef.acc_trace.extract_hadamard_trace());
+        let hadamard_instance = [hadamard_instance, acc_hadamard_instance]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
+
         // [PIOP Phase] extract the Lookup instance
         let lookup_instance = LogUpInstance::from(&lookup_trace_ef, &lookup_helper);
         let hadamard_instance_info = hadamard_instance
@@ -271,14 +279,16 @@ where
         let (sumcheck_proof, sumcheck_state) = MLSumcheck::prove(trans, &sumcheck_claim.poly)
             .expect("[External Product PIOP] Fail to generate sumcheck proof.");
         trans.append_message(b"[Sumcheck Protocol]", &sumcheck_proof);
+
         // [PIOP Phase] evaluate the polynomials and append them into proof
-        let trace_evals = pbs_trace
-            .hadamard_trace
-            .evaluate_ef(&sumcheck_state.randomness);
+        let trace_evals = pbs_trace.evaluate_ef(&sumcheck_state.randomness);
         let helper_evals = lookup_helper.evaluate(&sumcheck_state.randomness);
-        let hadamard_eval_proof = BatchedSumHadamardProof::from_hadamard_trace_eval(&trace_evals);
-        let lookup_eval_proof =
-            LogUpProof::from_hadamard_trace_eval(&trace_evals, &helper_evals, random_value);
+        let hadamard_eval_proof = BatchedSumHadamardProof::from_pbs_trace_eval(&trace_evals);
+        let lookup_eval_proof = LogUpProof::from_hadamard_trace_eval(
+            &trace_evals.hadamard_trace,
+            &helper_evals,
+            random_value,
+        );
         trans.append_message(b"[Hadamard Evals]", &hadamard_eval_proof);
         trans.append_message(b"[Lookup Evals]", &lookup_eval_proof);
 
@@ -365,8 +375,6 @@ where
             ntt_info: ntt_instance.info(),
             ntt_proof: ntt_piop_proof,
             eval_proof,
-            // eval_proof_1,
-            // eval_proof_2,
             eval_ef_proof,
             trace_evals,
             helper_evals,
@@ -432,6 +440,7 @@ where
         );
 
         res &= sumcheck_subclaim.expected_evaluations.is_zero();
+        assert!(res, "Sumcheck verification failed.");
 
         let point_u = sumcheck_subclaim.point[..proof.log_coeff_count].to_vec();
         let mut point_v = sumcheck_subclaim.point[proof.log_coeff_count..].to_vec();
@@ -466,6 +475,7 @@ where
         let open_eval_2 = proof.ntt_proof.coeff_eval_at_r_v;
         trans.append_message(b"[PIOP Phase]", &proof.ntt_proof);
         res &= ntt_res;
+        assert!(res, "NTT Matrix Evaluation verification failed.");
 
         println!("PIOP Phase time: {:?}", time.elapsed());
 
@@ -487,6 +497,7 @@ where
             trans,
         );
         res &= eval_res;
+        assert!(res, "PCS Opening verification failed.");
 
         let eval_ef_res = PCS::verify_ef(
             &proof.pcs_params_ef,
@@ -497,6 +508,7 @@ where
             trans,
         );
         res &= eval_ef_res;
+        assert!(res, "PCS EF Opening verification failed.");
 
         println!("PCS Opening Phase time: {:?}", time.elapsed());
 

@@ -56,9 +56,6 @@ impl<F: Field> NTTTrace<F> {
 
 impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for NTTTraceMLE<F> {
     type Output = NTTTraceMLE<EF>;
-    fn into_ef(self) -> Self::Output {
-        unimplemented!()
-    }
 
     fn to_ef(&self) -> Self::Output {
         NTTTraceMLE {

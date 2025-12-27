@@ -240,7 +240,10 @@ pub trait BatchedSumcheckPIOP<F: Field + Serialize>: SumcheckPIOP<F> {
         });
 
         let kernel_point = LagrangeKernel::random_point(trans, num_vars);
-        let randomness = infos[0].sample_randomness_for_sumcheck_batch(trans, infos.len());
+        let randomness = infos
+            .iter()
+            .map(|info| info.sample_randomness_for_sumcheck(trans))
+            .collect::<Vec<_>>();
         let mut sumcheck_subclaim = MLSumcheck::verify(
             trans,
             proof.get_poly_info(),
@@ -282,7 +285,10 @@ pub trait BatchedSumcheckPIOP<F: Field + Serialize>: SumcheckPIOP<F> {
 
         let mut sumcheck_claim = SumcheckClaim::new(num_vars);
         let lagrange_kernel = Some(&LagrangeKernel::random(trans, num_vars));
-        let randomness = infos[0].sample_randomness_for_sumcheck_batch(trans, instances.len());
+        let randomness = infos
+            .iter()
+            .map(|info| info.sample_randomness_for_sumcheck(trans))
+            .collect::<Vec<_>>();
 
         Self::prover_batch_add_sumcheck(
             instances,

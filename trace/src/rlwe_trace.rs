@@ -251,9 +251,7 @@ impl<F: Field> From<MonomialTrace<F>> for MonomialTraceMLE<F> {
 
 impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for PolynomialTraceMLE<F> {
     type Output = PolynomialTraceMLE<EF>;
-    fn into_ef(self) -> Self::Output {
-        unimplemented!()
-    }
+
     fn to_ef(&self) -> Self::Output {
         PolynomialTraceMLE {
             log_coeff_count: self.log_coeff_count,
@@ -266,9 +264,7 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for PolynomialT
 
 impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for MonomialTraceMLE<F> {
     type Output = MonomialTraceMLE<EF>;
-    fn into_ef(self) -> Self::Output {
-        unimplemented!()
-    }
+
     fn to_ef(&self) -> Self::Output {
         MonomialTraceMLE {
             log_coeff_max: self.log_coeff_max,
@@ -281,9 +277,7 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for MonomialTra
 
 impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for RLWETraceMLE<F> {
     type Output = RLWETraceMLE<EF>;
-    fn into_ef(self) -> Self::Output {
-        unimplemented!()
-    }
+
     fn to_ef(&self) -> Self::Output {
         RLWETraceMLE {
             log_coeff_count: self.log_coeff_count,

@@ -24,7 +24,7 @@ use piop::ntt::{
 use piop::sparse_matrix_eval::sparse_row::SparseRowEvalInstance;
 use piop::{BatchedSumcheckPIOP, LagrangeKernel, SumcheckInstance};
 use serde::Serialize;
-use trace::{AccTraceMLE, PBSTraceMLE, PackableTrace};
+use trace::{AccTraceMLE, PBSTraceMLE, PackableEval, PackableTrace};
 use trace::{ConvertToEF, EvaluableTraceEF};
 
 use crate::sparse_matrix_eval::SparseRowEvalSnarks;
@@ -156,7 +156,7 @@ where
         );
 
         let bit_poly = Rc::new(poly.to_ef());
-        let poly_ntt_evals = acc_eval.get_commit_ntt_eval();
+        let poly_ntt_evals = acc_eval.pack_ntt_to_vec();
         let eval = compute_oracle_evals(&poly_ntt_evals, &point_bit_oracle);
 
         let mut point_v_prime = Vec::with_capacity(point_v.len() + point_bit_oracle.len());

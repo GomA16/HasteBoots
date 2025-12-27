@@ -1,9 +1,10 @@
 use crate::{
-    AccTrace, AccTraceMLE, EvaluableTrace, EvaluableTraceEF, HadamardTrace, PackableEval,
-    PackableTrace, SumHadamardTrace, SumHadamardTraceEval, SumHadamardTraceMLE,
+    AccTrace, AccTraceMLE, ConvertToEF, EvaluableTrace, EvaluableTraceEF, HadamardTrace,
+    PackableEval, PackableTrace, SumHadamardTrace, SumHadamardTraceEval, SumHadamardTraceMLE,
     acc_trace::AccTraceEval,
 };
 use algebra::{AbstractExtensionField, Field, NTTField};
+use serde::Serialize;
 use std::{iter::chain, rc::Rc};
 
 pub struct PBSParameters {
@@ -35,6 +36,7 @@ pub struct PBSTraceMLE<F: Field> {
     // pub params: PBSParameters,
 }
 
+#[derive(Serialize)]
 pub struct PBSTraceEval<F: Field> {
     pub acc_trace: AccTraceEval<F>,
     pub hadamard_trace: SumHadamardTraceEval<F>,
@@ -80,14 +82,17 @@ impl<F: Field> PBSTrace<F> {
 }
 
 impl<F: Field> PackableTrace<F> for PBSTraceMLE<F> {
+    #[inline]
     fn num_vars(&self) -> usize {
         self.log_coeff_count + self.log_num_round
     }
 
+    #[inline]
     fn num_oracles(&self) -> usize {
         self.hadamard_trace.num_oracles() + self.acc_trace.num_oracles()
     }
 
+    #[inline]
     fn pack_to_vec(&self) -> Vec<F> {
         self.hadamard_trace
             .pack_to_vec()
@@ -97,12 +102,55 @@ impl<F: Field> PackableTrace<F> for PBSTraceMLE<F> {
     }
 }
 
+impl<F: Field> PackableEval<F> for PBSTraceEval<F> {
+    #[inline]
+    fn num_evals(&self) -> usize {
+        self.hadamard_trace.num_evals() + self.acc_trace.num_evals()
+    }
+
+    #[inline]
+    fn pack_ntt_to_vec(&self) -> Vec<F> {
+        self.hadamard_trace
+            .pack_ntt_to_vec()
+            .into_iter()
+            .chain(self.acc_trace.pack_ntt_to_vec().into_iter())
+            .collect()
+    }
+
+    #[inline]
+    fn pack_poly_to_vec(&self) -> Vec<F> {
+        self.hadamard_trace
+            .pack_poly_to_vec()
+            .into_iter()
+            .chain(self.acc_trace.pack_poly_to_vec().into_iter())
+            .collect()
+    }
+
+    #[inline]
+    fn pack_to_vec(&self) -> Vec<F> {
+        unimplemented!()
+    }
+}
+
 impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for PBSTraceMLE<F> {
     type TraceEvalEF = PBSTraceEval<EF>;
     fn evaluate_ef(&self, point: &[EF]) -> PBSTraceEval<EF> {
         PBSTraceEval {
             acc_trace: self.acc_trace.evaluate_ef(point),
             hadamard_trace: self.hadamard_trace.evaluate_ef(point),
+        }
+    }
+}
+
+impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for PBSTraceMLE<F> {
+    type Output = PBSTraceMLE<EF>;
+
+    fn to_ef(&self) -> Self::Output {
+        PBSTraceMLE {
+            log_coeff_count: self.log_coeff_count,
+            log_num_round: self.log_num_round,
+            acc_trace: self.acc_trace.to_ef(),
+            hadamard_trace: self.hadamard_trace.to_ef(),
         }
     }
 }

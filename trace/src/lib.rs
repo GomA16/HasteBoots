@@ -16,16 +16,11 @@ pub use pbs_trace::{PBSTrace, PBSTraceMLE};
 
 pub trait ConvertToEF<F: Field, EF: AbstractExtensionField<F>> {
     type Output;
-    fn into_ef(self) -> Self::Output;
     fn to_ef(&self) -> Self::Output;
 }
 
 impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for Vec<F> {
     type Output = Vec<EF>;
-
-    fn into_ef(self) -> Self::Output {
-        self.into_iter().map(EF::from_base).collect()
-    }
 
     fn to_ef(&self) -> Self::Output {
         self.iter().map(|&b| EF::from_base(b)).collect()
@@ -34,10 +29,6 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for Vec<F> {
 
 impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for DenseMultilinearExtension<F> {
     type Output = DenseMultilinearExtension<EF>;
-
-    fn into_ef(self) -> Self::Output {
-        DenseMultilinearExtension::from_evaluations_vec(self.num_vars, self.evaluations.into_ef())
-    }
 
     fn to_ef(&self) -> Self::Output {
         DenseMultilinearExtension::from_evaluations_vec(self.num_vars, self.evaluations.to_ef())

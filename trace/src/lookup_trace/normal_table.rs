@@ -171,10 +171,6 @@ impl<F: Field> From<LookupTraceMLE<F>> for LookupWitness<F> {
 
 impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for LookupTraceMLE<F> {
     type Output = LookupTraceMLE<EF>;
-    fn into_ef(self) -> Self::Output {
-        assert!(false, "into_ef not supported for LookupTraceMLE");
-        unimplemented!()
-    }
 
     fn to_ef(&self) -> Self::Output {
         LookupTraceMLE {
@@ -208,10 +204,6 @@ impl<F: Field> LookupTraceMLE<F> {
 
 impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for LookupWitness<F> {
     type Output = LookupWitness<EF>;
-    fn into_ef(self) -> Self::Output {
-        assert!(false, "into_ef not supported for LookupWitness");
-        unimplemented!()
-    }
 
     fn to_ef(&self) -> Self::Output {
         LookupWitness {

@@ -403,7 +403,10 @@ impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
         });
 
         let mut sumcheck_claim = SumcheckClaim::new(num_vars);
-        let randomness = infos[0].sample_randomness_for_sumcheck_batch(trans, instances.len());
+        let randomness = infos
+            .iter()
+            .map(|info| info.sample_randomness_for_sumcheck(trans))
+            .collect::<Vec<_>>();
 
         let mut prover_state =
             Self::prover_batch_add_sumcheck(instances, &mut sumcheck_claim, &randomness, None)
@@ -518,7 +521,10 @@ impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
             debug_assert_eq!(inst.log_coeff_count, log_coeff_count);
         });
 
-        let randomness = infos[0].sample_randomness_for_sumcheck_batch(trans, infos.len());
+        let randomness = infos
+            .iter()
+            .map(|info| info.sample_randomness_for_sumcheck(trans))
+            .collect::<Vec<_>>();
 
         let mut res = true;
         let mut sumcheck_subclaim = MLSumcheck::verify(

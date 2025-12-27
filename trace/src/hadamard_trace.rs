@@ -94,11 +94,6 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for HadamardTra
     type Output = HadamardTraceMLE<EF>;
 
     #[inline]
-    fn into_ef(self) -> Self::Output {
-        unimplemented!("into_ef for HadamardTraceMLE is not supported yet");
-    }
-
-    #[inline]
     fn to_ef(&self) -> Self::Output {
         Self::Output {
             log_coeff_count: self.log_coeff_count,
@@ -111,10 +106,6 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for HadamardTra
 
 impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for SumHadamardTraceMLE<F> {
     type Output = SumHadamardTraceMLE<EF>;
-    #[inline]
-    fn into_ef(self) -> Self::Output {
-        unimplemented!("into_ef for SumHadamardTraceMLE is not supported yet");
-    }
 
     #[inline]
     fn to_ef(&self) -> Self::Output {

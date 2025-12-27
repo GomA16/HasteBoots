@@ -43,7 +43,7 @@ pub static CUSTOM_TERNARY_128_BITS_PARAMETERS: Lazy<Parameters<DefaultFieldU32>>
 /// Default 128-bits security Parameters
 pub static BABYBEAR_BINARY_128_BITS_PARAMETERS: Lazy<Parameters<BabyBear>> = Lazy::new(|| {
     Parameters::<BabyBear>::new(ConstParameters {
-        lwe_dimension: 512,
+        lwe_dimension: 1024,
         lwe_plain_modulus: 4,
         lwe_noise_standard_deviation: 3.20,
         lwe_secret_key_type: LWESecretKeyType::Binary,

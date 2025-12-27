@@ -1,5 +1,6 @@
 use algebra::AbstractExtensionField;
 use algebra::{DenseMultilinearExtension, Field, NTTField, transformation::AbstractNTT};
+use serde::Serialize;
 
 use crate::hadamard_trace::HadamardTraceEval;
 use crate::rlwe_trace::{
@@ -46,6 +47,7 @@ pub struct AccTraceMLE<F: Field> {
     pub external_product_input: RLWETraceMLE<F>,
 }
 
+#[derive(Serialize)]
 pub struct AccTraceEval<F: Field> {
     pub log_coeff_count: usize,
     pub log_num_round: usize,
@@ -165,11 +167,38 @@ impl<F: Field> PackableTrace<F> for AccTraceMLE<F> {
     }
 }
 
-impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for AccTraceMLE<F> {
-    type Output = AccTraceMLE<EF>;
-    fn into_ef(self) -> Self::Output {
+impl<F: Field> PackableEval<F> for AccTraceEval<F> {
+    #[inline]
+    fn num_evals(&self) -> usize {
+        self.input_acc.num_evals() + self.monomial_times_acc.num_evals()
+    }
+
+    #[inline]
+    fn pack_ntt_to_vec(&self) -> Vec<F> {
+        self.input_acc
+            .pack_ntt_to_vec()
+            .into_iter()
+            .chain(self.monomial_times_acc.pack_ntt_to_vec())
+            .collect()
+    }
+
+    #[inline]
+    fn pack_poly_to_vec(&self) -> Vec<F> {
+        self.input_acc
+            .pack_poly_to_vec()
+            .into_iter()
+            .chain(self.monomial_times_acc.pack_poly_to_vec())
+            .collect()
+    }
+
+    #[inline]
+    fn pack_to_vec(&self) -> Vec<F> {
         unimplemented!()
     }
+}
+
+impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for AccTraceMLE<F> {
+    type Output = AccTraceMLE<EF>;
     fn to_ef(&self) -> AccTraceMLE<EF> {
         AccTraceMLE {
             log_coeff_count: self.log_coeff_count,
@@ -242,14 +271,5 @@ impl<F: Field> AccTraceEval<F> {
             vec_hadamard: vec![hadamard_eval],
             sum_prod: self.monomial_times_acc.clone(),
         }
-    }
-
-    pub fn get_commit_ntt_eval(&self) -> Vec<F> {
-        vec![
-            self.input_acc.ntt.0,
-            self.input_acc.ntt.1,
-            self.monomial_times_acc.ntt.0,
-            self.monomial_times_acc.ntt.1,
-        ]
     }
 }

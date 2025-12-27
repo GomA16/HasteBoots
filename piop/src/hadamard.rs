@@ -13,6 +13,7 @@ use sumcheck::prover;
 use sumcheck::verifier::SubClaim;
 use trace::SumHadamardTraceEval;
 use trace::SumHadamardTraceMLE;
+use trace::pbs_trace::PBSTraceEval;
 
 use crate::BatchedSumcheckPIOP;
 use crate::LagrangeKernel;
@@ -208,6 +209,17 @@ impl<F: Field> BatchedSumHadamardProof<F> {
         proof
     }
 
+    pub fn from_pbs_trace_eval(trace_eval: &PBSTraceEval<F>) -> Self {
+        let mut proof = BatchedSumHadamardProof {
+            poly_info: PolynomialInfo::default(),
+            sumcheck_proof: Proof::default(),
+            hadamard_at_r: Vec::with_capacity(4),
+        };
+        proof.append_eval(&trace_eval.hadamard_trace);
+        proof.append_eval(&trace_eval.acc_trace.extract_hadamard_eval());
+        proof
+    }
+
     pub fn append_eval(&mut self, trace_eval: &SumHadamardTraceEval<F>) {
         let num_sum = 2;
         let mut hadamard_at_r: Vec<SumHadamardEval<F>> = Vec::with_capacity(num_sum);
@@ -236,7 +248,7 @@ impl<F: Field> BatchedSumHadamardProof<F> {
 
         add_into_batch(trace_eval);
 
-        self.hadamard_at_r = hadamard_at_r;
+        self.hadamard_at_r.extend(hadamard_at_r);
     }
 }
 
