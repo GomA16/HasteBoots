@@ -34,6 +34,7 @@ where
     _marker_pcs: std::marker::PhantomData<PCS>,
 }
 
+#[derive(Serialize)]
 pub struct SparseRowEvalSnarksProof<F, EF, S, PCS>
 where
     F: Field,
@@ -41,8 +42,11 @@ where
     S: Clone,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
+    #[serde(skip)]
     pub val_commitment: PCS::EFPolynomial,
+    #[serde(skip)]
     pub col_commitment: PCS::EFPolynomial,
+    #[serde(skip)]
     pub eval_mle_ry_commitment: PCS::EFPolynomial,
     pub indexed_lookup_proof: IndexedLogUpSnarksProof<F, EF, S, PCS>,
     pub sparse_row_instance_info: SparseRowEvalInstanceInfo<EF>,

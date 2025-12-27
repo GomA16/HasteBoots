@@ -145,15 +145,19 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for Hadama
     }
 
     fn evaluate_ef_with_lookup(
-            &self,
-            point: &[EF],
-            trace_ef: &Self::TraceMLEEF,
-            hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
-            eval_table: &[EF],
-        ) -> Self::TraceEvalEF {
+        &self,
+        point: &[EF],
+        trace_ef: &Self::TraceMLEEF,
+        hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+        eval_table: &[EF],
+    ) -> Self::TraceEvalEF {
         Self::TraceEvalEF {
-            bit: self.bit.evaluate_ef_with_lookup(point, &trace_ef.bit, hash_table, eval_table),
-            rlwe: self.rlwe.evaluate_ef_with_lookup(point, &trace_ef.rlwe, hash_table, eval_table),
+            bit: self
+                .bit
+                .evaluate_ef_with_lookup(point, &trace_ef.bit, hash_table, eval_table),
+            rlwe: self
+                .rlwe
+                .evaluate_ef_with_lookup(point, &trace_ef.rlwe, hash_table, eval_table),
         }
     }
 }
@@ -177,7 +181,9 @@ impl<F: Field> EvaluableTrace<F> for HadamardTraceMLE<F> {
     ) -> Self::TraceEval {
         Self::TraceEval {
             bit: self.bit.evaluate_with_lookup(point, hash_table, eval_table),
-            rlwe: self.rlwe.evaluate_with_lookup(point, hash_table, eval_table),
+            rlwe: self
+                .rlwe
+                .evaluate_with_lookup(point, hash_table, eval_table),
         }
     }
 }
@@ -234,34 +240,27 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for SumHad
 
     #[inline]
     fn evaluate_ef_with_lookup(
-            &self,
-            point: &[EF],
-            trace_ef: &Self::TraceMLEEF,
-            hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
-            eval_table: &[EF],
-        ) -> Self::TraceEvalEF {
+        &self,
+        point: &[EF],
+        trace_ef: &Self::TraceMLEEF,
+        hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+        eval_table: &[EF],
+    ) -> Self::TraceEvalEF {
         Self::TraceEvalEF {
             vec_hadamard: self
                 .vec_hadamard
                 .iter()
                 .zip(trace_ef.vec_hadamard.iter())
                 .map(|(trace, trace_ef)| {
-                    trace.evaluate_ef_with_lookup(
-                        point,
-                        trace_ef,
-                        hash_table,
-                        eval_table,
-                    )
+                    trace.evaluate_ef_with_lookup(point, trace_ef, hash_table, eval_table)
                 })
                 .collect(),
-            sum_prod: self
-                .sum_prod
-                .evaluate_ef_with_lookup(
-                    point,
-                    &trace_ef.sum_prod,
-                    hash_table,
-                    eval_table,
-                ),
+            sum_prod: self.sum_prod.evaluate_ef_with_lookup(
+                point,
+                &trace_ef.sum_prod,
+                hash_table,
+                eval_table,
+            ),
         }
     }
 }
@@ -344,7 +343,7 @@ impl<F: Field> SumHadamardTrace<F> {
         }
         self.sum_prod.finalize(num_round);
     }
-    
+
     #[inline]
     pub fn num_bit_poly(&self) -> usize {
         self.num_hadamard

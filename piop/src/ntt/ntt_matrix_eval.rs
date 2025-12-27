@@ -2,10 +2,10 @@ use algebra::{
     AbstractExtensionField, DenseMultilinearExtension, Field, MultilinearExtension, NTTField,
     PolynomialInfo, transformation::AbstractNTT,
 };
+use core::time;
 use helper::{FiatShamirTranscript, Transcript};
 use itertools::izip;
 use serde::Serialize;
-use core::time;
 use std::rc::Rc;
 use sumcheck::{MLSumcheck, Proof, verifier::SubClaim};
 use trace::NTTTraceMLE;
@@ -199,7 +199,10 @@ impl<F: Field> SumcheckPureProof<F> for NTTMatrixEvalProof<F> {
 }
 
 impl<F: Field> SumcheckPureProverState<F> for NTTMatrixEvalProverState<F> {
-    fn from_sumcheck(_sumcheck_prover_state: sumcheck::prover::ProverState<F>, _claim: SumcheckClaim<F>) -> Self {
+    fn from_sumcheck(
+        _sumcheck_prover_state: sumcheck::prover::ProverState<F>,
+        _claim: SumcheckClaim<F>,
+    ) -> Self {
         unimplemented!("from_sumcheck is not implemented for NTTMatrixEvalProverState");
     }
 }
@@ -369,7 +372,10 @@ impl<F: Field> SumcheckPureProof<F> for BatchedNTTMatrixEvalProof<F> {
 }
 
 impl<F: Field> SumcheckPureProverState<F> for BatchedNTTMatrixEvalProverState<F> {
-    fn from_sumcheck(_sumcheck_prover_state: sumcheck::prover::ProverState<F>, claim: SumcheckClaim<F>) -> Self {
+    fn from_sumcheck(
+        _sumcheck_prover_state: sumcheck::prover::ProverState<F>,
+        claim: SumcheckClaim<F>,
+    ) -> Self {
         unimplemented!("from_sumcheck is not implemented for BatchedNTTMatrixEvalProverState");
     }
 }

@@ -187,8 +187,9 @@ impl<EF: Field> ListOfProductsOfPolynomials<EF> {
         mle_ef: &Rc<DenseMultilinearExtension<EF>>,
         eval_table: &[EF],
         point: &[EF],
-    ) -> EF 
-    where EF: AbstractExtensionField<F>,
+    ) -> EF
+    where
+        EF: AbstractExtensionField<F>,
     {
         let m_ptr: *const DenseMultilinearExtension<EF> = Rc::as_ptr(mle_ef);
         if let Some(index) = self.raw_pointers_lookup_table.get(&m_ptr) {

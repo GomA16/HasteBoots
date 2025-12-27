@@ -79,7 +79,7 @@ where
 
 pub struct MonomialHadamardProof<F, EF, S, PCS>
 where
-    F: Field,
+    F: Field + Serialize,
     EF: AbstractExtensionField<F>,
     S: Clone,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
@@ -98,7 +98,7 @@ where
 
 impl<F, EF, S, PCS> MonomialHadamardSnarks<F, EF, S, PCS>
 where
-    F: Field,
+    F: Field + Serialize,
     EF: AbstractExtensionField<F> + Serialize,
     S: Clone,
     PCS: PolynomialCommitmentScheme<

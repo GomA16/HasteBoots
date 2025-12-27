@@ -164,14 +164,14 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for PBSTra
             hadamard_trace: self.hadamard_trace.evaluate_ef(point),
         }
     }
-    
+
     fn evaluate_ef_with_lookup(
-            &self,
-            point: &[EF],
-            trace_ef: &Self::TraceMLEEF,
-            hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
-            eval_table: &[EF],
-        ) -> Self::TraceEvalEF {
+        &self,
+        point: &[EF],
+        trace_ef: &Self::TraceMLEEF,
+        hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+        eval_table: &[EF],
+    ) -> Self::TraceEvalEF {
         PBSTraceEval {
             acc_trace: self.acc_trace.evaluate_ef_with_lookup(
                 point,

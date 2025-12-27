@@ -48,11 +48,9 @@ impl<F: Field> ProverState<F> {
     pub fn fast_evaluate(&self) -> Vec<F> {
         let last_random = *self.randomness.last().unwrap();
         let fast_compute = |mle: &DenseMultilinearExtension<F>| {
-            mle.evaluations[0]
-                + last_random * (mle.evaluations[1] - mle.evaluations[0])
+            mle.evaluations[0] + last_random * (mle.evaluations[1] - mle.evaluations[0])
         };
-        self
-            .flattened_ml_extensions
+        self.flattened_ml_extensions
             .par_iter()
             .map(fast_compute)
             .collect::<Vec<_>>()

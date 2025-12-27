@@ -1,4 +1,6 @@
-use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials};
+use algebra::{
+    AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
+};
 
 pub mod acc_trace;
 pub mod hadamard_trace;
@@ -92,5 +94,4 @@ pub trait EvaluableTraceEF<F: Field, EF: AbstractExtensionField<F>> {
 
 pub trait LookupableTraceEF<F: Field, EF: AbstractExtensionField<F>> {
     type TraceEvalEF;
-    
 }

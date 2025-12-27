@@ -126,7 +126,10 @@ impl<F: Field> SumcheckPureProof<F> for NTTEvalProof<F> {
 }
 
 impl<F: Field> SumcheckPureProverState<F> for NTTEvalProverState<F> {
-    fn from_sumcheck(_sumcheck_prover_state: sumcheck::prover::ProverState<F>, _claim: SumcheckClaim<F>) -> Self {
+    fn from_sumcheck(
+        _sumcheck_prover_state: sumcheck::prover::ProverState<F>,
+        _claim: SumcheckClaim<F>,
+    ) -> Self {
         unimplemented!("from_sumcheck is not implemented for NTTEvalProverState");
     }
 }

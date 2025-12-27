@@ -8,7 +8,11 @@ use helper::{FiatShamirTranscript, Transcript};
 use pcs::PolynomialCommitmentScheme;
 use piop::hadamard::{BatchedSumHadamardProof, HadamardPIOP, SumHadamardInfo, SumHadamardInstance};
 use piop::lookup::small_table::{LogUpIOP, LogUpInstance, LogUpInstanceInfo, LogUpProof};
-use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance, NTTMatrixEvalProof};
+use piop::ntt::{
+    BatchedNTTMatrixEvalProof, NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance,
+    NTTMatrixEvalProof,
+};
+use piop::sparse_matrix_eval::sparse_row::SparseRowEvalInstance;
 use piop::{
     BatchedSumcheckPIOP, LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance,
     SumcheckPIOP,
@@ -18,9 +22,13 @@ use sumcheck::{MLSumcheck, Proof};
 use trace::lookup_trace::small_table::LookupWitnessHelperEval;
 use trace::pbs_trace::PBSTraceEval;
 use trace::{
-    ConvertToEF, EvaluableTraceEF, PBSTrace, PBSTraceMLE, PackableTrace, SumHadamardTraceEval, pbs_trace
+    ConvertToEF, EvaluableTraceEF, PBSTrace, PBSTraceMLE, PackableTrace, SumHadamardTraceEval,
+    acc_trace, pbs_trace,
 };
 use trace::{EvaluableTrace, PackableEval, SumHadamardTraceMLE};
+
+use crate::sparse_matrix_eval::SparseRowEvalSnarks;
+use crate::sparse_matrix_eval::sparse_row::SparseRowEvalSnarksProof;
 
 #[derive(Default)]
 pub struct BlindRotationSnarks<F, EF, S, PCS>
@@ -105,12 +113,14 @@ where
     pub lookup_proof: LogUpProof<EF>,
     pub hadamard_info: Vec<SumHadamardInfo<EF>>,
     pub hadamard_proof: BatchedSumHadamardProof<EF>,
-    pub ntt_info: NTTMatrixEvalInfo<EF>,
-    pub ntt_proof: NTTMatrixEvalProof<EF>,
+    pub ntt_infos: Vec<NTTMatrixEvalInfo<EF>>,
+    pub ntt_proof: BatchedNTTMatrixEvalProof<EF>,
     #[serde(skip)]
     pub eval_proof: Vec<PCS::Proof>,
     #[serde(skip)]
     pub eval_ef_proof: PCS::ProofEF,
+    pub sparse_eval_proof: SparseRowEvalSnarksProof<F, EF, S, PCS>,
+
     // Redudant fields for ease of implementation
     #[serde(skip)]
     pub trace_evals: PBSTraceEval<EF>,
@@ -151,7 +161,7 @@ where
             + bincode::serde::encode_to_vec(&self.hadamard_proof, standard())
                 .unwrap()
                 .len()
-            + bincode::serde::encode_to_vec(&self.ntt_info, standard())
+            + bincode::serde::encode_to_vec(&self.ntt_infos, standard())
                 .unwrap()
                 .len()
             + bincode::serde::encode_to_vec(&self.ntt_proof, standard())
@@ -227,7 +237,7 @@ where
         let helper_poly = lookup_helper.generate_oracle();
         let (helper_commitment, helper_commitment_state) =
             PCS::commit_ef(&params.pcs_params_ef, &helper_poly);
-        println!("Commit Phase time: {:?}", time.elapsed());
+        println!("[P] Commit Phase time: {:?}", time.elapsed());
 
         // [PIOP Phase] extract the Hadamard instances
         let time = std::time::Instant::now();
@@ -282,9 +292,8 @@ where
             .expect("[External Product PIOP] Fail to generate sumcheck proof.");
         trans.append_message(b"[Sumcheck Protocol]", &sumcheck_proof);
 
-        
         let eval_table = sumcheck_state.fast_evaluate();
-        
+
         let time = std::time::Instant::now();
         let trace_evals = pbs_trace_mle.evaluate_ef_with_lookup(
             &sumcheck_state.randomness,
@@ -297,8 +306,10 @@ where
             &sumcheck_claim.poly,
             &eval_table,
         );
-        println!("PIOP Phase: Helper Evaluation Phase time: {:?}", time.elapsed());
-        
+        println!(
+            "[P] PIOP Phase: Evaluation Phase time: {:?}",
+            time.elapsed()
+        );
 
         // [PIOP Phase] evaluate the polynomials and append them into proof
         // let trace_evals = pbs_trace_mle.evaluate_ef(&sumcheck_state.randomness);
@@ -316,6 +327,18 @@ where
             sumcheck_state.randomness[..pbs_trace_mle.hadamard_trace.log_coeff_count].to_vec();
         let mut point_v =
             sumcheck_state.randomness[pbs_trace_mle.hadamard_trace.log_coeff_count..].to_vec();
+
+        // NTT Sparse Matrix Evaluation
+        let monomial_poly = pbs_ef.acc_trace.monomial.poly;
+        let ntt_sparse_instance = NTTMatrixEvalInstance::from_subclaim(
+            &monomial_poly,
+            &params.ntt_table,
+            &point_u,
+            &point_v,
+            trace_evals.acc_trace.monomial.ntt,
+        );
+
+        // Normal NTT Matrix Evaluation
         let point_bit_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
             pbs_trace_mle.log_num_oracles(),
@@ -329,36 +352,42 @@ where
             Vec::with_capacity(point_u.len() + point_v.len() + point_bit_oracle.len());
         let mut open_point_ef =
             Vec::with_capacity(point_u.len() + point_v.len() + point_helper_oracle.len());
-        open_point_1.extend_from_slice(&point_u);
-        open_point_1.extend_from_slice(&point_v);
+        open_point_1.extend_from_slice(&sumcheck_state.randomness);
         open_point_1.extend_from_slice(&point_bit_oracle);
         open_point_ef.extend_from_slice(&sumcheck_state.randomness);
         open_point_ef.extend_from_slice(&point_helper_oracle);
 
         // Reduced subclaim from Hadamard: query the evluation polynomial at `open_point_1`,
         // which can be further proven by NTT PIOP
+        // TODO : optimize the conversion (101.199208ms here)
         let bit_poly = Rc::new(bit_poly.to_ef());
         let bit_ntt_evals = trace_evals.pack_ntt_to_vec();
         let eval = compute_oracle_evals(&bit_ntt_evals, &point_bit_oracle);
 
-        point_v.extend_from_slice(&point_bit_oracle);
+        let mut point_v_prime = Vec::with_capacity(point_v.len() + point_bit_oracle.len());
+        point_v_prime.extend_from_slice(&point_v);
+        point_v_prime.extend_from_slice(&point_bit_oracle);
         let ntt_instance = NTTMatrixEvalInstance::from_subclaim(
             &bit_poly,
             &params.ntt_table,
             &point_u,
-            &point_v,
+            &point_v_prime,
             eval,
         );
-        let (ntt_piop_proof, ntt_piop_state) = NTTMatrixEvalIOP::prover(trans, &ntt_instance);
 
-        trans.append_message(b"[PIOP Phase]", &ntt_piop_proof);
+        let ntt_infos = vec![ntt_sparse_instance.info(), ntt_instance.info()];
+        let ntt_instances = vec![ntt_sparse_instance, ntt_instance];
+        let (ntt_proof, ntt_state) = NTTMatrixEvalIOP::prover_batch(trans, &ntt_instances);
 
-        println!("PIOP Phase time: {:?}", time.elapsed());
+        trans.append_message(b"[PIOP Phase]", &ntt_proof);
+
+        println!("[P] PIOP Phase time: {:?}", time.elapsed());
 
         let time = std::time::Instant::now();
-        let mut open_point_2 = Vec::with_capacity(ntt_piop_state.randomness.len() + point_v.len());
-        open_point_2.extend_from_slice(&ntt_piop_state.randomness);
-        open_point_2.extend_from_slice(&point_v);
+        // Open the coeffcient matrix evaluation `ntt_proof.coeff_eval_at_r_v[1]` at point_r_v_prime
+        let mut open_point_2 = Vec::with_capacity(ntt_state.randomness.len() + point_v_prime.len());
+        open_point_2.extend_from_slice(&ntt_state.randomness);
+        open_point_2.extend_from_slice(&point_v_prime);
         let open_points = vec![open_point_1, open_point_2];
         let eval_proof = PCS::batch_open(
             &params.pcs_params,
@@ -376,7 +405,23 @@ where
             trans,
         );
 
-        println!("PCS Opening Phase time: {:?}", time.elapsed());
+        println!("[P] PCS Opening Phase time: {:?}", time.elapsed());
+
+        // Open the sparse coefficient matrix evaluation `ntt_proof.coeff_eval_at_r_v[0]` at point_r_v using SparseMatrix
+        let time = std::time::Instant::now();
+        let kernel_rx = LagrangeKernel::from_point(&point_v);
+        let kernel_ry = LagrangeKernel::from_point(&ntt_state.randomness);
+        let sparse_matrix_eval_instance = SparseRowEvalInstance::from_subclaim::<F>(
+            &pbs_trace_mle.acc_trace.monomial_representation,
+            &kernel_rx,
+            &kernel_ry,
+            ntt_proof.coeff_eval_at_r_v[0],
+        );
+        let sparse_eval_proof = SparseRowEvalSnarks::<F, EF, S, PCS>::prove_as_subprotocol(
+            trans,
+            &sparse_matrix_eval_instance,
+        );
+        println!("[P] Sparse PCS Opening Phase time: {:?}", time.elapsed());
 
         BlindRotationProof {
             log_coeff_count: pbs_trace_mle.log_coeff_count,
@@ -392,10 +437,12 @@ where
             lookup_proof: lookup_eval_proof,
             hadamard_info: hadamard_instance_info,
             hadamard_proof: hadamard_eval_proof,
-            ntt_info: ntt_instance.info(),
-            ntt_proof: ntt_piop_proof,
+            ntt_infos,
+            ntt_proof,
             eval_proof,
             eval_ef_proof,
+            sparse_eval_proof,
+
             trace_evals,
             helper_evals,
         }
@@ -491,21 +538,22 @@ where
 
         point_v.extend_from_slice(&point_bit_oracle);
         let (ntt_res, ntt_subclaim) =
-            NTTMatrixEvalIOP::verifier(trans, &proof.ntt_info, &proof.ntt_proof);
-        let open_eval_2 = proof.ntt_proof.coeff_eval_at_r_v;
+            NTTMatrixEvalIOP::verifier_batch(trans, &proof.ntt_infos, &proof.ntt_proof);
+        let open_eval_2 = &proof.ntt_proof.coeff_eval_at_r_v;
         trans.append_message(b"[PIOP Phase]", &proof.ntt_proof);
         res &= ntt_res;
         assert!(res, "NTT Matrix Evaluation verification failed.");
 
-        println!("PIOP Phase time: {:?}", time.elapsed());
+        println!("[V] PIOP Phase time: {:?}", time.elapsed());
 
         let time = std::time::Instant::now();
         let mut open_point_2 = Vec::with_capacity(ntt_subclaim.randomness.len() + point_v.len());
         open_point_2.extend_from_slice(&ntt_subclaim.randomness);
         open_point_2.extend_from_slice(&point_v);
 
+        // Verify the coeffcient matrix evaluation `ntt_proof.coeff_eval_at_r_v[1]` at point_r_v_prime
         let open_points = vec![open_point_1, open_point_2];
-        let open_evals = vec![open_eval_1, open_eval_2];
+        let open_evals = vec![open_eval_1, open_eval_2[1]];
 
         // PCS Opening Phase
         let eval_res = PCS::batch_verify(
@@ -530,7 +578,17 @@ where
         res &= eval_ef_res;
         assert!(res, "PCS EF Opening verification failed.");
 
-        println!("PCS Opening Phase time: {:?}", time.elapsed());
+        println!("[V] PCS Opening Phase time: {:?}", time.elapsed());
+
+        // Verify the coeffcient matrix evaluation `ntt_proof.coeff_eval_at_r_v[0]` at point_r_v
+        let time = std::time::Instant::now();
+        let sparse_eval_res = SparseRowEvalSnarks::<F, EF, S, PCS>::verify_as_subprotocol(
+            trans,
+            &proof.sparse_eval_proof,
+        );
+        println!("[V] Sparse PCS Opening Phase time: {:?}", time.elapsed());
+        res &= sparse_eval_res;
+        assert!(res, "Sparse Matrix Evaluation verification failed.");
 
         res
     }

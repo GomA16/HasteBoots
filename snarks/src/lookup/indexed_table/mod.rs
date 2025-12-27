@@ -43,10 +43,15 @@ where
     S: Clone,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
+    #[serde(skip)]
     pub input_commitment: PCS::EFPolynomial,
+    #[serde(skip)]
     pub index_commitment: PCS::EFPolynomial,
+    #[serde(skip)]
     pub helper_input_commitment: PCS::EFPolynomial,
+    #[serde(skip)]
     pub multiplicity_commitment: PCS::EFPolynomial,
+    #[serde(skip)]
     pub helper_table_commitment: PCS::EFPolynomial,
     pub input_instance_info: IndexedLogUpInputInstanceInfo<EF>,
     pub input_piop_proof: IndexedLogUpInputProof<EF>,

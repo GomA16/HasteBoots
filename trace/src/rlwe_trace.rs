@@ -135,7 +135,6 @@ impl<F: NTTField> PolynomialTrace<F> {
     }
 }
 
-
 impl<F: Field> RLWETrace<F> {
     #[inline]
     pub fn new(log_coeff_count: usize, log_num_poly: usize) -> Self {
@@ -306,11 +305,11 @@ impl<F: Field> EvaluableTrace<F> for PolynomialTraceMLE<F> {
     }
 
     fn evaluate_with_lookup(
-            &self,
-            point: &[F],
-            hash_table: &algebra::ListOfProductsOfPolynomials<F>,
-            eval_table: &[F],
-        ) -> Self::TraceEval {
+        &self,
+        point: &[F],
+        hash_table: &algebra::ListOfProductsOfPolynomials<F>,
+        eval_table: &[F],
+    ) -> Self::TraceEval {
         Self::TraceEval {
             poly: hash_table.lookup_mle_eval(&self.poly, eval_table, point),
             ntt: hash_table.lookup_mle_eval(&self.ntt, eval_table, point),
@@ -329,12 +328,12 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for Polyno
     }
 
     fn evaluate_ef_with_lookup(
-            &self,
-            point: &[EF],
-            trace_ef: &Self::TraceMLEEF,
-            hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
-            eval_table: &[EF],
-        ) -> Self::TraceEvalEF {
+        &self,
+        point: &[EF],
+        trace_ef: &Self::TraceMLEEF,
+        hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+        eval_table: &[EF],
+    ) -> Self::TraceEvalEF {
         Self::TraceEvalEF {
             poly: hash_table.lookup_mle_eval_ef(&self.poly, &trace_ef.poly, eval_table, point),
             ntt: hash_table.lookup_mle_eval_ef(&self.ntt, &trace_ef.ntt, eval_table, point),
@@ -352,11 +351,11 @@ impl<F: Field> EvaluableTrace<F> for MonomialTraceMLE<F> {
     }
 
     fn evaluate_with_lookup(
-            &self,
-            point: &[F],
-            hash_table: &algebra::ListOfProductsOfPolynomials<F>,
-            eval_table: &[F],
-        ) -> Self::TraceEval {
+        &self,
+        point: &[F],
+        hash_table: &algebra::ListOfProductsOfPolynomials<F>,
+        eval_table: &[F],
+    ) -> Self::TraceEval {
         unimplemented!()
     }
 }
@@ -372,12 +371,12 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for Monomi
     }
 
     fn evaluate_ef_with_lookup(
-            &self,
-            point: &[EF],
-            trace_ef: &Self::TraceMLEEF,
-            hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
-            eval_table: &[EF],
-        ) -> Self::TraceEvalEF {
+        &self,
+        point: &[EF],
+        trace_ef: &Self::TraceMLEEF,
+        hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+        eval_table: &[EF],
+    ) -> Self::TraceEvalEF {
         unimplemented!()
     }
 }
@@ -392,11 +391,11 @@ impl<F: Field> EvaluableTrace<F> for RLWETraceMLE<F> {
     }
 
     fn evaluate_with_lookup(
-            &self,
-            point: &[F],
-            hash_table: &algebra::ListOfProductsOfPolynomials<F>,
-            eval_table: &[F],
-        ) -> Self::TraceEval {
+        &self,
+        point: &[F],
+        hash_table: &algebra::ListOfProductsOfPolynomials<F>,
+        eval_table: &[F],
+    ) -> Self::TraceEval {
         Self::TraceEval {
             poly: (
                 hash_table.lookup_mle_eval(&self.poly.0, eval_table, point),
@@ -426,12 +425,12 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for RLWETr
         }
     }
     fn evaluate_ef_with_lookup(
-            &self,
-            point: &[EF],
-            trace_ef: &Self::TraceMLEEF,
-            hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
-            eval_table: &[EF],
-        ) -> Self::TraceEvalEF {
+        &self,
+        point: &[EF],
+        trace_ef: &Self::TraceMLEEF,
+        hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+        eval_table: &[EF],
+    ) -> Self::TraceEvalEF {
         Self::TraceEvalEF {
             poly: (
                 hash_table.lookup_mle_eval_ef(&self.poly.0, &trace_ef.poly.0, eval_table, point),
@@ -527,7 +526,7 @@ impl<F: Field> PackableTrace<F> for PolynomialTrace<F> {
     fn pack_to_vec(&self) -> Vec<F> {
         self.poly.iter().cloned().collect::<Vec<F>>()
     }
-}   
+}
 
 impl<F: Field> PackableEval<F> for PolynomialEval<F> {
     fn num_evals(&self) -> usize {
