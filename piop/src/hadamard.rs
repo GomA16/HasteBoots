@@ -24,6 +24,7 @@ use crate::SumcheckClaim;
 use crate::SumcheckInfo;
 use crate::SumcheckInstance;
 use crate::SumcheckPIOP;
+use crate::SumcheckPureBatchedProof;
 use crate::SumcheckPureProof;
 use crate::SumcheckPureProverState;
 use crate::SumcheckPureSubclaim;
@@ -107,7 +108,7 @@ impl<F: Field> SumHadamardInstance<F> {
         }
     }
 
-    pub fn from_flatten_mle_evals(&self, state: &HadamardProverState<F>) -> SumHadamardEval<F> {
+    pub fn fast_eval_from_prover_state(&self, state: &HadamardProverState<F>) -> SumHadamardEval<F> {
         let lookup = |m: &Rc<DenseMultilinearExtension<F>>| {
             let m_ptr: *const DenseMultilinearExtension<F> = Rc::as_ptr(m);
             let index = state.raw_pointers_lookup_table.get(&m_ptr).unwrap();
@@ -194,13 +195,13 @@ impl<F: Field> SumHadamardInstance<F> {
     }
 
     fn random_num<R: rand::Rng + rand::CryptoRng>(
-        num_sum: usize,
+        num_instance: usize,
         num_vars: usize,
         num_prods: usize,
         rng: &mut R,
     ) -> Vec<Self> {
-        let mut vec_sum = Vec::with_capacity(num_sum);
-        for _ in 0..num_sum {
+        let mut vec_sum = Vec::with_capacity(num_instance);
+        for _ in 0..num_instance {
             vec_sum.push(SumHadamardInstance::random(num_vars, num_prods, rng));
         }
         vec_sum
@@ -355,6 +356,42 @@ impl<F: Field> SumcheckPureProof<F> for BatchedSumHadamardProof<F> {
     }
 }
 
+impl<F: Field + Serialize> SumcheckPureBatchedProof<F> for BatchedSumHadamardProof<F> {
+    type Instance = SumHadamardInstance<F>;
+    type Info = SumHadamardInfo<F>;
+    type ProverState = HadamardProverState<F>;
+
+    fn append_evaluations(&mut self, instances: &[Self::Instance], prover_state: &Self::ProverState) {
+        let lookup = |m: &Rc<DenseMultilinearExtension<F>>| {
+            let m_ptr: *const DenseMultilinearExtension<F> = Rc::as_ptr(m);
+            let index = prover_state.raw_pointers_lookup_table.get(&m_ptr).unwrap();
+            prover_state.flattened_mle_evals[*index]
+        };
+
+        self.hadamard_at_r = instances
+            .iter()
+            .map(|instance| {
+                let mut products_at_r = Vec::with_capacity(instance.num_products);
+                for (a, b) in &instance.products {
+                    products_at_r.push((lookup(a), lookup(b)));
+                }
+                SumHadamardEval {
+                    products_at_r,
+                    result_at_r: lookup(&instance.result),
+                }
+            })
+            .collect::<Vec<_>>();
+    }
+
+    fn compute_subclaim(&self, _infos: &[Self::Info], subclaim: &mut SubClaim<F>, randomness: &Vec<Vec<F>>, kernel_at_r: Option<F>) {
+        assert!(kernel_at_r.is_some());
+        for (hadamard_eval, r) in izip!(&self.hadamard_at_r, randomness) {
+            subclaim.expected_evaluations -=
+                hadamard_eval.compute_subclaim(r[0], kernel_at_r.unwrap());
+        }
+    }
+}
+
 impl<F: Field> SumcheckPureProverState<F> for HadamardProverState<F> {
     // Computation Opmitization:
     // Flattened MLE evaluations in prover_state are tables of size 2,
@@ -447,38 +484,6 @@ impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for HadamardPIOP<F> {
     type BatchedProof = BatchedSumHadamardProof<F>;
     type BatchedProverState = HadamardProverState<F>;
     type BatchedVerifierSubclaim = HadamardVerifierSubclaim<F>;
-
-    fn prover_batch(
-        trans: &mut Transcript<F>,
-        instances: &[Self::Instance],
-    ) -> (Self::BatchedProof, Self::BatchedProverState) {
-        let (mut proof, state) = Self::prover_batch_without_evals(trans, instances);
-
-        // proof.hadamard_at_r = instances
-        //     .iter()
-        //     .map(|instance| instance.eval_at_point(&state.point_r))
-        //     .collect::<Vec<_>>();
-
-        proof.hadamard_at_r = instances
-            .iter()
-            .map(|instance| instance.from_flatten_mle_evals(&state))
-            .collect::<Vec<_>>();
-
-        (proof, state)
-    }
-
-    fn verifier_batch_compute_subclaim(
-        _infos: &[Self::Info],
-        proof: &Self::BatchedProof,
-        subclaim: &mut SubClaim<F>,
-        randomness: &Vec<Vec<F>>,
-        kernel_at_r: Option<F>,
-    ) {
-        for (hadamard_eval, r) in izip!(&proof.hadamard_at_r, randomness) {
-            subclaim.expected_evaluations -=
-                hadamard_eval.compute_subclaim(r[0], kernel_at_r.unwrap());
-        }
-    }
 }
 
 #[cfg(test)]

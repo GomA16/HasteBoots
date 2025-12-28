@@ -6,8 +6,10 @@ use std::rc::Rc;
 
 use algebra::{DenseMultilinearExtension, Field, PolynomialInfo};
 use helper::utils::eval_identity_function;
+use rand::rand_core::le;
 use serde::Serialize;
 use sumcheck::Proof;
+use trace::acc_trace::AccIterationTraceMLE;
 
 use crate::{
     LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance, SumcheckPIOP, SumcheckPureProof,
@@ -108,13 +110,14 @@ impl<F: Field> BottomRowEvalInstance<F> {
             DenseMultilinearExtension::from_evaluations_vec(log_num_rows + log_num_cols, matrix)
                 .evaluate(&point);
 
+        let row = DenseMultilinearExtension::from_evaluations_vec(log_num_cols, row);
+        let coeff = eval_identity_function(&vec![F::one(); log_num_rows], &point_rx);
+        assert_eq!(eval_ry_rx, coeff * row.evaluate(&point_ry));
+        
         Self {
             log_num_rows,
             log_num_cols,
-            row: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
-                log_num_cols,
-                row,
-            )),
+            row: Rc::new(row),
             point_rx,
             kernel_ry,
             eval_ry_rx,

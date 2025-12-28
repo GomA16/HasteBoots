@@ -62,6 +62,8 @@ pub struct AccTraceMLE<F: Field> {
 }
 
 pub struct AccIterationTraceMLE<F: Field> {
+    pub log_coeff_count: usize,
+    pub log_num_round: usize,
     pub inital_acc: RLWETraceMLE<F>,
     pub final_acc: RLWETraceMLE<F>,
     // commited in AccTrace
@@ -77,6 +79,8 @@ pub struct AccIterationTraceMLE<F: Field> {
 
     // input_acc_permuted = output_acc + Zero matrix
     // where Zero matrix is a matrix where only the last row is inital_acc - final_acc
+    // Z(ry, rx) = eq(rx, 1...1) * row(ry)
+    
     // input_acc_permuted = permutation_matrix * input_acc
     pub input_acc_permuted: RLWETraceMLE<F>,
 }

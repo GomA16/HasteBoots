@@ -28,6 +28,7 @@ impl<F: Field> RowPermTrace<F> {
     ) -> Self {
         let num_rows = 1 << log_num_rows;
         let row_size = 1 << log_num_cols;
+        // Special row permutation used in our case: cyclic shift by 1
         let mut perm = (0..num_rows).map(|x| x).collect::<Vec<usize>>();
         perm.rotate_left(1);
         let initial_input = (0..row_size).map(|_| F::random(rng)).collect::<Vec<F>>();

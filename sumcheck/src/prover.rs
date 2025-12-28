@@ -42,21 +42,6 @@ pub struct ProverState<F: Field> {
     pub round: usize,
 }
 
-impl<F: Field> ProverState<F> {
-    /// Fast evaluation of all involved MLEs after the last round of the sumcheck protocol
-    #[inline]
-    pub fn fast_evaluate(&self) -> Vec<F> {
-        let last_random = *self.randomness.last().unwrap();
-        let fast_compute = |mle: &DenseMultilinearExtension<F>| {
-            mle.evaluations[0] + last_random * (mle.evaluations[1] - mle.evaluations[0])
-        };
-        self.flattened_ml_extensions
-            .par_iter()
-            .map(fast_compute)
-            .collect::<Vec<_>>()
-    }
-}
-
 impl<F: Field> IPForMLSumcheck<F> {
     /// Initilaize the prover to argue for the sum of polynomial over {0, 1}^`num_vars`
     ///
@@ -167,5 +152,21 @@ impl<F: Field> IPForMLSumcheck<F> {
                 |acc, a| acc.iter().zip(a.iter()).map(|(&acc, &a)| acc + a).collect(),
             );
         ProverMsg { evaluations: res }
+    }
+}
+
+impl<F: Field> ProverState<F> {
+    /// Fast evaluation of all involved MLEs after the last round of the sumcheck protocol
+    #[inline]
+    pub fn fast_evaluate(&self) -> Vec<F> {
+        // TODO assert round is the last round?
+        let last_random = *self.randomness.last().unwrap();
+        let fast_compute = |mle: &DenseMultilinearExtension<F>| {
+            mle.evaluations[0] + last_random * (mle.evaluations[1] - mle.evaluations[0])
+        };
+        self.flattened_ml_extensions
+            .par_iter()
+            .map(fast_compute)
+            .collect::<Vec<_>>()
     }
 }

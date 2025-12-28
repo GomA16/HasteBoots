@@ -33,19 +33,26 @@ use algebra::DenseMultilinearExtension;
 use algebra::Field;
 use algebra::MultilinearExtension;
 use algebra::PolynomialInfo;
+use arc_swap::strategy;
 use bincode::config;
 use helper::utils::gen_identity_evaluations;
 use num_traits::{Zero, ops::inv, sign};
 use rand::random;
 use serde::Serialize;
+use sha2::digest::typenum::type_operators;
+use sumcheck::verifier::SubClaim;
+use std::collections::HashMap;
+use std::os::macos::raw::stat;
 use std::{mem::Discriminant, rc::Rc};
 use sumcheck::Proof;
 use trace::row_perm_trace::RowPermTrace;
 use trace::row_perm_trace::RowPermTraceMLE;
 
+use crate::BatchedSumcheckPIOP;
 use crate::SumcheckInfo;
 use crate::SumcheckInstance;
 use crate::SumcheckPIOP;
+use crate::SumcheckPureBatchedProof;
 use crate::SumcheckPureProof;
 use crate::SumcheckPureProverState;
 use crate::SumcheckPureSubclaim;
@@ -80,8 +87,17 @@ pub struct RowPermProof<F: Field> {
     pub input_at_ry_r: F,
 }
 
+pub struct BatchedRowPermProof<F: Field> {
+    pub poly_info: PolynomialInfo,
+    pub sumcheck_proof: Proof<F>,
+    pub perm_at_r_rx: Vec<F>,
+    pub input_at_ry_r: Vec<F>,
+}
+
 pub struct RowPermProverState<F: Field> {
     pub randomness: Vec<F>,
+    pub flattened_mle_evals: Vec<F>,
+    raw_pointers_lookup_table: HashMap<*const DenseMultilinearExtension<F>, usize>,
 }
 
 pub struct RowPermVerifierSubclaim<F: Field> {
@@ -89,6 +105,18 @@ pub struct RowPermVerifierSubclaim<F: Field> {
 }
 
 impl<F: Field> RowPermInstance<F> {
+    pub fn add_into_sumcheck(
+        &self,
+        claim: &mut crate::SumcheckClaim<F>,
+        random_lambda: F,
+    ) {
+        claim.poly.add_product(
+            vec![Rc::clone(&self.perm_rx), Rc::clone(&self.input_ry)],
+            random_lambda,
+        );
+        claim.sum += self.output_ry_rx * random_lambda;
+    }
+
     pub fn random<R: rand::Rng + rand::CryptoRng>(
         rng: &mut R,
         log_num_rows: usize,
@@ -168,13 +196,61 @@ impl<F: Field> SumcheckPureProof<F> for RowPermProof<F> {
     }
 }
 
+impl<F: Field> SumcheckPureProof<F> for BatchedRowPermProof<F> {
+    fn from_sumcheck(sumcheck_claim: &crate::SumcheckClaim<F>, proof: sumcheck::Proof<F>) -> Self {
+        BatchedRowPermProof {
+            poly_info: sumcheck_claim.poly.info(),
+            sumcheck_proof: proof,
+            perm_at_r_rx: vec![],
+            input_at_ry_r: vec![],
+        }
+    }
+    fn get_poly_info(&self) -> &PolynomialInfo {
+        &self.poly_info
+    }
+    fn get_sumcheck_proof(&self) -> &Proof<F> {
+        &self.sumcheck_proof
+    }
+}
+impl<F: Field + Serialize> SumcheckPureBatchedProof<F> for BatchedRowPermProof<F> {
+    type Info = RowPermInfo<F>;
+    type Instance = RowPermInstance<F>;
+    type ProverState = RowPermProverState<F>;
+
+    fn append_evaluations(&mut self, instances: &[Self::Instance], prover_state: &Self::ProverState) {
+        let lookup = |m: &Rc<DenseMultilinearExtension<F>>| {
+            let m_ptr: *const DenseMultilinearExtension<F> = Rc::as_ptr(m);
+            let index = prover_state.raw_pointers_lookup_table.get(&m_ptr).unwrap();
+            prover_state.flattened_mle_evals[*index]
+        };
+        self.input_at_ry_r = instances
+            .iter()
+            .map(|instance| lookup(&instance.input_ry))
+            .collect();
+        self.perm_at_r_rx = instances
+            .iter()
+            .map(|instance| lookup(&instance.perm_rx))
+            .collect();
+    }
+
+    fn compute_subclaim(&self, infos: &[Self::Info], subclaim: &mut SubClaim<F>, randomness: &Vec<Vec<F>>, _kernel_at_r: Option<F>) {
+        assert_eq!(randomness.len(), infos.len());
+        for (r, &input_at_ry_r, &perm_at_r_rx) in itertools::izip!(randomness.iter(), self.input_at_ry_r.iter(), self.perm_at_r_rx.iter()) {
+            subclaim.expected_evaluations -= perm_at_r_rx * input_at_ry_r * r[0];
+        }
+    }
+}
+
 impl<F: Field> SumcheckPureProverState<F> for RowPermProverState<F> {
     fn from_sumcheck(
         sumcheck_prover_state: sumcheck::prover::ProverState<F>,
         claim: crate::SumcheckClaim<F>,
     ) -> Self {
-        RowPermProverState {
-            randomness: sumcheck_prover_state.randomness.clone(),
+        let flattened_mle_evals = sumcheck_prover_state.fast_evaluate();
+        Self {
+            randomness: sumcheck_prover_state.randomness,
+            flattened_mle_evals,
+            raw_pointers_lookup_table: claim.poly.raw_pointers_lookup_table,
         }
     }
 }
@@ -210,17 +286,12 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for RowPermPIOP<F> {
         randomness: &[F],
         _lagrange_kernel: Option<&crate::LagrangeKernel<F>>,
     ) -> Option<Self::ProverState> {
-        assert_eq!(randomness.len(), 1);
-        claim.poly.add_product(
-            vec![Rc::clone(&instance.perm_rx), Rc::clone(&instance.input_ry)],
-            randomness[0],
-        );
-        claim.sum += instance.output_ry_rx * randomness[0];
+        instance.add_into_sumcheck(claim, randomness[0]);
         None
     }
 
     fn verifier_compute_subclaim(
-        info: &Self::Info,
+        _info: &Self::Info,
         proof: &Self::Proof,
         subclaim: &mut sumcheck::verifier::SubClaim<F>,
         randomness: &[F],
@@ -229,6 +300,12 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for RowPermPIOP<F> {
         assert!(randomness.len() == 1);
         subclaim.expected_evaluations -= proof.perm_at_r_rx * proof.input_at_ry_r * randomness[0];
     }
+}
+
+impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for RowPermPIOP<F> {
+    type BatchedProof = BatchedRowPermProof<F>;
+    type BatchedProverState = RowPermProverState<F>;
+    type BatchedVerifierSubclaim = RowPermVerifierSubclaim<F>;
 }
 
 pub fn compute_inverse_permutation(perm: &Vec<usize>) -> Vec<usize> {
@@ -403,4 +480,28 @@ mod test {
         let (res, _) = RowPermPIOP::<FF>::verifier(&mut verifier_trans, &instance_info, &proof);
         assert!(res);
     }
+
+    #[test]
+    fn test_row_perm_piop_batched() {
+        let mut rng = rand::rng();
+        let log_num_rows = 2;
+        let log_num_cols = 2;
+        let num_instances = 3;
+
+        let instances = (0..num_instances)
+            .map(|_| RowPermInstance::<FF>::random(&mut rng, log_num_rows, log_num_cols))
+            .collect::<Vec<_>>();
+        let infos = instances
+            .iter()
+            .map(|instance| instance.info())
+            .collect::<Vec<_>>();
+
+        let mut prover_trans = Transcript::default();
+        let (proof, _prover_state) =
+            RowPermPIOP::<FF>::prover_batch(&mut prover_trans, &instances);
+        let mut verifier_trans = Transcript::default();
+        let (res, _) = RowPermPIOP::<FF>::verifier_batch(&mut verifier_trans, &infos, &proof);
+        assert!(res);        
+    }
+
 }

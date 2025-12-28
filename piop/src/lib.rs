@@ -95,9 +95,30 @@ pub trait SumcheckInfo<F: Field> {
 }
 
 pub trait SumcheckPureProof<F: Field> {
+    // construct from sumcheck proof and polynomial info (in claim)
     fn from_sumcheck(sumcheck_claim: &SumcheckClaim<F>, proof: Proof<F>) -> Self;
     fn get_poly_info(&self) -> &PolynomialInfo;
     fn get_sumcheck_proof(&self) -> &Proof<F>;
+}
+
+pub trait SumcheckPureBatchedProof<F: Field + Serialize>: SumcheckPureProof<F> {
+    type Instance: SumcheckInstance<F>;
+    type Info: SumcheckInfo<F>;
+    type ProverState: SumcheckPureProverState<F>;
+    // prover: append evaluations of each involved MLE at the random point
+    fn append_evaluations(
+        &mut self,
+        instances: &[Self::Instance],
+        prover_state: &Self::ProverState,
+    );
+    // verifier: verify the sumcheck subclaim with the evaluations
+    fn compute_subclaim(
+        &self,
+        infos: &[Self::Info],
+        subclaim: &mut SubClaim<F>,
+        randomness: &Vec<Vec<F>>,
+        kernel_at_r: Option<F>,
+    );
 }
 
 pub trait SumcheckPureSubclaim<F: Field> {
@@ -218,14 +239,24 @@ pub trait SumcheckPIOP<F: Field + Serialize> {
 pub trait BatchedSumcheckPIOP<F: Field + Serialize>: SumcheckPIOP<F> {
     // type Instance: SumcheckInstance<F>;
     // type Info: SumcheckInfo<F> + Serialize;
-    type BatchedProof: SumcheckPureProof<F>; // Proof stored for verifier to check evaluation proofs.
+    type BatchedProof: SumcheckPureBatchedProof<
+            F,
+            Instance = Self::Instance,
+            Info = Self::Info,
+            ProverState = Self::BatchedProverState,
+        >; // Proof stored for verifier to check evaluation proofs.
     type BatchedProverState: SumcheckPureProverState<F>; // State stored for prover to generate evaluation proofs later.
     type BatchedVerifierSubclaim: SumcheckPureSubclaim<F>; // Subclaim stored for verifier to check evaluation proofs later.
 
     fn prover_batch(
         trans: &mut Transcript<F>,
         instances: &[Self::Instance],
-    ) -> (Self::BatchedProof, Self::BatchedProverState);
+    ) -> (Self::BatchedProof, Self::BatchedProverState) {
+        let (mut proof, state) = Self::prover_batch_without_evals(trans, instances);
+
+        proof.append_evaluations(instances, &state);
+        (proof, state)
+    }
 
     fn verifier_batch(
         trans: &mut Transcript<F>,
@@ -328,7 +359,9 @@ pub trait BatchedSumcheckPIOP<F: Field + Serialize>: SumcheckPIOP<F> {
         subclaim: &mut SubClaim<F>,
         randomness: &Vec<Vec<F>>,
         kernel_at_r: Option<F>,
-    );
+    ) {
+        proof.compute_subclaim(infos, subclaim, randomness, kernel_at_r);
+    }
 }
 
 impl<F: Field> SumcheckClaim<F> {
