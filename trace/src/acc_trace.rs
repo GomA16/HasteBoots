@@ -1,5 +1,9 @@
+use core::num;
+
 use algebra::AbstractExtensionField;
 use algebra::{DenseMultilinearExtension, Field, NTTField, transformation::AbstractNTT};
+use itertools::izip;
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator};
 use serde::Serialize;
 
 use crate::hadamard_trace::HadamardTraceEval;
@@ -25,7 +29,14 @@ pub struct AccTrace<F: Field> {
     // all acc values input into each round of blind rotation
     pub input_acc: RLWETrace<F>,
     // all acc values output from each round of blind rotation
+    // output_acc = input_acc + sum_prod of SumHadamardTrace
     pub output_acc: RLWETrace<F>,
+
+    // input_acc permuted = output_acc + Zero matrix
+    // Zero matrix is a matrix where only the last row is inital_acc - final_acc
+    pub input_acc_permuted: RLWETrace<F>,
+    pub permutation_info: Vec<usize>,
+
     // all products computed during the blind rotation
     // monomial_times_acc = monomial * input_acc
     pub monomial_times_acc: RLWETrace<F>,
@@ -41,10 +52,33 @@ pub struct AccTraceMLE<F: Field> {
     pub final_acc: RLWETraceMLE<F>,
     pub input_acc: RLWETraceMLE<F>,
     pub output_acc: RLWETraceMLE<F>,
+    pub input_acc_permuted: RLWETraceMLE<F>,
+    pub permutation_info: Vec<usize>,
+
     pub monomial: PolynomialTraceMLE<F>,
     pub monomial_representation: MonomialTraceMLE<F>,
     pub monomial_times_acc: RLWETraceMLE<F>,
     pub external_product_input: RLWETraceMLE<F>,
+}
+
+pub struct AccIterationTraceMLE<F: Field> {
+    pub inital_acc: RLWETraceMLE<F>,
+    pub final_acc: RLWETraceMLE<F>,
+    // commited in AccTrace
+    pub input_acc: RLWETraceMLE<F>,
+    // output_acc = input_acc + sum_prod of SumHadamardTrace (not need to be committed)
+    pub output_acc: RLWETraceMLE<F>,
+
+    // Consider input_acc_permuted as a intermediate oracle that builds the relation
+    // between intial_acc and final_acc.
+    // 1. inital_acc is the first row of input_acc
+    // 2. final_acc is the last row of output_acc
+    // 3. i-th row of input_acc is (i-1)-th row of output_acc
+
+    // input_acc_permuted = output_acc + Zero matrix
+    // where Zero matrix is a matrix where only the last row is inital_acc - final_acc
+    // input_acc_permuted = permutation_matrix * input_acc
+    pub input_acc_permuted: RLWETraceMLE<F>,
 }
 
 #[derive(Serialize)]
@@ -69,6 +103,9 @@ impl<F: NTTField> AccTrace<F> {
             monomial_representation: MonomialTrace::new(log_coeff_count, log_num_round),
             input_acc: RLWETrace::new(log_coeff_count, log_num_round),
             output_acc: RLWETrace::new(log_coeff_count, log_num_round),
+            input_acc_permuted: RLWETrace::new(log_coeff_count, log_num_round),
+            permutation_info: Vec::with_capacity(1 << log_num_round),
+
             monomial_times_acc: RLWETrace::new(log_coeff_count, log_num_round),
             external_product_input: RLWETrace::new(log_coeff_count, log_num_round),
         }
@@ -115,11 +152,48 @@ impl<F: NTTField> AccTrace<F> {
 impl<F: Field> AccTrace<F> {
     #[inline]
     pub fn finalize(&mut self, num_round: usize) {
+        let poly_size = (1 << self.log_coeff_count) * num_round;
+        let one_poly_size = 1 << self.log_coeff_count;
+
+        // compute input_acc_permuted = output_acc + Zero matrix (we only compute ntt here)
+        // where Zero matrix is a matrix where only the last row is inital_acc - final_acc
+        self.input_acc_permuted = self.output_acc.clone();
+        let (input_0, input_1) = &mut self.input_acc_permuted.ntt;
+        let (input_last_0, input_last_1) = (
+            &mut input_0[poly_size - one_poly_size..poly_size],
+            &mut input_1[poly_size - one_poly_size..poly_size],
+        );
+
+        let compute_pattern = |a: &mut F, b: &F, c: &F| {
+            *a += *b - *c;
+        };
+
+        for (a, b, c) in izip!(
+            input_last_0.iter_mut(),
+            self.initial_acc.ntt.0.iter(),
+            self.final_acc.ntt.0.iter()
+        ) {
+            compute_pattern(a, b, c);
+        }
+        for (a, b, c) in izip!(
+            input_last_1.iter_mut(),
+            self.initial_acc.ntt.1.iter(),
+            self.final_acc.ntt.1.iter()
+        ) {
+            compute_pattern(a, b, c);
+        }
+        // permutation is \rho(x) = x + 1 mod num_round
+        let mut permutation_info = (0..1 << self.log_num_round)
+            .map(|x| x)
+            .collect::<Vec<usize>>();
+        permutation_info[0..num_round].rotate_left(1);
+
         self.initial_acc.finalize(1);
         self.final_acc.finalize(1);
         self.monomial.finalize(num_round);
         self.input_acc.finalize(num_round);
         self.output_acc.finalize(num_round);
+        self.input_acc_permuted.finalize(num_round);
         self.monomial_times_acc.finalize(num_round);
         self.external_product_input.finalize(num_round);
     }
@@ -135,6 +209,8 @@ impl<F: Field> From<AccTrace<F>> for AccTraceMLE<F> {
             final_acc: RLWETraceMLE::from(trace.final_acc),
             input_acc: RLWETraceMLE::from(trace.input_acc),
             output_acc: RLWETraceMLE::from(trace.output_acc),
+            input_acc_permuted: RLWETraceMLE::from(trace.input_acc_permuted),
+            permutation_info: trace.permutation_info,
             monomial: PolynomialTraceMLE::from(trace.monomial),
             monomial_representation: MonomialTraceMLE::from(trace.monomial_representation),
             monomial_times_acc: RLWETraceMLE::from(trace.monomial_times_acc),
@@ -231,6 +307,8 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for AccTraceMLE
             final_acc: self.final_acc.to_ef(),
             input_acc: self.input_acc.to_ef(),
             output_acc: self.output_acc.to_ef(),
+            input_acc_permuted: self.input_acc_permuted.to_ef(),
+            permutation_info: self.permutation_info.clone(),
             monomial: self.monomial.to_ef(),
             monomial_representation: self.monomial_representation.to_ef(),
             monomial_times_acc: self.monomial_times_acc.to_ef(),

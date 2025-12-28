@@ -7,10 +7,7 @@ use fhe_core::utils::*;
 use helper::Transcript;
 use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
-use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInstance};
-use piop::{SumcheckInstance, SumcheckPIOP};
 use rand::Rng;
-use rand_distr::Distribution;
 use snarks::fhe_op::hadamard::{HadamardParams, HadamardSnarks};
 use snarks::fhe_op::monomial_hadamard::{MonomialHadamardParams, MonomialHadamardSnarks};
 use trace::{AccTraceMLE, ConvertToEF, SumHadamardTraceMLE};
@@ -76,7 +73,6 @@ fn main() {
     println!("Starting verification of nand.\n");
     trace.finalize(params.lwe_dimension() as usize);
 
-    // Two hadamard trace
     let acc_trace = trace.acc_trace;
     let acc_mle: AccTraceMLE<FF> = acc_trace.into();
 

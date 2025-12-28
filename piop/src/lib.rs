@@ -155,6 +155,7 @@ pub trait SumcheckPIOP<F: Field + Serialize> {
             Some(kernel_at_r),
         );
         res &= sumcheck_subclaim.expected_evaluations.is_zero();
+        assert!(res, "Sumcheck verification failed");
 
         let subclaim = Self::VerifierSubclaim::from_sumcheck(sumcheck_subclaim);
         (res, subclaim)
@@ -181,6 +182,8 @@ pub trait SumcheckPIOP<F: Field + Serialize> {
         );
         let (sumcheck_proof, prover_state) = MLSumcheck::prove(trans, &sumcheck_claim.poly)
             .expect("[SumcheckIOP] Fail to generate sumcheck proof");
+
+        assert_eq!(sumcheck_claim.sum, MLSumcheck::extract_sum(&sumcheck_proof));
 
         let proof = Self::Proof::from_sumcheck(&sumcheck_claim, sumcheck_proof);
         let state = Self::ProverState::from_sumcheck(prover_state, sumcheck_claim);

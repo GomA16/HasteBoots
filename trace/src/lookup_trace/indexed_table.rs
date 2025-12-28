@@ -97,6 +97,15 @@ impl<F: Field> IndexedLookupTrace<F> {
             .map(|_| F::random(rng))
             .collect::<Vec<F>>();
 
+        IndexedLookupTrace::random_from_point(rng, num_input_vars, num_table_vars, table_point)
+    }
+
+    pub fn random_from_point<R: rand::Rng + rand::CryptoRng>(
+        rng: &mut R,
+        num_input_vars: usize,
+        num_table_vars: usize,
+        table_point: Vec<F>,
+    ) -> Self {
         let table = gen_identity_evaluations(&table_point).evaluations;
 
         let num_inputs = 1 << num_input_vars;

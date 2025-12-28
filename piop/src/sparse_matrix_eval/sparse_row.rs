@@ -37,6 +37,8 @@ use algebra::{
     AbstractExtensionField, AsFrom, AsInto, DenseMultilinearExtension, Field, PolynomialInfo,
 };
 use helper::utils::eval_identity_function;
+use rand::rand_core::le;
+use rayon::vec;
 use serde::Serialize;
 use sha2::digest::crypto_common::Key;
 use std::rc::Rc;
@@ -77,7 +79,7 @@ pub struct SparseRowEvalInstance<F: Field> {
 }
 
 #[derive(Serialize)]
-pub struct SparseRowEvalInstanceInfo<F: Field> {
+pub struct SparseRowEvalInfo<F: Field> {
     pub num_x_vars: usize,
     #[serde(skip)]
     pub point_rx: Vec<F>,
@@ -103,14 +105,14 @@ pub struct SparseRowVerifierSubclaim<F: Field> {
 }
 
 impl<F: Field + Serialize> SumcheckInstance<F> for SparseRowEvalInstance<F> {
-    type Info = SparseRowEvalInstanceInfo<F>;
+    type Info = SparseRowEvalInfo<F>;
 
     fn num_vars(&self) -> usize {
         self.num_x_vars
     }
 
     fn info(&self) -> Self::Info {
-        SparseRowEvalInstanceInfo {
+        SparseRowEvalInfo {
             num_x_vars: self.num_x_vars,
             point_rx: self.kernel_rx.point.clone(),
             point_ry: self.kernel_ry.point.clone(),
@@ -119,7 +121,7 @@ impl<F: Field + Serialize> SumcheckInstance<F> for SparseRowEvalInstance<F> {
     }
 }
 
-impl<F: Field> SumcheckInfo<F> for SparseRowEvalInstanceInfo<F> {
+impl<F: Field> SumcheckInfo<F> for SparseRowEvalInfo<F> {
     fn num_vars(&self) -> usize {
         self.num_x_vars
     }
@@ -147,7 +149,30 @@ impl<F: Field> SparseRowEvalInstance<F> {
         let kernel_rx = LagrangeKernel::from_point(&point_rx);
         let kernel_ry = LagrangeKernel::from_point(&point_ry);
 
-        let lookup_trace = IndexedLookupTrace::<F>::random(rng, num_x_vars, num_y_vars);
+        let lookup_trace = IndexedLookupTrace::<F>::random_from_point(
+            rng,
+            num_x_vars,
+            num_y_vars,
+            point_ry.clone(),
+        );
+        let mut matrix = vec![F::zero(); 1 << (num_x_vars + num_y_vars)];
+        lookup_trace
+            .index
+            .iter()
+            .enumerate()
+            .for_each(|(i, &col_idx)| {
+                let col_idx: usize = col_idx.value().as_into();
+                matrix[col_idx + i * (1 << num_y_vars)] = val[i];
+            });
+        let matrix =
+            DenseMultilinearExtension::from_evaluations_vec(num_x_vars + num_y_vars, matrix);
+        let point = point_ry
+            .iter()
+            .chain(point_rx.iter())
+            .cloned()
+            .collect::<Vec<F>>();
+        let eval = matrix.evaluate(&point);
+
         Self {
             num_x_vars,
             num_y_vars,
@@ -164,7 +189,7 @@ impl<F: Field> SparseRowEvalInstance<F> {
                 num_x_vars,
                 lookup_trace.input,
             )),
-            eval: F::zero(),
+            eval,
         }
     }
 
@@ -189,6 +214,7 @@ impl<F: Field> SparseRowEvalInstance<F> {
             ],
             random_lambda,
         );
+        claim.sum += self.eval * random_lambda;
     }
 }
 
@@ -266,7 +292,7 @@ impl<F: Field> SumcheckPureSubclaim<F> for SparseRowVerifierSubclaim<F> {
 
 impl<F: Field + Serialize> SumcheckPIOP<F> for SparseRowEvalPIOP<F> {
     type Instance = SparseRowEvalInstance<F>;
-    type Info = SparseRowEvalInstanceInfo<F>;
+    type Info = SparseRowEvalInfo<F>;
     type Proof = SparseRowEvalProof<F>;
     type ProverState = SparseRowProverState<F>;
     type VerifierSubclaim = SparseRowVerifierSubclaim<F>;
@@ -323,7 +349,7 @@ mod test {
     fn test_sparse_row_eval_piop() {
         let mut rng = rand::rng();
         let num_x_vars = 4;
-        let num_y_vars = 10;
+        let num_y_vars = 2;
 
         let instance = SparseRowEvalInstance::<FF>::random(&mut rng, num_x_vars, num_y_vars);
         let instance_info = instance.info();

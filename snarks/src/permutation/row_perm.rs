@@ -21,7 +21,7 @@ use serde::Serialize;
 use crate::lookup::indexed_table::{IndexedLogUpSnarks, IndexedLogUpSnarksProof};
 
 #[derive(Default)]
-pub struct SparseRowEvalSnarks<F, EF, S, PCS>
+pub struct RowPermEvalSnarks<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F>,
@@ -35,7 +35,7 @@ where
 }
 
 #[derive(Serialize)]
-pub struct SparseRowEvalSnarksProof<F, EF, S, PCS>
+pub struct RowPermEvalSnarksProof<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F>,
@@ -53,7 +53,7 @@ where
     pub piop_proof: SparseRowEvalProof<EF>,
 }
 
-impl<F, EF, S, PCS> SparseRowEvalSnarks<F, EF, S, PCS>
+impl<F, EF, S, PCS> RowPermEvalSnarks<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F> + Serialize,
@@ -71,22 +71,22 @@ where
         &self,
         trans: &mut Transcript<EF>,
         instance: &SparseRowEvalInstance<EF>,
-    ) -> SparseRowEvalSnarksProof<F, EF, S, PCS> {
-        SparseRowEvalSnarks::prove_as_subprotocol(trans, instance)
+    ) -> RowPermEvalSnarksProof<F, EF, S, PCS> {
+        RowPermEvalSnarks::prove_as_subprotocol(trans, instance)
     }
 
     pub fn verify(
         &self,
         trans: &mut Transcript<EF>,
-        proof: &SparseRowEvalSnarksProof<F, EF, S, PCS>,
+        proof: &RowPermEvalSnarksProof<F, EF, S, PCS>,
     ) -> bool {
-        SparseRowEvalSnarks::verify_as_subprotocol(trans, proof)
+        RowPermEvalSnarks::verify_as_subprotocol(trans, proof)
     }
 
     pub fn prove_as_subprotocol(
         trans: &mut Transcript<EF>,
         instance: &SparseRowEvalInstance<EF>,
-    ) -> SparseRowEvalSnarksProof<F, EF, S, PCS> {
+    ) -> RowPermEvalSnarksProof<F, EF, S, PCS> {
         // Commit phase: send the polynomials directly to the verifier
         trans.append_message(b"[Commit Phase]", instance.val.as_ref());
         // These two will be committed in the indexed lookup argument
@@ -106,7 +106,7 @@ where
         let (piop_proof, _) = SparseRowEvalPIOP::prover(trans, instance);
         trans.append_message(b"[PIOP Phase]", &piop_proof);
 
-        SparseRowEvalSnarksProof {
+        RowPermEvalSnarksProof {
             val_commitment: instance.val.as_ref().clone(),
             col_commitment: instance.col.as_ref().clone(),
             eval_mle_ry_commitment: instance.eval_mle_ry.as_ref().clone(),
@@ -118,7 +118,7 @@ where
 
     pub fn verify_as_subprotocol(
         trans: &mut Transcript<EF>,
-        proof: &SparseRowEvalSnarksProof<F, EF, S, PCS>,
+        proof: &RowPermEvalSnarksProof<F, EF, S, PCS>,
     ) -> bool {
         let mut res = true;
         trans.append_message(b"[Commit Phase]", &proof.val_commitment);
@@ -168,7 +168,7 @@ mod test {
         let num_y_vars = 10;
 
         let instance = SparseRowEvalInstance::<EF>::random(&mut rng, num_x_vars, num_y_vars);
-        let snarks = SparseRowEvalSnarks::<
+        let snarks = RowPermEvalSnarks::<
             FF,
             EF,
             ExpanderCodeSpec,

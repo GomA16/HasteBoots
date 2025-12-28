@@ -8,6 +8,7 @@ pub mod lookup_trace;
 pub mod ntt_trace;
 pub mod pbs_trace;
 pub mod rlwe_trace;
+pub mod row_perm_trace;
 
 pub use acc_trace::{AccTrace, AccTraceMLE};
 pub use hadamard_trace::{
