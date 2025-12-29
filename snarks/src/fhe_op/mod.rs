@@ -17,6 +17,7 @@
 //! by the PCS opening proofs.
 //! - If their coefficients are sparse (e.g. monomial), the queries can be answered
 //! by the sparse PCS opening proofs.
+pub mod acc_iteration;
 pub mod blind_rotation;
 pub mod external_product;
 pub mod hadamard;

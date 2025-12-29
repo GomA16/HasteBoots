@@ -108,7 +108,10 @@ impl<F: Field> SumHadamardInstance<F> {
         }
     }
 
-    pub fn fast_eval_from_prover_state(&self, state: &HadamardProverState<F>) -> SumHadamardEval<F> {
+    pub fn fast_eval_from_prover_state(
+        &self,
+        state: &HadamardProverState<F>,
+    ) -> SumHadamardEval<F> {
         let lookup = |m: &Rc<DenseMultilinearExtension<F>>| {
             let m_ptr: *const DenseMultilinearExtension<F> = Rc::as_ptr(m);
             let index = state.raw_pointers_lookup_table.get(&m_ptr).unwrap();
@@ -361,7 +364,11 @@ impl<F: Field + Serialize> SumcheckPureBatchedProof<F> for BatchedSumHadamardPro
     type Info = SumHadamardInfo<F>;
     type ProverState = HadamardProverState<F>;
 
-    fn append_evaluations(&mut self, instances: &[Self::Instance], prover_state: &Self::ProverState) {
+    fn append_evaluations(
+        &mut self,
+        instances: &[Self::Instance],
+        prover_state: &Self::ProverState,
+    ) {
         let lookup = |m: &Rc<DenseMultilinearExtension<F>>| {
             let m_ptr: *const DenseMultilinearExtension<F> = Rc::as_ptr(m);
             let index = prover_state.raw_pointers_lookup_table.get(&m_ptr).unwrap();
@@ -383,7 +390,13 @@ impl<F: Field + Serialize> SumcheckPureBatchedProof<F> for BatchedSumHadamardPro
             .collect::<Vec<_>>();
     }
 
-    fn compute_subclaim(&self, _infos: &[Self::Info], subclaim: &mut SubClaim<F>, randomness: &Vec<Vec<F>>, kernel_at_r: Option<F>) {
+    fn compute_subclaim(
+        &self,
+        _infos: &[Self::Info],
+        subclaim: &mut SubClaim<F>,
+        randomness: &Vec<Vec<F>>,
+        kernel_at_r: Option<F>,
+    ) {
         assert!(kernel_at_r.is_some());
         for (hadamard_eval, r) in izip!(&self.hadamard_at_r, randomness) {
             subclaim.expected_evaluations -=

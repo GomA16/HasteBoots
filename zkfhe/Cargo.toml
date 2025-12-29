@@ -59,6 +59,15 @@ rustdoc-args = ["--cfg", "docsrs"]
 name = "zk_blind_rotation"
 path = "examples/zk_nand_op/zk_blind_rotation.rs"
 
+
+[[example]]
+name = "zk_external_product"
+path = "examples/zk_nand_op/zk_external_product.rs"
+
+[[example]]
+name = "zk_acc_iteration"
+path = "examples/zk_nand_op/zk_acc_iteration.rs"
+
 [[example]]
 name = "zk_hadamard"
 path = "examples/zk_nand_op/zk_hadamard.rs"
@@ -67,9 +76,6 @@ path = "examples/zk_nand_op/zk_hadamard.rs"
 name = "zk_monomial"
 path = "examples/zk_nand_op/zk_monomial_hadamard.rs"
 
-[[example]]
-name = "zk_external_product"
-path = "examples/zk_nand_op/zk_external_product.rs"
 
 [[example]]
 name = "zk_lookup"

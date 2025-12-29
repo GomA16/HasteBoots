@@ -113,7 +113,7 @@ impl<F: Field> BottomRowEvalInstance<F> {
         let row = DenseMultilinearExtension::from_evaluations_vec(log_num_cols, row);
         let coeff = eval_identity_function(&vec![F::one(); log_num_rows], &point_rx);
         assert_eq!(eval_ry_rx, coeff * row.evaluate(&point_ry));
-        
+
         Self {
             log_num_rows,
             log_num_cols,
