@@ -19,7 +19,7 @@ use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field, Multilin
 use helper::{FiatShamirTranscript, Transcript};
 use piop::{
     BatchedSumcheckPIOP, LagrangeKernel, SumcheckInstance, SumcheckPIOP,
-    permutation::row_permutation::{
+    permutation::row_perm::{
         BatchedRowPermProof, RowPermInfo, RowPermInstance, RowPermPIOP,
         compute_permutation_at_point,
     },
@@ -47,7 +47,7 @@ pub struct AccIterationSnarksProof<EF: Field> {
 
 impl<F, EF> AccIterationSnarks<F, EF>
 where
-    F: Field + Serialize,
+    F: Field,
     EF: AbstractExtensionField<F> + Serialize,
 {
     pub fn prove(

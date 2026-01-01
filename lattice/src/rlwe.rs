@@ -1131,6 +1131,43 @@ impl<F: NTTField> NTTRLWE<F> {
         })
     }
 
+    /// Performs `self = self - gadget_rlwe * polynomial`.
+    ///
+    /// The result coefficients may be in [0, 2*modulus) for some case,
+    /// and fall back to [0, modulus) for normal case,
+    #[inline]
+    pub fn sub_assign_gadget_rlwe_mul_polynomial_inplace_fast_w_trace(
+        &mut self,
+        gadget_rlwe: &NTTGadgetRLWE<F>,
+        polynomial: &mut Polynomial<F>,
+        decompose_space: &mut DecompositionSpace<F>,
+        // Trace
+        k_idx: usize,
+        trace: &mut SumHadamardTrace<F>,
+    ) {
+        let coeff_count = polynomial.coeff_count();
+        debug_assert!(coeff_count.is_power_of_two());
+        let ntt_table = F::get_ntt_table(coeff_count.trailing_zeros()).unwrap();
+        let decompose_space = decompose_space.get_mut();
+        let basis = gadget_rlwe.basis();
+
+        polynomial.neg_assign();
+
+        let k_idx = k_idx * basis.decompose_len();
+        gadget_rlwe.iter().enumerate().for_each(|(i, g)| {
+            polynomial.decompose_lsb_bits_inplace(basis, decompose_space.as_mut_slice());
+            
+            let trace = trace.get_trace_mul(k_idx + i);
+            trace.append_bit_poly(decompose_space.as_slice());
+
+            ntt_table.transform_slice(decompose_space.as_mut_slice());
+            trace.append_bit_ntt(decompose_space.as_slice());
+
+            self.add_ntt_rlwe_mul_ntt_polynomial_assign_fast(g, decompose_space);
+            trace.append_rlwe_ntt(g.a_b_slice());
+        })
+    }
+
     /// Generate a `NTTRLWE<F>` sample which encrypts `0`.
     pub fn generate_random_zero_sample<R>(
         secret_key: &NTTPolynomial<F>,

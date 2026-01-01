@@ -1,1 +1,1 @@
-pub mod row_permutation;
+pub mod row_perm;

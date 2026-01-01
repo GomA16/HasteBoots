@@ -29,6 +29,7 @@ pub struct PBSTrace<F: Field> {
     pub log_num_round: usize,
     pub acc_trace: AccTrace<F>,
     pub hadamard_trace: SumHadamardTrace<F>,
+    pub ks_hadamard_trace: SumHadamardTrace<F>,
     // pub params: PBSParameters,
 }
 

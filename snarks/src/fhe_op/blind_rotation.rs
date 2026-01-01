@@ -5,6 +5,7 @@
 //!     This is separately proven in `monomial_hadamard.rs`
 //! 2. Proving the correctness of ACC_Output = Mid * RGSW(s_i)
 //!     This is separately proven in `external_product.rs`
+use core::time;
 use std::rc::Rc;
 
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field, PolynomialInfo};
@@ -18,6 +19,7 @@ use piop::ntt::{
     BatchedNTTMatrixEvalProof, NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance,
     NTTMatrixEvalProof,
 };
+use piop::permutation::row_perm::compute_permutation_at_point;
 use piop::sparse_matrix_eval::sparse_row::SparseRowEvalInstance;
 use piop::{
     BatchedSumcheckPIOP, LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance,
@@ -33,6 +35,7 @@ use trace::{
 };
 use trace::{EvaluableTrace, PackableEval, SumHadamardTraceMLE};
 
+use crate::fhe_op::acc_iteration::{self, AccIterationSnarks, AccIterationSnarksProof};
 use crate::sparse_matrix_eval::SparseRowEvalSnarks;
 use crate::sparse_matrix_eval::sparse_row::SparseRowEvalSnarksProof;
 
@@ -121,6 +124,8 @@ where
     pub hadamard_proof: BatchedSumHadamardProof<EF>,
     pub ntt_infos: Vec<NTTMatrixEvalInfo<EF>>,
     pub ntt_proof: BatchedNTTMatrixEvalProof<EF>,
+    pub acc_iteration_proof: AccIterationSnarksProof<EF>,
+
     #[serde(skip)]
     pub eval_proof: Vec<PCS::Proof>,
     #[serde(skip)]
@@ -246,6 +251,7 @@ where
         println!("[P] Commit Phase time: {:?}", time.elapsed());
 
         // [PIOP Phase] extract the Hadamard instances
+        let piop_time = std::time::Instant::now();
         let time = std::time::Instant::now();
         let pbs_ef = pbs_trace_mle.to_ef();
         let lookup_trace_ef = lookup_trace.to_ef();
@@ -299,6 +305,7 @@ where
         trans.append_message(b"[Sumcheck Protocol]", &sumcheck_proof);
 
         let eval_table = sumcheck_state.fast_evaluate();
+        println!("[P] PIOP Phase: Proving All Hadamard and Lookup Relation in {:?}", time.elapsed());
 
         let time = std::time::Instant::now();
         let trace_evals = pbs_trace_mle.evaluate_ef_with_lookup(
@@ -313,7 +320,7 @@ where
             &eval_table,
         );
         println!(
-            "[P] PIOP Phase: Evaluation Phase time: {:?}",
+            "[P] PIOP Phase: Evaluating the remaining oracle in {:?}",
             time.elapsed()
         );
 
@@ -334,8 +341,9 @@ where
         let mut point_v =
             sumcheck_state.randomness[pbs_trace_mle.hadamard_trace.log_coeff_count..].to_vec();
 
+        let time = std::time::Instant::now();
         // NTT Sparse Matrix Evaluation
-        let monomial_poly = pbs_ef.acc_trace.monomial.poly;
+        let monomial_poly = pbs_ef.acc_trace.monomial.poly.clone();
         let ntt_sparse_instance = NTTMatrixEvalInstance::from_subclaim(
             &monomial_poly,
             &params.ntt_table,
@@ -385,9 +393,30 @@ where
         let ntt_instances = vec![ntt_sparse_instance, ntt_instance];
         let (ntt_proof, ntt_state) = NTTMatrixEvalIOP::prover_batch(trans, &ntt_instances);
 
+        println!("[P] PIOP Phase: Proving NTT Virtual Oracle Equality in {:?}", time.elapsed());
         trans.append_message(b"[PIOP Phase]", &ntt_proof);
 
-        println!("[P] PIOP Phase time: {:?}", time.elapsed());
+        let time = std::time::Instant::now();
+        // Acc Iteration Structure
+        let permutation = Rc::new(compute_permutation_at_point(
+            pbs_ef.log_num_round,
+            &pbs_ef.acc_trace.permutation_info,
+            &point_v,
+        ));
+        let acc_iteration_proof = AccIterationSnarks::prove_as_subprotocol(
+            trans,
+            &pbs_ef,
+            &trace_evals,
+            &point_v,
+            &point_u,
+            &permutation,
+        );
+        println!(
+            "[P] PIOP Phase: Proving Accumulator Iteration Structure in {:?}",
+            time.elapsed()
+        );
+
+        println!("[P] PIOP Phase total time: {:?}", piop_time.elapsed());
 
         let time = std::time::Instant::now();
         // Open the coeffcient matrix evaluation `ntt_proof.coeff_eval_at_r_v[1]` at point_r_v_prime
@@ -411,7 +440,7 @@ where
             trans,
         );
 
-        println!("[P] PCS Opening Phase time: {:?}", time.elapsed());
+        println!("[P] PCS Opening 3 Points on 2 Oracles in {:?}", time.elapsed());
 
         // Open the sparse coefficient matrix evaluation `ntt_proof.coeff_eval_at_r_v[0]` at point_r_v using SparseMatrix
         let time = std::time::Instant::now();
@@ -445,6 +474,7 @@ where
             hadamard_proof: hadamard_eval_proof,
             ntt_infos,
             ntt_proof,
+            acc_iteration_proof,
             eval_proof,
             eval_ef_proof,
             sparse_eval_proof,
@@ -550,7 +580,15 @@ where
         res &= ntt_res;
         assert!(res, "NTT Matrix Evaluation verification failed.");
 
-        println!("[V] PIOP Phase time: {:?}", time.elapsed());
+        // Acc Iteration Verification
+        let acc_iteration_res = AccIterationSnarks::verify_as_subprotocol(
+            trans,
+            &proof.acc_iteration_proof,
+        );
+        res &= acc_iteration_res;
+        assert!(res, "Acc Iteration verification failed.");
+
+        println!("[V] PIOP Phase total time: {:?}", time.elapsed());
 
         let time = std::time::Instant::now();
         let mut open_point_2 = Vec::with_capacity(ntt_subclaim.randomness.len() + point_v.len());

@@ -2,6 +2,7 @@ use std::slice::ChunksExact;
 
 use algebra::{Basis, NTTField, NTTPolynomial, Polynomial};
 use lattice::{DecompositionSpace, LWE, NTTGadgetRLWE, NTTRLWE, PolynomialSpace, RLWE};
+use trace::SumHadamardTrace;
 
 use crate::{NTRUCiphertext, SecretKeyPack};
 
@@ -25,6 +26,11 @@ pub struct KeySwitchingRLWEKey<Q: NTTField> {
 }
 
 impl<Q: NTTField> KeySwitchingRLWEKey<Q> {
+    /// Returns the number of RLWEs composing the key
+    pub fn num_rlwes_in_key(&self) -> usize {
+        self.key.len() * self.key[0].basis().decompose_len()
+    }
+
     /// Generates a new [`KeySwitchingKey`].
     pub fn generate(secret_key_pack: &SecretKeyPack<Q>) -> KeySwitchingRLWEKey<Q> {
         let parameters = secret_key_pack.parameters();
@@ -129,6 +135,41 @@ impl<Q: NTTField> KeySwitchingRLWEKey<Q> {
     }
 
     /// Performs key switching operation.
+    pub fn key_switch_for_rlwe_w_trace(
+        &self,
+        mut ciphertext: RLWE<Q>,
+        trace: &mut SumHadamardTrace<Q>,
+    ) -> LWE<Q> {
+        let extended_lwe_dimension = self.lwe_dimension.next_power_of_two();
+
+        let init = <NTTRLWE<Q>>::new(
+            NTTPolynomial::zero(extended_lwe_dimension),
+            NTTPolynomial::new(vec![ciphertext.b()[0]; extended_lwe_dimension]),
+        );
+
+        if ciphertext.a_slice().len() != extended_lwe_dimension {
+            let a = ciphertext.a_mut_slice();
+            a[0] = -a[0];
+            a[1..].reverse();
+            a.chunks_exact_mut(extended_lwe_dimension)
+                .for_each(|chunk| {
+                    chunk[0] = -chunk[0];
+                    chunk[1..].reverse();
+                });
+        }
+
+        let iter = ciphertext.a_slice().chunks_exact(extended_lwe_dimension);
+
+        self.key_switch_inner_w_trace(
+            extended_lwe_dimension,
+            init,
+            iter,
+            Operation::SubAMulS,
+            trace,
+        )
+    }
+
+    /// Performs key switching operation.
     pub fn key_switch_for_ntru(&self, mut ciphertext: NTRUCiphertext<Q>) -> LWE<Q> {
         let extended_lwe_dimension = self.lwe_dimension.next_power_of_two();
 
@@ -212,6 +253,62 @@ impl<Q: NTTField> KeySwitchingRLWEKey<Q> {
                 });
             }
         }
+
+        <RLWE<Q>>::from(init).extract_partial_lwe_locally(self.lwe_dimension)
+    }
+
+    fn key_switch_inner_w_trace(
+        &self,
+        extended_lwe_dimension: usize,
+        mut init: NTTRLWE<Q>,
+        iter: ChunksExact<Q>,
+        op: Operation,
+        // Trace
+        trace: &mut SumHadamardTrace<Q>,
+    ) -> LWE<Q> {
+        let mut polynomial_space = PolynomialSpace::new(extended_lwe_dimension);
+        let mut decompose_space = DecompositionSpace::new(extended_lwe_dimension);
+
+        // -- Only For Trace --
+        let init_temp = init.clone();
+        // -- End For Trace --
+        match op {
+            Operation::AddAMulS => {
+                self.key.iter().zip(iter).for_each(|(k_i, a_i)| {
+                    polynomial_space.copy_from(a_i);
+
+                    init.add_assign_gadget_rlwe_mul_polynomial_inplace_fast(
+                        k_i,
+                        &mut polynomial_space,
+                        &mut decompose_space,
+                    );
+                });
+            }
+            Operation::SubAMulS => {
+                self.key.iter().enumerate().zip(iter).for_each(|((k_idx, k_i), a_i)| {
+                    polynomial_space.copy_from(a_i);
+
+                    init.sub_assign_gadget_rlwe_mul_polynomial_inplace_fast_w_trace(
+                        k_i,
+                        &mut polynomial_space,
+                        &mut decompose_space,
+                        k_idx,
+                        trace,
+                    );
+                });
+            }
+        }
+
+        // -- Only For Trace --
+        // prod = init - init_temp = (- polynomial) * gadget_rlwe
+        let coeff_count = polynomial_space.coeff_count();
+        debug_assert!(coeff_count.is_power_of_two());
+
+        let sum_prod = init.sub_element_wise_ref(&init_temp);
+        trace.add_sum_prod_ntt(sum_prod.a_b_slice());
+        let sum_prod = <RLWE<Q>>::from(sum_prod);
+        trace.add_sum_prod_poly(sum_prod.a_b_slice());
+        // -- End For Trace --
 
         <RLWE<Q>>::from(init).extract_partial_lwe_locally(self.lwe_dimension)
     }

@@ -1,8 +1,0 @@
-mod evaluate;
-mod parameters;
-
-pub use evaluate::Evaluator;
-pub use parameters::{
-    BABY_BEAR_TERNARY_128_BITS_PARAMETERS, CUSTOM_TERNARY_128_BITS_PARAMETERS,
-    DEFAULT_TERNARY_128_BITS_PARAMETERS, GOLDILOCKS_TERNARY_128_BITS_PARAMETERS,
-};

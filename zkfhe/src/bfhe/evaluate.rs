@@ -77,13 +77,23 @@ impl<Q: NTTField> EvaluationKey<Q> {
             _ => panic!("Unable to get the corresponding key switching key!"),
         };
 
-        let output_lwe = ksk.key_switch_for_rlwe(acc);
+        let log_coeff_count = parameters.lwe_dimension().next_power_of_two().trailing_zeros() as usize;
+        let log_num_rouns = 0;
+        let hadamard_len = ksk.num_rlwes_in_key();
+        let mut ks_hadamard_trace = SumHadamardTrace::<Q>::new(
+            hadamard_len,
+            log_coeff_count,
+            log_num_rouns,
+        );
+
+        let output_lwe = ksk.key_switch_for_rlwe_w_trace(acc, &mut ks_hadamard_trace);
 
         let pbs_trace = PBSTrace {
             log_coeff_count,
             log_num_round,
             acc_trace,
             hadamard_trace,
+            ks_hadamard_trace,
         };
 
         (output_lwe, pbs_trace)
