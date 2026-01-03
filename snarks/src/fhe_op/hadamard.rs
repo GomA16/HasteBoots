@@ -9,8 +9,8 @@ use piop::hadamard::{BatchedSumHadamardProof, HadamardPIOP, SumHadamardInfo, Sum
 use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance, NTTMatrixEvalProof};
 use piop::{BatchedSumcheckPIOP, SumcheckInstance, SumcheckPIOP};
 use serde::Serialize;
-use trace::{ConvertToEF, EvaluableTraceEF, SumHadamardTrace, SumHadamardTraceEval};
-use trace::{PackableEval, PackableTrace, SumHadamardTraceMLE};
+use trace::basic_ops::{SumHadamardTrace, SumHadamardTraceEval, SumHadamardTraceMLE};
+use trace::{ConvertToEF, PackableEval, PackableTrace};
 
 #[derive(Default)]
 pub struct HadamardSnarks<F, EF, S, PCS>

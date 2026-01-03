@@ -3,20 +3,14 @@ use algebra::{
 };
 
 pub mod acc_trace;
-pub mod hadamard_trace;
+pub mod basic_ops;
+pub mod blind_rotation_trace;
+pub mod key_switching_trace;
 pub mod lookup_trace;
-pub mod ntt_trace;
 pub mod pbs_trace;
-pub mod rlwe_trace;
-pub mod row_perm_trace;
 
-pub use acc_trace::{AccTrace, AccTraceMLE};
-pub use hadamard_trace::{
-    HadamardTrace, HadamardTraceMLE, SumHadamardTrace, SumHadamardTraceEval, SumHadamardTraceMLE,
-};
-pub use ntt_trace::{NTTTrace, NTTTraceMLE};
-pub use pbs_trace::{PBSTrace, PBSTraceMLE};
-use sumcheck::prover::ProverState;
+pub use acc_trace::{AccTrace, AccTraceEval, AccTraceMLE};
+pub use blind_rotation_trace::{BlindRotationTrace, BlindRotationTraceMLE};
 
 pub trait ConvertToEF<F: Field, EF: AbstractExtensionField<F>> {
     type Output;

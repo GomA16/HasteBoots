@@ -4,7 +4,7 @@ use serde::Serialize;
 use std::rc::Rc;
 use sumcheck::{MLSumcheck, Proof};
 use sumcheck::{prover::ProverState, verifier::SubClaim};
-use trace::SumHadamardTraceEval;
+use trace::basic_ops::SumHadamardTraceEval;
 use trace::lookup_trace::small_table::{
     LookupTraceEval, LookupTraceMLE, LookupWitnessHelper, LookupWitnessHelperEval,
 };

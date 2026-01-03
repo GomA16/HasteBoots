@@ -1,6 +1,7 @@
 use algebra::{Basis, Field, NTTField, Polynomial};
 use lattice::{LWE, RLWE};
-use trace::{AccTrace, SumHadamardTrace};
+use trace::AccTrace;
+use trace::basic_ops::SumHadamardTrace;
 
 use crate::{LWESecretKeyType, SecretKeyPack};
 

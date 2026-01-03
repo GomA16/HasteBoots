@@ -37,16 +37,19 @@ use algebra::{
     AbstractExtensionField, AsFrom, AsInto, DenseMultilinearExtension, Field, PolynomialInfo,
 };
 use helper::utils::eval_identity_function;
+use num_traits::sign;
 use rand::rand_core::le;
 use rayon::vec;
 use serde::Serialize;
 use sha2::digest::crypto_common::Key;
 use std::rc::Rc;
 use sumcheck::{Proof, prover::ProverState, verifier::SubClaim};
+use trace::basic_ops::row_perm_trace::PermutationInfo;
+use trace::basic_ops::{MonomialTraceMLE, RowPermTraceMLE};
 use trace::{
     ConvertToEF,
+    basic_ops::row_perm_trace::PermutationSignedInfo,
     lookup_trace::indexed_table::{IndexedLookupTrace, IndexedLookupTraceMLE},
-    rlwe_trace::MonomialTraceMLE,
 };
 
 use crate::{
@@ -244,6 +247,50 @@ impl<EF: Field> SparseRowEvalInstance<EF> {
             num_y_vars,
             col: Rc::new(trace.degree.to_ef()),
             val: Rc::new(trace.coefficient.to_ef()),
+            eval_mle_ry: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
+                num_x_vars,
+                eval_mle_ry,
+            )),
+            kernel_rx: kernel_rx.clone(),
+            kernel_ry: kernel_ry.clone(),
+            eval,
+        }
+    }
+
+    pub fn from_subclaim_permutation<F: Field>(
+        trace: &PermutationInfo<EF>,
+        kernel_rx: &LagrangeKernel<EF>,
+        kernel_ry: &LagrangeKernel<EF>,
+        eval: EF,
+    ) -> Self
+    where
+        EF: AbstractExtensionField<F>,
+    {
+        let num_x_vars = trace.log_num;
+        let num_y_vars = trace.log_num;
+        debug_assert_eq!(num_x_vars, kernel_rx.point.len());
+        debug_assert_eq!(num_y_vars, kernel_ry.point.len());
+        // eval_mle_ry(k) = eq(to-bits(col(k)), ry)
+        let lookup = |x: &usize| -> EF { kernel_ry.eq_at_point.evaluations[*x] };
+        let eval_mle_ry = trace
+            .permutation_table
+            .iter()
+            .map(lookup)
+            .collect::<Vec<EF>>();
+
+        assert!(trace.signed.is_some());
+        let signed = trace.signed.as_ref().unwrap();
+        Self {
+            num_x_vars,
+            num_y_vars,
+            col: Rc::new(DenseMultilinearExtension {
+                evaluations: signed.permutation.to_owned(),
+                num_vars: trace.log_num,
+            }),
+            val: Rc::new(DenseMultilinearExtension {
+                evaluations: signed.sign.to_owned(),
+                num_vars: trace.log_num,
+            }),
             eval_mle_ry: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
                 num_x_vars,
                 eval_mle_ry,

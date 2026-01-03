@@ -6,8 +6,8 @@ use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
 use snarks::fhe_op::external_product::{ExternalProductParams, ExternalProductSnarks};
-use trace::SumHadamardTraceMLE;
 // use trace::HadamardProdTraceMLE;
+use trace::basic_ops::SumHadamardTraceMLE;
 use zkfhe::bfhe::{
     BABYBEAR_BINARY_128_BITS_PARAMETERS, CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator,
 };
@@ -70,6 +70,7 @@ fn main() {
     println!("");
     println!("Starting verification of nand.\n");
 
+    let mut trace = trace.blind_rotation_trace;
     trace.finalize(params.lwe_dimension());
 
     let trace = trace.hadamard_trace;

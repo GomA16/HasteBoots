@@ -7,10 +7,8 @@ use algebra::{
 use rand_distr::Distribution;
 use serde::Serialize;
 
-use crate::{
-    ConvertToEF, PackableTrace,
-    rlwe_trace::{MonomialTrace, MonomialTraceMLE},
-};
+use super::rlwe_trace::{MonomialTrace, MonomialTraceMLE};
+use crate::{ConvertToEF, PackableTrace};
 
 pub struct NTTTrace<F: Field> {
     pub log_coeff_count: usize,

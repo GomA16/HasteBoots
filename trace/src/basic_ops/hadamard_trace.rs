@@ -6,11 +6,11 @@ use algebra::{
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::Serialize;
 
-use crate::lookup_trace::normal_table::LookupTraceMLE as LookupTraceMLENormalTable;
-use crate::lookup_trace::small_table::LookupTraceMLE as LookupTraceMLESmallTable;
-use crate::rlwe_trace::{
+use super::rlwe_trace::{
     PolynomialEval, PolynomialTrace, PolynomialTraceMLE, RLWEEval, RLWETrace, RLWETraceMLE,
 };
+use crate::lookup_trace::normal_table::LookupTraceMLE as LookupTraceMLENormalTable;
+use crate::lookup_trace::small_table::LookupTraceMLE as LookupTraceMLESmallTable;
 use crate::{
     ConvertToEF, EvaluableTrace, EvaluableTraceEF, LookupableTraceEF, PackableEval, PackableTrace,
 };

@@ -5,7 +5,7 @@ use algebra::{
     ntt_add_mul_assign_fast, ntt_add_mul_inplace, transformation::AbstractNTT,
 };
 use rand::{CryptoRng, Rng};
-use trace::SumHadamardTrace;
+use trace::basic_ops::SumHadamardTrace;
 
 use crate::{
     DecompositionSpace, GadgetRLWE, LWE, NTTGadgetRLWE, NTTRGSW, NTTRLWESpace, PolynomialSpace,
@@ -1156,7 +1156,7 @@ impl<F: NTTField> NTTRLWE<F> {
         let k_idx = k_idx * basis.decompose_len();
         gadget_rlwe.iter().enumerate().for_each(|(i, g)| {
             polynomial.decompose_lsb_bits_inplace(basis, decompose_space.as_mut_slice());
-            
+
             let trace = trace.get_trace_mul(k_idx + i);
             trace.append_bit_poly(decompose_space.as_slice());
 

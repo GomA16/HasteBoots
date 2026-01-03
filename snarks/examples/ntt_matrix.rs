@@ -8,7 +8,7 @@ use pcs::{
     utils::code::{ExpanderCode, ExpanderCodeSpec},
 };
 use snarks::ntt::{NTTMatrixEvalSnarks, ntt_matrix_eval::NTTMatrixEvalSnarksParams};
-use trace::{NTTTrace, NTTTraceMLE};
+use trace::basic_ops::{NTTTrace, NTTTraceMLE};
 
 type FF = BabyBear;
 type EF = BabyBearExetension;

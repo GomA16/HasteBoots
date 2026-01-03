@@ -8,7 +8,7 @@ use rand::{CryptoRng, Rng};
 
 use crate::{DecompositionSpace, NTTRLWE, PolynomialSpace, RLWE};
 
-use trace::SumHadamardTrace;
+use trace::basic_ops::SumHadamardTrace;
 
 /// A representation of Ring Learning with Errors (RLWE) ciphertexts with respect to different powers
 /// of a base, used to control noise growth in polynomial multiplications.

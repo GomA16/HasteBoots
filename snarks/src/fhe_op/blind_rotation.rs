@@ -19,7 +19,6 @@ use piop::ntt::{
     BatchedNTTMatrixEvalProof, NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance,
     NTTMatrixEvalProof,
 };
-use piop::permutation::row_perm::compute_permutation_at_point;
 use piop::sparse_matrix_eval::sparse_row::SparseRowEvalInstance;
 use piop::{
     BatchedSumcheckPIOP, LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance,
@@ -27,13 +26,14 @@ use piop::{
 };
 use serde::Serialize;
 use sumcheck::{MLSumcheck, Proof};
+use trace::basic_ops::{SumHadamardTraceEval, SumHadamardTraceMLE};
+use trace::blind_rotation_trace::BlindRotationTraceEval;
 use trace::lookup_trace::small_table::LookupWitnessHelperEval;
-use trace::pbs_trace::PBSTraceEval;
 use trace::{
-    ConvertToEF, EvaluableTraceEF, PBSTrace, PBSTraceMLE, PackableTrace, SumHadamardTraceEval,
-    acc_trace, pbs_trace,
+    BlindRotationTrace, BlindRotationTraceMLE, ConvertToEF, EvaluableTraceEF, PackableTrace,
+    acc_trace, blind_rotation_trace,
 };
-use trace::{EvaluableTrace, PackableEval, SumHadamardTraceMLE};
+use trace::{EvaluableTrace, PackableEval};
 
 use crate::fhe_op::acc_iteration::{self, AccIterationSnarks, AccIterationSnarksProof};
 use crate::sparse_matrix_eval::SparseRowEvalSnarks;
@@ -80,7 +80,7 @@ where
         ntt_table: Vec<F>,
         blk_size: usize,
         basis: usize,
-        trace: &PBSTrace<F>,
+        trace: &BlindRotationTrace<F>,
     ) -> Self {
         let oracle_num_vars = trace.num_vars() + trace.log_num_oracles();
         let pcs_params = PCS::setup(oracle_num_vars, Some(code_spec.clone()));
@@ -124,7 +124,7 @@ where
     pub hadamard_proof: BatchedSumHadamardProof<EF>,
     pub ntt_infos: Vec<NTTMatrixEvalInfo<EF>>,
     pub ntt_proof: BatchedNTTMatrixEvalProof<EF>,
-    pub acc_iteration_proof: AccIterationSnarksProof<EF>,
+    pub acc_iteration_proof: AccIterationSnarksProof<F, EF, S, PCS>,
 
     #[serde(skip)]
     pub eval_proof: Vec<PCS::Proof>,
@@ -134,7 +134,7 @@ where
 
     // Redudant fields for ease of implementation
     #[serde(skip)]
-    pub trace_evals: PBSTraceEval<EF>,
+    pub trace_evals: BlindRotationTraceEval<EF>,
     #[serde(skip)]
     pub helper_evals: LookupWitnessHelperEval<EF>,
 }
@@ -223,20 +223,20 @@ where
         &self,
         trans: &mut Transcript<EF>,
         // trace_mle: &SumHadamardTraceMLE<F>,
-        pbs_trace: PBSTrace<F>,
+        blind_rotation_trace: BlindRotationTrace<F>,
         params: &BlindRotationParams<F, EF, S, PCS>,
     ) -> BlindRotationProof<F, EF, S, PCS> {
         let time = std::time::Instant::now();
         // [Commit Phase] commit to the trace polynomial
-        let bit_poly = pbs_trace.generate_oracle();
-        let pbs_trace_mle = PBSTraceMLE::from(pbs_trace);
+        let bit_poly = blind_rotation_trace.generate_oracle();
+        let blind_rotation_trace_mle = BlindRotationTraceMLE::from(blind_rotation_trace);
         let (commitment, commitment_state) = PCS::commit(&params.pcs_params, &bit_poly);
         trans.append_message(b"[Commit Phase]", &commitment);
 
         // [Commit Phase] commit to the helper polynomial for lookup
         let random_value =
             trans.get_challenge(b"[Challenge] random value used in the rational identity");
-        let lookup_trace = pbs_trace_mle
+        let lookup_trace = blind_rotation_trace_mle
             .hadamard_trace
             .extract_lookup_trace_mle_small_table(params.basis);
         let lookup_witness = lookup_trace.compute_witness_pure();
@@ -253,11 +253,11 @@ where
         // [PIOP Phase] extract the Hadamard instances
         let piop_time = std::time::Instant::now();
         let time = std::time::Instant::now();
-        let pbs_ef = pbs_trace_mle.to_ef();
+        let blind_rotation_trace_ef = blind_rotation_trace_mle.to_ef();
         let lookup_trace_ef = lookup_trace.to_ef();
-        let hadamard_instance = SumHadamardInstance::from(&pbs_ef.hadamard_trace);
+        let hadamard_instance = SumHadamardInstance::from(&blind_rotation_trace_ef.hadamard_trace);
         let acc_hadamard_instance =
-            SumHadamardInstance::from(&pbs_ef.acc_trace.extract_hadamard_trace());
+            SumHadamardInstance::from(&blind_rotation_trace_ef.acc_trace.extract_hadamard_trace());
         let hadamard_instance = [hadamard_instance, acc_hadamard_instance]
             .into_iter()
             .flatten()
@@ -305,12 +305,15 @@ where
         trans.append_message(b"[Sumcheck Protocol]", &sumcheck_proof);
 
         let eval_table = sumcheck_state.fast_evaluate();
-        println!("[P] PIOP Phase: Proving All Hadamard and Lookup Relation in {:?}", time.elapsed());
+        println!(
+            "[P] PIOP Phase: Proving All Hadamard and Lookup Relation in {:?}",
+            time.elapsed()
+        );
 
         let time = std::time::Instant::now();
-        let trace_evals = pbs_trace_mle.evaluate_ef_with_lookup(
+        let trace_evals = blind_rotation_trace_mle.evaluate_ef_with_lookup(
             &sumcheck_state.randomness,
-            &pbs_ef,
+            &blind_rotation_trace_ef,
             &sumcheck_claim.poly,
             &eval_table,
         );
@@ -327,7 +330,8 @@ where
         // [PIOP Phase] evaluate the polynomials and append them into proof
         // let trace_evals = pbs_trace_mle.evaluate_ef(&sumcheck_state.randomness);
         // let helper_evals = lookup_helper.evaluate(&sumcheck_state.randomness);
-        let hadamard_eval_proof = BatchedSumHadamardProof::from_pbs_trace_eval(&trace_evals);
+        let hadamard_eval_proof =
+            BatchedSumHadamardProof::from_blind_rotation_trace_eval(&trace_evals);
         let lookup_eval_proof = LogUpProof::from_hadamard_trace_eval(
             &trace_evals.hadamard_trace,
             &helper_evals,
@@ -336,14 +340,16 @@ where
         trans.append_message(b"[Hadamard Evals]", &hadamard_eval_proof);
         trans.append_message(b"[Lookup Evals]", &lookup_eval_proof);
 
-        let point_u =
-            sumcheck_state.randomness[..pbs_trace_mle.hadamard_trace.log_coeff_count].to_vec();
-        let mut point_v =
-            sumcheck_state.randomness[pbs_trace_mle.hadamard_trace.log_coeff_count..].to_vec();
+        let point_u = sumcheck_state.randomness
+            [..blind_rotation_trace_mle.hadamard_trace.log_coeff_count]
+            .to_vec();
+        let mut point_v = sumcheck_state.randomness
+            [blind_rotation_trace_mle.hadamard_trace.log_coeff_count..]
+            .to_vec();
 
         let time = std::time::Instant::now();
         // NTT Sparse Matrix Evaluation
-        let monomial_poly = pbs_ef.acc_trace.monomial.poly.clone();
+        let monomial_poly = blind_rotation_trace_ef.acc_trace.monomial.poly.clone();
         let ntt_sparse_instance = NTTMatrixEvalInstance::from_subclaim(
             &monomial_poly,
             &params.ntt_table,
@@ -355,7 +361,7 @@ where
         // Normal NTT Matrix Evaluation
         let point_bit_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
-            pbs_trace_mle.log_num_oracles(),
+            blind_rotation_trace_mle.log_num_oracles(),
         );
         let point_helper_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
@@ -393,23 +399,26 @@ where
         let ntt_instances = vec![ntt_sparse_instance, ntt_instance];
         let (ntt_proof, ntt_state) = NTTMatrixEvalIOP::prover_batch(trans, &ntt_instances);
 
-        println!("[P] PIOP Phase: Proving NTT Virtual Oracle Equality in {:?}", time.elapsed());
+        println!(
+            "[P] PIOP Phase: Proving NTT Virtual Oracle Equality in {:?}",
+            time.elapsed()
+        );
         trans.append_message(b"[PIOP Phase]", &ntt_proof);
 
         let time = std::time::Instant::now();
         // Acc Iteration Structure
-        let permutation = Rc::new(compute_permutation_at_point(
-            pbs_ef.log_num_round,
-            &pbs_ef.acc_trace.permutation_info,
-            &point_v,
-        ));
+        let indexed_lookup_permutation = blind_rotation_trace_ef
+            .acc_trace
+            .permutation_info
+            .extract_indexed_lookup_trace(&point_v);
+
         let acc_iteration_proof = AccIterationSnarks::prove_as_subprotocol(
             trans,
-            &pbs_ef,
+            &blind_rotation_trace_ef,
             &trace_evals,
             &point_v,
             &point_u,
-            &permutation,
+            &indexed_lookup_permutation,
         );
         println!(
             "[P] PIOP Phase: Proving Accumulator Iteration Structure in {:?}",
@@ -440,14 +449,17 @@ where
             trans,
         );
 
-        println!("[P] PCS Opening 3 Points on 2 Oracles in {:?}", time.elapsed());
+        println!(
+            "[P] PCS Opening 3 Points on 2 Oracles in {:?}",
+            time.elapsed()
+        );
 
         // Open the sparse coefficient matrix evaluation `ntt_proof.coeff_eval_at_r_v[0]` at point_r_v using SparseMatrix
         let time = std::time::Instant::now();
         let kernel_rx = LagrangeKernel::from_point(&point_v);
         let kernel_ry = LagrangeKernel::from_point(&ntt_state.randomness);
         let sparse_matrix_eval_instance = SparseRowEvalInstance::from_subclaim::<F>(
-            &pbs_trace_mle.acc_trace.monomial_representation,
+            &blind_rotation_trace_mle.acc_trace.monomial_representation,
             &kernel_rx,
             &kernel_ry,
             ntt_proof.coeff_eval_at_r_v[0],
@@ -459,8 +471,8 @@ where
         println!("[P] Sparse PCS Opening Phase time: {:?}", time.elapsed());
 
         BlindRotationProof {
-            log_coeff_count: pbs_trace_mle.log_coeff_count,
-            log_num_oracle: pbs_trace_mle.log_num_oracles(),
+            log_coeff_count: blind_rotation_trace_mle.log_coeff_count,
+            log_num_oracle: blind_rotation_trace_mle.log_num_oracles(),
             log_num_helper_poly: lookup_trace.log_num_helper_oracles(params.blk_size),
             pcs_params: params.pcs_params.clone(),
             commitment,
@@ -581,10 +593,8 @@ where
         assert!(res, "NTT Matrix Evaluation verification failed.");
 
         // Acc Iteration Verification
-        let acc_iteration_res = AccIterationSnarks::verify_as_subprotocol(
-            trans,
-            &proof.acc_iteration_proof,
-        );
+        let acc_iteration_res =
+            AccIterationSnarks::verify_as_subprotocol(trans, &proof.acc_iteration_proof);
         res &= acc_iteration_res;
         assert!(res, "Acc Iteration verification failed.");
 

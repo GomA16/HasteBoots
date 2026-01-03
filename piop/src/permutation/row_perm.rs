@@ -33,25 +33,17 @@ use algebra::DenseMultilinearExtension;
 use algebra::Field;
 use algebra::MultilinearExtension;
 use algebra::PolynomialInfo;
-use arc_swap::strategy;
-use bincode::config;
 use helper::utils::eval_identity_function;
-use helper::utils::gen_identity_evaluations;
-use num_traits::{Zero, ops::inv, sign};
-use rand::rand_core::le;
-use rand::random;
-use rayon::vec;
 use serde::Serialize;
-use sha2::digest::typenum::type_operators;
 use std::collections::HashMap;
-use std::os::macos::raw::stat;
-use std::{mem::Discriminant, rc::Rc};
+
+use std::rc::Rc;
 use sumcheck::Proof;
 use sumcheck::verifier::SubClaim;
-use trace::PBSTraceMLE;
-use trace::pbs_trace::PBSTraceEval;
-use trace::row_perm_trace::RowPermTrace;
-use trace::row_perm_trace::RowPermTraceMLE;
+use trace::BlindRotationTraceMLE;
+use trace::basic_ops::{RowPermTrace, RowPermTraceMLE};
+use trace::blind_rotation_trace::BlindRotationTraceEval;
+use trace::lookup_trace::indexed_table::IndexedLookupTraceMLE;
 
 use crate::BatchedSumcheckPIOP;
 use crate::SumcheckInfo;
@@ -74,17 +66,16 @@ pub struct RowPermInstance<F: Field> {
     pub input_ry: Rc<DenseMultilinearExtension<F>>,
     pub perm_rx: Rc<DenseMultilinearExtension<F>>,
     pub output_ry_rx: F,
-    // pub perm: Vec<usize>,
 }
 
 #[derive(Serialize)]
 pub struct RowPermInfo<F: Field> {
     pub log_num_cols: usize,
     pub log_num_rows: usize,
-    // pub perm: Vec<usize>,
     _marker: std::marker::PhantomData<F>,
 }
 
+#[derive(Serialize)]
 pub struct RowPermProof<F: Field> {
     pub poly_info: PolynomialInfo,
     pub sumcheck_proof: Proof<F>,
@@ -132,9 +123,9 @@ impl<F: Field> RowPermInstance<F> {
     // input_acc_permuted = permutation_matrix * input_acc
     // => A'(rx, ry) = sum_{k} P(rx, k) * A(k, ry)
     pub fn from_subclaim(
-        trace: &PBSTraceMLE<F>,
-        trace_eval: &PBSTraceEval<F>,
-        permutation: &Rc<DenseMultilinearExtension<F>>,
+        trace: &BlindRotationTraceMLE<F>,
+        trace_eval: &BlindRotationTraceEval<F>,
+        indexed_permutation: &IndexedLookupTraceMLE<F>,
         point_rx: &[F],
         point_ry: &[F],
     ) -> Vec<Self> {
@@ -162,7 +153,7 @@ impl<F: Field> RowPermInstance<F> {
             point_rx: point_rx.to_vec(),
             point_ry: point_ry.to_vec(),
             input_ry: input_ry_0,
-            perm_rx: Rc::clone(permutation),
+            perm_rx: Rc::clone(&indexed_permutation.input),
             output_ry_rx: input_acc_permuted_0,
         };
         let instance_1 = Self {
@@ -171,44 +162,75 @@ impl<F: Field> RowPermInstance<F> {
             point_rx: point_rx.to_vec(),
             point_ry: point_ry.to_vec(),
             input_ry: input_ry_1,
-            perm_rx: Rc::clone(permutation),
+            perm_rx: Rc::clone(&indexed_permutation.input),
             output_ry_rx: input_acc_permuted_1,
         };
         vec![instance_0, instance_1]
     }
 
-    pub fn random<R: rand::Rng + rand::CryptoRng>(
-        rng: &mut R,
-        log_num_rows: usize,
-        log_num_cols: usize,
+    pub fn from_permutation_trace(
+        trace: &RowPermTraceMLE<F>,
+        point_rx: &[F],
+        point_ry: &[F],
     ) -> Self {
-        let random_trace: RowPermTraceMLE<F> =
-            RowPermTrace::random(rng, log_num_rows, log_num_cols).into();
-        let point_rx: Vec<F> = (0..log_num_rows).map(|_| F::random(rng)).collect();
-        let point_ry: Vec<F> = (0..log_num_cols).map(|_| F::random(rng)).collect();
-        let perm_rx = compute_permutation_at_point::<F>(
-            log_num_rows,
-            &random_trace.permutation_info,
-            &point_rx,
-        );
-        let input_ry = random_trace.input.fix_variables(&point_ry);
+        let input_ry = trace.input.fix_variables(&point_ry);
+
         let point_ry_rx = point_ry
             .iter()
             .chain(point_rx.iter())
             .cloned()
             .collect::<Vec<F>>();
-        let output_ry_rx = random_trace.output.evaluate(&point_ry_rx);
+        let output_ry_rx = trace.output.evaluate(&point_ry_rx);
+
+        let permutation_rx = match trace.permutation_info.signed {
+            None => {
+                let lookup_trace = trace
+                    .permutation_info
+                    .extract_indexed_lookup_trace(point_rx);
+                lookup_trace.input
+            }
+            Some(_) => {
+                let mle = trace.permutation_info.fixed_variable(point_rx);
+                Rc::new(mle)
+            }
+        };
 
         Self {
-            log_num_cols,
-            log_num_rows,
-            point_rx,
-            point_ry,
+            log_num_cols: trace.log_num_cols,
+            log_num_rows: trace.log_num_rows,
+            point_rx: point_rx.to_vec(),
+            point_ry: point_ry.to_vec(),
             input_ry: Rc::new(input_ry),
-            perm_rx: Rc::new(perm_rx),
+            perm_rx: Rc::clone(&permutation_rx),
             output_ry_rx,
-            // perm: random_trace.permutation_info,
         }
+    }
+
+    pub fn random_rotation_left<R: rand::Rng + rand::CryptoRng>(
+        rng: &mut R,
+        log_num_rows: usize,
+        log_num_cols: usize,
+    ) -> Self {
+        let random_trace: RowPermTraceMLE<F> =
+            RowPermTrace::random_rotation_left(rng, log_num_rows, log_num_cols).into();
+
+        let point_rx: Vec<F> = (0..log_num_rows).map(|_| F::random(rng)).collect();
+        let point_ry: Vec<F> = (0..log_num_cols).map(|_| F::random(rng)).collect();
+        RowPermInstance::from_permutation_trace(&random_trace, &point_rx, &point_ry)
+    }
+
+    pub fn random_ks_permutation<R: rand::Rng + rand::CryptoRng>(
+        rng: &mut R,
+        log_num_rows: usize,
+        log_num_cols: usize,
+        log_blk_size: usize,
+    ) -> Self {
+        let random_trace: RowPermTraceMLE<F> =
+            RowPermTrace::random_ks_permutation(rng, log_num_rows, log_num_cols, log_blk_size)
+                .into();
+        let point_rx: Vec<F> = (0..log_num_rows).map(|_| F::random(rng)).collect();
+        let point_ry: Vec<F> = (0..log_num_cols).map(|_| F::random(rng)).collect();
+        RowPermInstance::from_permutation_trace(&random_trace, &point_rx, &point_ry)
     }
 }
 
@@ -382,69 +404,9 @@ impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for RowPermPIOP<F> {
     type BatchedVerifierSubclaim = RowPermVerifierSubclaim<F>;
 }
 
-pub fn compute_inverse_permutation(perm: &Vec<usize>) -> Vec<usize> {
-    let n = perm.len();
-    let mut inv_perm = vec![0; n];
-    for (i, &p) in perm.iter().enumerate() {
-        inv_perm[p] = i;
-    }
-    inv_perm
-}
-
-pub fn perform_permutation<F: Zero + Clone + Copy>(
-    dim: usize,
-    perm: &Vec<usize>,
-    input: &[F],
-) -> Vec<F> {
-    assert_eq!(1 << dim, perm.len());
-    let mut output_evals = vec![F::zero(); 1 << dim];
-    for x in 0..1 << dim {
-        let y = perm[x];
-        output_evals[x] = input[y];
-    }
-    output_evals
-}
-
-// Compute P(y, r) for all y in the hypercube, where r is a random point in F^n
-pub fn compute_permutation_at_point<F: Field>(
-    dim: usize,
-    perm: &Vec<usize>,
-    point: &[F],
-) -> DenseMultilinearExtension<F> {
-    assert_eq!(1 << dim, perm.len());
-    let eq_mle = gen_identity_evaluations(point);
-    let inverse_perm = compute_inverse_permutation(perm);
-    DenseMultilinearExtension::from_evaluations_vec(
-        dim,
-        perform_permutation(dim, &inverse_perm, eq_mle.as_slice()),
-    )
-}
-
-// Compute P(y, r) for all y in the hypercube, where r is a random point in F^n
-pub fn compute_permutation_at_point_w_sign<F: Field>(
-    dim: usize,
-    perm: &Vec<usize>,
-    sign: &Vec<usize>,
-    point: &[F],
-) -> DenseMultilinearExtension<F> {
-    assert_eq!(1 << dim, perm.len());
-    let eq_mle = gen_identity_evaluations(point);
-    let inverse_perm = compute_inverse_permutation(perm);
-    let sign_permutated = perform_permutation(dim, &inverse_perm, sign);
-    let mut eq_mle_permutated = perform_permutation(dim, &inverse_perm, eq_mle.as_slice());
-    eq_mle_permutated
-        .iter_mut()
-        .zip(sign_permutated.iter())
-        .for_each(|(v, s)| {
-            if *s == 0 {
-                *v = -*v;
-            }
-        });
-    DenseMultilinearExtension::from_evaluations_vec(dim, eq_mle_permutated)
-}
-
 #[cfg(test)]
 mod test {
+
     use super::*;
     use algebra::{DenseMultilinearExtension, Field, MultilinearExtension, derive::Field};
     use helper::Transcript;
@@ -456,97 +418,14 @@ mod test {
     // field type
     type FF = Fp32;
 
-    // P[X][Y] denotes the permutation matrix entry at row i and column j
-    // P(y, x) = P(y_0, y_1, ..., y_{n-1}, x_0, x_1, ..., x_{n-1}) = P[X][Y]
-    // where X = \sum 2^i x_i, Y = \sum 2^i y_i.
-    //
-    // Permutation phi(X) = Y is represented as P[X][Y] = 1 if Y = phi(X), else 0.
-    // Hence, each row of P has exactly one 1.
-    fn generate_permutation_matrix<F: Field>(
-        dim: usize,
-        perm: &Vec<usize>,
-    ) -> DenseMultilinearExtension<F> {
-        assert_eq!(1 << dim, perm.len());
-        let mut perm_matrix = vec![F::zero(); (1 << dim) * (1 << dim)];
-
-        for x in 0..1 << dim {
-            for y in 0..1 << dim {
-                let idx = x * (1 << dim) + y;
-                if perm[x] == y {
-                    perm_matrix[idx] = F::one();
-                }
-            }
-        }
-        DenseMultilinearExtension::from_evaluations_vec(dim * 2, perm_matrix)
-    }
-
-    fn generate_permutation_matrix_w_sign<F: Field>(
-        dim: usize,
-        perm: &Vec<usize>,
-        sig: &Vec<bool>,
-    ) -> DenseMultilinearExtension<F> {
-        assert_eq!(1 << dim, perm.len());
-        let mut perm_matrix = vec![F::zero(); (1 << dim) * (1 << dim)];
-
-        for x in 0..1 << dim {
-            for y in 0..1 << dim {
-                let idx = x * (1 << dim) + y;
-                if perm[x] == y {
-                    perm_matrix[idx] = if sig[x] == true { F::one() } else { -F::one() };
-                }
-            }
-        }
-        DenseMultilinearExtension::from_evaluations_vec(dim * 2, perm_matrix)
-    }
-
-    #[test]
-    fn test_permutation_at_point() {
-        let dim = 2 as usize;
-        let perm = vec![1, 2, 3, 0]; // permutation on 4 elements
-        let sig = vec![1, 1, 1, 1];
-
-        let perm_matrix_mle = generate_permutation_matrix::<FF>(dim, &perm);
-        let rng = &mut rand::rng();
-        let point: Vec<FF> = (0..dim).map(|_| FF::random(rng)).collect();
-
-        let perm_mle = perm_matrix_mle.fix_variables_back(&point);
-        let computed_perm_mle = compute_permutation_at_point::<FF>(dim, &perm, &point);
-
-        assert_eq!(perm_mle, computed_perm_mle);
-    }
-
-    #[test]
-    fn test_permutation_matrix() {
-        let mut rng = rand::rng();
-        let log_num_rows = 2;
-        let log_num_cols = 2;
-
-        let random_trace = RowPermTrace::<FF>::random(&mut rng, log_num_rows, log_num_cols);
-        let permutation_matrix =
-            generate_permutation_matrix::<FF>(log_num_rows, &random_trace.permutation_info);
-
-        let mut product = vec![FF::zero(); 1 << (log_num_rows + log_num_cols)];
-        for x in 0..(1 << log_num_rows) {
-            for y in 0..(1 << log_num_rows) {
-                let prod_idx = y + (x << log_num_rows);
-                for z in 0..(1 << log_num_rows) {
-                    let perm_idx = z + (x << log_num_rows);
-                    let input_idx = y + (z << log_num_rows);
-                    product[prod_idx] +=
-                        permutation_matrix.evaluations[perm_idx] * random_trace.input[input_idx];
-                }
-            }
-        }
-        assert_eq!(product, random_trace.output);
-    }
-
     #[test]
     fn test_row_perm_piop() {
         let mut rng = rand::rng();
         let log_num_rows = 2;
         let log_num_cols = 2;
 
-        let instance = RowPermInstance::<FF>::random(&mut rng, log_num_rows, log_num_cols);
+        let instance =
+            RowPermInstance::<FF>::random_rotation_left(&mut rng, log_num_rows, log_num_cols);
         let instance_info = instance.info();
         let mut prover_trans = Transcript::default();
         let (proof, _prover_state) = RowPermPIOP::<FF>::prover(&mut prover_trans, &instance);
@@ -563,7 +442,9 @@ mod test {
         let num_instances = 3;
 
         let instances = (0..num_instances)
-            .map(|_| RowPermInstance::<FF>::random(&mut rng, log_num_rows, log_num_cols))
+            .map(|_| {
+                RowPermInstance::<FF>::random_rotation_left(&mut rng, log_num_rows, log_num_cols)
+            })
             .collect::<Vec<_>>();
         let infos = instances
             .iter()
@@ -574,6 +455,27 @@ mod test {
         let (proof, _prover_state) = RowPermPIOP::<FF>::prover_batch(&mut prover_trans, &instances);
         let mut verifier_trans = Transcript::default();
         let (res, _) = RowPermPIOP::<FF>::verifier_batch(&mut verifier_trans, &infos, &proof);
+        assert!(res);
+    }
+
+    #[test]
+    fn test_row_perm_signed_piop() {
+        let mut rng = rand::rng();
+        let log_num_rows = 10;
+        let log_num_cols = 0;
+        let log_blk_size = 9;
+
+        let instance = RowPermInstance::<FF>::random_ks_permutation(
+            &mut rng,
+            log_num_rows,
+            log_num_cols,
+            log_blk_size,
+        );
+        let instance_info = instance.info();
+        let mut prover_trans = Transcript::default();
+        let (proof, _prover_state) = RowPermPIOP::<FF>::prover(&mut prover_trans, &instance);
+        let mut verifier_trans = Transcript::default();
+        let (res, _) = RowPermPIOP::<FF>::verifier(&mut verifier_trans, &instance_info, &proof);
         assert!(res);
     }
 }

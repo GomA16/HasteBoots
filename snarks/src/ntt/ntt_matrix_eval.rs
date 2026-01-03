@@ -4,7 +4,8 @@ use pcs::PolynomialCommitmentScheme;
 use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance, NTTMatrixEvalProof};
 use piop::{SumcheckInstance, SumcheckPIOP};
 use serde::Serialize;
-use trace::{ConvertToEF, NTTTraceMLE, PackableTrace};
+use trace::basic_ops::{NTTTrace, NTTTraceMLE};
+use trace::{ConvertToEF, PackableTrace};
 
 pub struct NTTMatrixEvalSnarksParams<F, EF, S, PCS>
 where
@@ -155,7 +156,7 @@ mod test {
         multilinear::BrakedownPCS,
         utils::code::{ExpanderCode, ExpanderCodeSpec},
     };
-    use trace::NTTTrace;
+    use trace::basic_ops::NTTTrace;
 
     type FF = BabyBear;
     type EF = BabyBearExetension;

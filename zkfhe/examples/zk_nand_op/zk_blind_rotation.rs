@@ -7,7 +7,7 @@ use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
 use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks};
 use snarks::fhe_op::external_product::{ExternalProductParams, ExternalProductSnarks};
-use trace::{PBSTraceMLE, SumHadamardTraceMLE};
+use trace::BlindRotationTraceMLE;
 // use trace::HadamardProdTraceMLE;
 use zkfhe::bfhe::{
     BABYBEAR_BINARY_128_BITS_PARAMETERS, CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator,
@@ -71,6 +71,7 @@ fn main() {
     println!("");
     println!("Starting verification of nand.\n");
 
+    let mut trace = trace.blind_rotation_trace;
     trace.finalize(params.lwe_dimension());
     // let trace_mle: PBSTraceMLE<_> = trace.into();
     let ntt_table = FF::get_ntt_table(trace.log_coeff_count as u32)

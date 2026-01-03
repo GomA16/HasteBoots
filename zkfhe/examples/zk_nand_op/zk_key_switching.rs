@@ -6,8 +6,9 @@ use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
 use snarks::fhe_op::external_product::{ExternalProductParams, ExternalProductSnarks};
-use trace::SumHadamardTraceMLE;
-// use trace::HadamardProdTraceMLE;
+use snarks::fhe_op::key_switching::{KeySwitchingParams, KeySwitchingSnarks};
+use trace::basic_ops::SumHadamardTraceMLE;
+use trace::key_switching_trace::KeySwitchingTraceMLE;
 use zkfhe::bfhe::{
     BABYBEAR_BINARY_128_BITS_PARAMETERS, CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator,
 };
@@ -70,19 +71,17 @@ fn main() {
     println!("");
     println!("Starting verification of nand.\n");
 
-    trace.finalize(params.lwe_dimension());
+    let trace = trace.key_switching_trace;
+    let trace_mle: KeySwitchingTraceMLE<_> = trace.into();
 
-    // The key switching trace is exacely the same as the external product trace
-    let trace = trace.ks_hadamard_trace;
-    let trace_mle: SumHadamardTraceMLE<_> = trace.into();
     let ntt_table = FF::get_ntt_table(trace_mle.log_coeff_count as u32)
         .unwrap()
         .root_powers();
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
     let blk_size = 3;
     let basis = 1 << params.key_switching_basis_bits() as usize;
-    let params = ExternalProductParams::new(code_spec, ntt_table, blk_size, basis, &trace_mle);
-    let snarks = ExternalProductSnarks::<
+    let params = KeySwitchingParams::new(code_spec, ntt_table, blk_size, basis, &trace_mle);
+    let snarks = KeySwitchingSnarks::<
         FF,
         EF,
         ExpanderCodeSpec,
@@ -100,14 +99,7 @@ fn main() {
     let res = snarks.verify(&mut verifier_trans, &proof);
     println!("Proofs verification done!\n");
     println!("Proof verification time: {:?}\n", time.elapsed());
-    println!(
-        "PIOP Proof Size: {} MB",
-        proof.piop_proof_len() as f64 / (1000 * 1000) as f64
-    );
-    println!(
-        "PCS Proof Size: {} MB",
-        proof.pcs_proof_len() as f64 / (1000 * 1000) as f64
-    );
+
     assert!(res);
 }
 

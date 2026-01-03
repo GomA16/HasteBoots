@@ -10,7 +10,8 @@ use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
 use snarks::fhe_op::hadamard::{HadamardParams, HadamardSnarks};
 use snarks::fhe_op::monomial_hadamard::{MonomialHadamardParams, MonomialHadamardSnarks};
-use trace::{AccTraceMLE, ConvertToEF, SumHadamardTraceMLE};
+use trace::basic_ops::SumHadamardTraceMLE;
+use trace::{AccTraceMLE, ConvertToEF};
 // use trace::HadamardProdTraceMLE;
 use zkfhe::bfhe::{
     BABYBEAR_BINARY_128_BITS_PARAMETERS, CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator,
@@ -71,6 +72,7 @@ fn main() {
 
     // Generate SNARKs for nand
     println!("Starting verification of nand.\n");
+    let mut trace = trace.blind_rotation_trace;
     trace.finalize(params.lwe_dimension() as usize);
 
     let acc_trace = trace.acc_trace;

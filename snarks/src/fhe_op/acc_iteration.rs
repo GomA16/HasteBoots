@@ -17,44 +17,68 @@ use std::rc::Rc;
 
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field, MultilinearExtension};
 use helper::{FiatShamirTranscript, Transcript};
+use pcs::PolynomialCommitmentScheme;
 use piop::{
     BatchedSumcheckPIOP, LagrangeKernel, SumcheckInstance, SumcheckPIOP,
-    permutation::row_perm::{
-        BatchedRowPermProof, RowPermInfo, RowPermInstance, RowPermPIOP,
-        compute_permutation_at_point,
-    },
+    permutation::row_perm::{BatchedRowPermProof, RowPermInfo, RowPermInstance, RowPermPIOP},
 };
 use serde::Serialize;
-use trace::{ConvertToEF, EvaluableTraceEF, PBSTraceMLE, pbs_trace::PBSTraceEval};
+use trace::{
+    BlindRotationTraceMLE, ConvertToEF, EvaluableTraceEF,
+    blind_rotation_trace::BlindRotationTraceEval,
+    lookup_trace::indexed_table::IndexedLookupTraceMLE,
+};
+
+use crate::lookup::indexed_table::{IndexedLogUpSnarks, IndexedLogUpSnarksProof};
 
 #[derive(Default)]
-pub struct AccIterationSnarks<F, EF>
+pub struct AccIterationSnarks<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F>,
+    S: Clone,
+    PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
     _marker_f: std::marker::PhantomData<F>,
     _marker_ef: std::marker::PhantomData<EF>,
+    _marker_s: std::marker::PhantomData<S>,
+    _marker_pcs: std::marker::PhantomData<PCS>,
 }
 
 #[derive(Serialize)]
-pub struct AccIterationSnarksProof<EF: Field> {
+pub struct AccIterationSnarksProof<F, EF, S, PCS>
+where
+    F: Field,
+    EF: AbstractExtensionField<F>,
+    S: Clone,
+    PCS: PolynomialCommitmentScheme<F, EF, S>,
+{
     pub log_num_rows: usize,
     pub log_num_cols: usize,
+    pub lookup_proof: IndexedLogUpSnarksProof<F, EF, S, PCS>,
     pub permutation_proof: BatchedRowPermProof<EF>,
     pub permutation_infos: Vec<RowPermInfo<EF>>,
 }
 
-impl<F, EF> AccIterationSnarks<F, EF>
+impl<F, EF, S, PCS> AccIterationSnarks<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F> + Serialize,
+    S: Clone,
+    PCS: PolynomialCommitmentScheme<
+            F,
+            EF,
+            S,
+            Polynomial = DenseMultilinearExtension<F>,
+            EFPolynomial = DenseMultilinearExtension<EF>,
+            Point = EF,
+        >,
 {
     pub fn prove(
         &self,
         trans: &mut Transcript<EF>,
-        trace_mle: &PBSTraceMLE<F>,
-    ) -> AccIterationSnarksProof<EF> {
+        trace_mle: &BlindRotationTraceMLE<F>,
+    ) -> AccIterationSnarksProof<F, EF, S, PCS> {
         let log_num_rows = trace_mle.log_num_round;
         let log_num_cols = trace_mle.log_coeff_count;
         let kernel_rx = LagrangeKernel::random(trans, log_num_rows);
@@ -69,22 +93,26 @@ where
 
         let trace_eval = trace_mle.evaluate_ef(&point);
         let trace_ef = trace_mle.to_ef();
-        let permutation = Rc::new(compute_permutation_at_point(
-            log_num_rows,
-            &trace_mle.acc_trace.permutation_info,
-            &kernel_rx.point,
-        ));
+        let indexed_lookup_trace = trace_ef
+            .acc_trace
+            .permutation_info
+            .extract_indexed_lookup_trace(&kernel_rx.point);
+
         AccIterationSnarks::prove_as_subprotocol(
             trans,
             &trace_ef,
             &trace_eval,
             &kernel_rx.point,
             &kernel_ry.point,
-            &permutation,
+            &indexed_lookup_trace,
         )
     }
 
-    pub fn verify(&self, trans: &mut Transcript<EF>, proof: &AccIterationSnarksProof<EF>) -> bool {
+    pub fn verify(
+        &self,
+        trans: &mut Transcript<EF>,
+        proof: &AccIterationSnarksProof<F, EF, S, PCS>,
+    ) -> bool {
         let point_rx = LagrangeKernel::random_point(trans, proof.log_num_rows);
         let point_ry = LagrangeKernel::random_point(trans, proof.log_num_cols);
 
@@ -93,12 +121,12 @@ where
 
     pub fn prove_as_subprotocol(
         trans: &mut Transcript<EF>,
-        trace_ef: &PBSTraceMLE<EF>,
-        trace_eval: &PBSTraceEval<EF>,
+        trace_ef: &BlindRotationTraceMLE<EF>,
+        trace_eval: &BlindRotationTraceEval<EF>,
         point_rx: &[EF],
         point_ry: &[EF],
-        permutation: &Rc<DenseMultilinearExtension<EF>>,
-    ) -> AccIterationSnarksProof<EF> {
+        indexed_lookup_mle: &IndexedLookupTraceMLE<EF>,
+    ) -> AccIterationSnarksProof<F, EF, S, PCS> {
         // let poly = trace_mle.generate_oracle();
         // let (commitment, _commitment_state) = PCS::commit(&params.pcs_params, &poly);
 
@@ -113,15 +141,23 @@ where
         // input_acc_permuted = permutation_matrix * input_acc
         // => A'(rx, ry) = sum_{k} P(rx, k) * A(k, ry)
 
-        let permutation_instances =
-            RowPermInstance::from_subclaim(trace_ef, &trace_eval, &permutation, point_rx, point_ry);
+        // Prove P(rx, k) = eq(rx, perm_inver(k))
+        let lookup_proof = IndexedLogUpSnarks::prove_as_subprotocol(trans, indexed_lookup_mle);
 
         // Prove the permutation;
+        let permutation_instances = RowPermInstance::from_subclaim(
+            trace_ef,
+            &trace_eval,
+            &indexed_lookup_mle,
+            point_rx,
+            point_ry,
+        );
         let (piop_proof, _piop_state) = RowPermPIOP::prover_batch(trans, &permutation_instances);
 
         AccIterationSnarksProof {
             log_num_rows: trace_ef.log_num_round,
             log_num_cols: trace_ef.log_coeff_count,
+            lookup_proof,
             permutation_proof: piop_proof,
             permutation_infos: permutation_instances
                 .iter()
@@ -132,9 +168,12 @@ where
 
     pub fn verify_as_subprotocol(
         trans: &mut Transcript<EF>,
-        proof: &AccIterationSnarksProof<EF>,
+        proof: &AccIterationSnarksProof<F, EF, S, PCS>,
     ) -> bool {
         let mut res = true;
+
+        let res_lookup = IndexedLogUpSnarks::verify_as_subprotocol(trans, &proof.lookup_proof);
+        res &= res_lookup;
 
         let (piop_res, _piop_subclaim) =
             RowPermPIOP::verifier_batch(trans, &proof.permutation_infos, &proof.permutation_proof);

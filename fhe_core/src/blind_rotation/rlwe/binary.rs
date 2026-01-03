@@ -9,7 +9,8 @@ use lattice::{
 };
 
 use num_traits::Zero;
-use trace::{AccTrace, SumHadamardTrace};
+use trace::AccTrace;
+use trace::basic_ops::SumHadamardTrace;
 
 /// FHE binary blind rotation key
 #[derive(Debug, Clone)]

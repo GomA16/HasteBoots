@@ -12,7 +12,7 @@ use piop::ntt::{
 use piop::sparse_matrix_eval::sparse_row::SparseRowEvalInstance;
 use piop::{BatchedSumcheckPIOP, LagrangeKernel, SumcheckInstance};
 use serde::Serialize;
-use trace::{AccTraceMLE, PBSTraceMLE, PackableEval, PackableTrace};
+use trace::{AccTraceMLE, BlindRotationTraceMLE, PackableEval, PackableTrace};
 use trace::{ConvertToEF, EvaluableTraceEF};
 
 use crate::sparse_matrix_eval::SparseRowEvalSnarks;

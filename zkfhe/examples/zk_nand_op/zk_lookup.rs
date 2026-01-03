@@ -7,7 +7,7 @@ use piop::lookup::normal_table::{LogUpIOP, LogUpInstance};
 use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInstance};
 use piop::{SumcheckInstance, SumcheckPIOP};
 use rand::Rng;
-use trace::SumHadamardTraceMLE;
+use trace::basic_ops::SumHadamardTraceMLE;
 use trace::lookup_trace::normal_table::LookupWitness;
 // use trace::HadamardProdTraceMLE;
 use zkfhe::bfhe::{CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator};
@@ -66,6 +66,7 @@ fn main() {
     let blk_size = 3;
     let randomness = DefaultFieldU32::random(&mut rng);
 
+    let mut trace = trace.blind_rotation_trace;
     let trace = trace.hadamard_trace;
     let trace_mle: SumHadamardTraceMLE<_> = trace.into();
     let range = 1 << params.blind_rotation_basis().bits() as usize;

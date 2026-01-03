@@ -14,9 +14,8 @@ use sumcheck::MLSumcheck;
 use sumcheck::Proof;
 use sumcheck::prover;
 use sumcheck::verifier::SubClaim;
-use trace::SumHadamardTraceEval;
-use trace::SumHadamardTraceMLE;
-use trace::pbs_trace::PBSTraceEval;
+use trace::basic_ops::{SumHadamardTraceEval, SumHadamardTraceMLE};
+use trace::blind_rotation_trace::BlindRotationTraceEval;
 
 use crate::BatchedSumcheckPIOP;
 use crate::LagrangeKernel;
@@ -233,7 +232,7 @@ impl<F: Field> BatchedSumHadamardProof<F> {
         proof
     }
 
-    pub fn from_pbs_trace_eval(trace_eval: &PBSTraceEval<F>) -> Self {
+    pub fn from_blind_rotation_trace_eval(trace_eval: &BlindRotationTraceEval<F>) -> Self {
         let mut proof = BatchedSumHadamardProof {
             poly_info: PolynomialInfo::default(),
             sumcheck_proof: Proof::default(),

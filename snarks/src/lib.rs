@@ -5,7 +5,6 @@ use pcs::PolynomialCommitmentScheme;
 pub mod fhe_op;
 pub mod lookup;
 pub mod ntt;
-pub mod permutation;
 pub mod sparse_matrix_eval;
 
 /// Oracle used in the NTT matrix evaluation PIOP

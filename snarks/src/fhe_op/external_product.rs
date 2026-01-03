@@ -1,5 +1,9 @@
 //! External Product SNARKs proving FHE operation Mid * RGSW(s_i)
 //!     where Mid = (X^{a_i} - 1) * ACC_Input
+//! consists of the following relations:
+//! - SumHadamardTraceMLE represents the trace of the sum hadamard operation
+//! - NTTMatrixEvalPIOP proves the correctness of the NTT evaluation
+//! - LogUpPIOP proves the correctness of the gadget decomposition
 use std::rc::Rc;
 
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field, PolynomialInfo};
@@ -16,9 +20,10 @@ use piop::{
 };
 use serde::Serialize;
 use sumcheck::{MLSumcheck, Proof};
+use trace::basic_ops::{SumHadamardTraceEval, SumHadamardTraceMLE};
 use trace::lookup_trace::small_table::LookupWitnessHelperEval;
-use trace::{ConvertToEF, EvaluableTraceEF, PackableTrace, SumHadamardTraceEval};
-use trace::{EvaluableTrace, PackableEval, SumHadamardTraceMLE};
+use trace::{ConvertToEF, EvaluableTraceEF, PackableTrace};
+use trace::{EvaluableTrace, PackableEval};
 
 #[derive(Default)]
 pub struct ExternalProductSnarks<F, EF, S, PCS>
@@ -202,6 +207,22 @@ where
         trace_mle: &SumHadamardTraceMLE<F>,
         params: &ExternalProductParams<F, EF, S, PCS>,
     ) -> ExternalProductProof<F, EF, S, PCS> {
+        ExternalProductSnarks::prove_as_subprotocol(trans, trace_mle, params)
+    }
+
+    pub fn verify(
+        &self,
+        trans: &mut Transcript<EF>,
+        proof: &ExternalProductProof<F, EF, S, PCS>,
+    ) -> bool {
+        ExternalProductSnarks::verify_as_subprotocol(trans, proof)
+    }
+
+    pub fn prove_as_subprotocol(
+        trans: &mut Transcript<EF>,
+        trace_mle: &SumHadamardTraceMLE<F>,
+        params: &ExternalProductParams<F, EF, S, PCS>,
+    ) -> ExternalProductProof<F, EF, S, PCS> {
         let time = std::time::Instant::now();
         // Commit to the trace polynomial
         let bit_poly = trace_mle.generate_oracle();
@@ -221,9 +242,9 @@ where
         let helper_poly = lookup_helper.generate_oracle();
         let (helper_commitment, helper_commitment_state) =
             PCS::commit_ef(&params.pcs_params_ef, &helper_poly);
-        println!("Commit Phase time: {:?}", time.elapsed());
+        println!("[SumHadamardTrace] Commit Phase time: {:?}", time.elapsed());
 
-        // PIOP Phase
+        // PIOP Phase: Hadamard + Lookup + NTT Matrix Eval
         let time = std::time::Instant::now();
         let trace_ef = trace_mle.to_ef();
         let lookup_trace_ef = lookup_trace.to_ef();
@@ -315,7 +336,7 @@ where
 
         trans.append_message(b"[PIOP Phase]", &ntt_piop_proof);
 
-        println!("PIOP Phase time: {:?}", time.elapsed());
+        println!("[SumHadamardTrace] PIOP Phase time: {:?}", time.elapsed());
 
         let time = std::time::Instant::now();
         let mut open_point_2 = Vec::with_capacity(ntt_piop_state.randomness.len() + point_v.len());
@@ -338,7 +359,10 @@ where
             trans,
         );
 
-        println!("PCS Opening Phase time: {:?}", time.elapsed());
+        println!(
+            "[SumHadamardTrace] PCS Opening Phase time: {:?}",
+            time.elapsed()
+        );
 
         ExternalProductProof {
             log_coeff_count: trace_mle.log_coeff_count,
@@ -365,8 +389,7 @@ where
         }
     }
 
-    pub fn verify(
-        &self,
+    pub fn verify_as_subprotocol(
         trans: &mut Transcript<EF>,
         proof: &ExternalProductProof<F, EF, S, PCS>,
     ) -> bool {
@@ -459,7 +482,7 @@ where
         trans.append_message(b"[PIOP Phase]", &proof.ntt_proof);
         res &= ntt_res;
 
-        println!("PIOP Phase time: {:?}", time.elapsed());
+        println!("[SumHadamardTrace] PIOP Phase time: {:?}", time.elapsed());
 
         let time = std::time::Instant::now();
         let mut open_point_2 = Vec::with_capacity(ntt_subclaim.randomness.len() + point_v.len());
@@ -490,7 +513,10 @@ where
         );
         res &= eval_ef_res;
 
-        println!("PCS Opening Phase time: {:?}", time.elapsed());
+        println!(
+            "[SumHadamardTrace] PCS Opening Phase time: {:?}",
+            time.elapsed()
+        );
 
         res
     }

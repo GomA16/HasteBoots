@@ -2,7 +2,10 @@ use std::slice::ChunksExact;
 
 use algebra::{Basis, NTTField, NTTPolynomial, Polynomial};
 use lattice::{DecompositionSpace, LWE, NTTGadgetRLWE, NTTRLWE, PolynomialSpace, RLWE};
-use trace::SumHadamardTrace;
+use trace::basic_ops::{
+    RowPermTrace, SumHadamardTrace,
+    row_perm_trace::{PermutationInfo, PermutationSignedInfo},
+};
 
 use crate::{NTRUCiphertext, SecretKeyPack};
 
@@ -139,6 +142,8 @@ impl<Q: NTTField> KeySwitchingRLWEKey<Q> {
         &self,
         mut ciphertext: RLWE<Q>,
         trace: &mut SumHadamardTrace<Q>,
+        // permutation_info: &mut Option<PermutationSignedInfo<Q>>,
+        permutation_trace: &mut Option<RowPermTrace<Q>>,
     ) -> LWE<Q> {
         let extended_lwe_dimension = self.lwe_dimension.next_power_of_two();
 
@@ -149,6 +154,19 @@ impl<Q: NTTField> KeySwitchingRLWEKey<Q> {
 
         if ciphertext.a_slice().len() != extended_lwe_dimension {
             let a = ciphertext.a_mut_slice();
+
+            // -- Only For Trace --
+            let permutation_info =
+                PermutationInfo::new_ks_permutation(a.len(), extended_lwe_dimension);
+            let mut trace = RowPermTrace {
+                log_num_rows: a.len().trailing_zeros() as usize,
+                log_num_cols: 0,
+                input: a.to_vec(),
+                output: Vec::with_capacity(a.len()),
+                permutation_info,
+            };
+            // -- End For Trace --
+
             a[0] = -a[0];
             a[1..].reverse();
             a.chunks_exact_mut(extended_lwe_dimension)
@@ -156,6 +174,11 @@ impl<Q: NTTField> KeySwitchingRLWEKey<Q> {
                     chunk[0] = -chunk[0];
                     chunk[1..].reverse();
                 });
+
+            // -- Only For Trace --
+            trace.output = a.to_vec();
+            permutation_trace.replace(trace);
+            // -- End For Trace --
         }
 
         let iter = ciphertext.a_slice().chunks_exact(extended_lwe_dimension);
@@ -285,17 +308,21 @@ impl<Q: NTTField> KeySwitchingRLWEKey<Q> {
                 });
             }
             Operation::SubAMulS => {
-                self.key.iter().enumerate().zip(iter).for_each(|((k_idx, k_i), a_i)| {
-                    polynomial_space.copy_from(a_i);
+                self.key
+                    .iter()
+                    .enumerate()
+                    .zip(iter)
+                    .for_each(|((k_idx, k_i), a_i)| {
+                        polynomial_space.copy_from(a_i);
 
-                    init.sub_assign_gadget_rlwe_mul_polynomial_inplace_fast_w_trace(
-                        k_i,
-                        &mut polynomial_space,
-                        &mut decompose_space,
-                        k_idx,
-                        trace,
-                    );
-                });
+                        init.sub_assign_gadget_rlwe_mul_polynomial_inplace_fast_w_trace(
+                            k_i,
+                            &mut polynomial_space,
+                            &mut decompose_space,
+                            k_idx,
+                            trace,
+                        );
+                    });
             }
         }
 

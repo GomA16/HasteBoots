@@ -4,7 +4,7 @@ use serde::Serialize;
 use serde::Serializer;
 use std::rc::Rc;
 use sumcheck::{MLSumcheck, Proof, verifier::SubClaim};
-use trace::NTTTraceMLE;
+use trace::basic_ops::NTTTraceMLE;
 
 use crate::LagrangeKernel;
 use crate::SumcheckClaim;
@@ -361,7 +361,7 @@ mod test {
     };
     use helper::Transcript;
     use rand_distr::Distribution;
-    use trace::NTTTrace;
+    use trace::basic_ops::NTTTrace;
 
     #[derive(Field, DecomposableField, FheField, Prime, NTT)]
     #[modulus = 132120577]

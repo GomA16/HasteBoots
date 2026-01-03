@@ -8,7 +8,7 @@ use itertools::izip;
 use serde::Serialize;
 use std::rc::Rc;
 use sumcheck::{MLSumcheck, Proof, verifier::SubClaim};
-use trace::NTTTraceMLE;
+use trace::basic_ops::NTTTraceMLE;
 
 use crate::{
     BatchedSumcheckPIOP, LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance,
@@ -616,7 +616,7 @@ mod test {
     };
     use helper::Transcript;
     use rand_distr::Distribution;
-    use trace::NTTTrace;
+    use trace::basic_ops::NTTTrace;
 
     #[derive(Field, DecomposableField, FheField, Prime, NTT)]
     #[modulus = 132120577]

@@ -3,7 +3,10 @@ use fhe_core::{
     KeySwitchingKeyEnum, KeySwitchingRLWEKey, LWECiphertext, Parameters, RLWEBlindRotationKey,
     SecretKeyPack, lwe_modulus_switch,
 };
-use trace::{AccTrace, PBSTrace, SumHadamardTrace};
+use trace::basic_ops::SumHadamardTrace;
+use trace::key_switching_trace::KeySwitchingTrace;
+use trace::pbs_trace::PBSTrace;
+use trace::{AccTrace, BlindRotationTrace};
 
 /// The evaluator of the homomorphic encryption scheme.
 #[derive(Debug, Clone)]
@@ -70,6 +73,13 @@ impl<Q: NTTField> EvaluationKey<Q> {
             &mut hadamard_trace,
         );
 
+        let blind_rotation_trace = BlindRotationTrace {
+            log_coeff_count,
+            log_num_round,
+            acc_trace,
+            hadamard_trace,
+        };
+
         acc.b_mut()[0] += Q::new(Q::MODULUS_VALUE >> 3u32);
 
         let ksk = match self.key_switching_key {
@@ -77,23 +87,30 @@ impl<Q: NTTField> EvaluationKey<Q> {
             _ => panic!("Unable to get the corresponding key switching key!"),
         };
 
-        let log_coeff_count = parameters.lwe_dimension().next_power_of_two().trailing_zeros() as usize;
-        let log_num_rouns = 0;
-        let hadamard_len = ksk.num_rlwes_in_key();
-        let mut ks_hadamard_trace = SumHadamardTrace::<Q>::new(
-            hadamard_len,
-            log_coeff_count,
-            log_num_rouns,
-        );
+        let ks_log_coeff_count = parameters
+            .lwe_dimension()
+            .next_power_of_two()
+            .trailing_zeros() as usize;
+        let ks_log_rounds = 0;
+        let ks_hadamard_len = ksk.num_rlwes_in_key();
+        let mut ks_hadamard_trace =
+            SumHadamardTrace::<Q>::new(ks_hadamard_len, ks_log_coeff_count, ks_log_rounds);
 
-        let output_lwe = ksk.key_switch_for_rlwe_w_trace(acc, &mut ks_hadamard_trace);
+        let mut permutation_trace = None;
+        let output_lwe =
+            ksk.key_switch_for_rlwe_w_trace(acc, &mut ks_hadamard_trace, &mut permutation_trace);
+
+        let key_switching_trace = KeySwitchingTrace {
+            log_lwe_dim: ks_log_coeff_count,
+            log_rlwe_dim: log_coeff_count,
+            log_coeff_count: ks_log_coeff_count,
+            hadamard_trace: ks_hadamard_trace,
+            permutation_trace,
+        };
 
         let pbs_trace = PBSTrace {
-            log_coeff_count,
-            log_num_round,
-            acc_trace,
-            hadamard_trace,
-            ks_hadamard_trace,
+            blind_rotation_trace,
+            key_switching_trace,
         };
 
         (output_lwe, pbs_trace)

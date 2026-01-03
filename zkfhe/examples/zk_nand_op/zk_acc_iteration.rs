@@ -8,7 +8,7 @@ use rand::Rng;
 use snarks::fhe_op::acc_iteration::AccIterationSnarks;
 use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks};
 use snarks::fhe_op::external_product::{ExternalProductParams, ExternalProductSnarks};
-use trace::{PBSTraceMLE, SumHadamardTraceMLE};
+use trace::BlindRotationTraceMLE;
 // use trace::HadamardProdTraceMLE;
 use zkfhe::bfhe::{
     BABYBEAR_BINARY_128_BITS_PARAMETERS, CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator,
@@ -72,10 +72,16 @@ fn main() {
     println!("");
     println!("Starting verification of nand.\n");
 
+    let mut trace = trace.blind_rotation_trace;
     trace.finalize(params.lwe_dimension());
-    let trace_mle: PBSTraceMLE<_> = trace.into();
+    let trace_mle: BlindRotationTraceMLE<_> = trace.into();
 
-    let snarks = AccIterationSnarks::<FF, EF>::default();
+    let snarks = AccIterationSnarks::<
+        FF,
+        EF,
+        ExpanderCodeSpec,
+        BrakedownPCS<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>,
+    >::default();
 
     let mut prover_trans = Transcript::default();
     let time = std::time::Instant::now();
