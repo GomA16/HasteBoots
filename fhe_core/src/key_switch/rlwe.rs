@@ -137,14 +137,18 @@ impl<Q: NTTField> KeySwitchingRLWEKey<Q> {
         self.key_switch_inner(extended_lwe_dimension, init, iter, Operation::SubAMulS)
     }
 
-    /// Performs key switching operation.
+    /// Performs key switching operation, along with sample extraction
+    /// #Return
+    /// - LWE sample
+    /// - Permutation trace in sample extraction
     pub fn key_switch_for_rlwe_w_trace(
         &self,
         mut ciphertext: RLWE<Q>,
+        // Main Trace for key switching
         trace: &mut SumHadamardTrace<Q>,
-        // permutation_info: &mut Option<PermutationSignedInfo<Q>>,
+        // Minor Trace for key switching when rlwe dimension != extended lwe dimension
         permutation_trace: &mut Option<RowPermTrace<Q>>,
-    ) -> LWE<Q> {
+    ) -> (LWE<Q>, RowPermTrace<Q>) {
         let extended_lwe_dimension = self.lwe_dimension.next_power_of_two();
 
         let init = <NTTRLWE<Q>>::new(
@@ -280,15 +284,17 @@ impl<Q: NTTField> KeySwitchingRLWEKey<Q> {
         <RLWE<Q>>::from(init).extract_partial_lwe_locally(self.lwe_dimension)
     }
 
+    // Perform key switching, along with sample extraction
+    // return LWE sample, along with the permutation trace in sample extraction
     fn key_switch_inner_w_trace(
         &self,
         extended_lwe_dimension: usize,
         mut init: NTTRLWE<Q>,
         iter: ChunksExact<Q>,
         op: Operation,
-        // Trace
+        // Trace for key switching
         trace: &mut SumHadamardTrace<Q>,
-    ) -> LWE<Q> {
+    ) -> (LWE<Q>, RowPermTrace<Q>) {
         let mut polynomial_space = PolynomialSpace::new(extended_lwe_dimension);
         let mut decompose_space = DecompositionSpace::new(extended_lwe_dimension);
 
@@ -337,6 +343,6 @@ impl<Q: NTTField> KeySwitchingRLWEKey<Q> {
         trace.add_sum_prod_poly(sum_prod.a_b_slice());
         // -- End For Trace --
 
-        <RLWE<Q>>::from(init).extract_partial_lwe_locally(self.lwe_dimension)
+        <RLWE<Q>>::from(init).extract_partial_lwe_locally_w_trace(self.lwe_dimension)
     }
 }

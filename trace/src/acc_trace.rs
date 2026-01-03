@@ -69,31 +69,6 @@ pub struct AccTraceMLE<F: Field> {
     pub external_product_input: RLWETraceMLE<F>,
 }
 
-// pub struct AccIterationTraceMLE<F: Field> {
-//     pub log_coeff_count: usize,
-//     pub log_num_round: usize,
-//     pub initial_acc: RLWETraceMLE<F>,
-//     pub final_acc: RLWETraceMLE<F>,
-//     // commited in AccTrace
-//     pub input_acc: RLWETraceMLE<F>,
-//     // output_acc = input_acc + sum_prod of SumHadamardTrace (not need to be committed)
-//     pub output_acc: RLWETraceMLE<F>,
-
-//     // Consider input_acc_permuted as a intermediate oracle that builds the relation
-//     // between intial_acc and final_acc.
-//     // 1. initial_acc is the first row of input_acc
-//     // 2. final_acc is the last row of output_acc
-//     // 3. i-th row of input_acc is (i-1)-th row of output_acc
-
-//     // input_acc_permuted = output_acc + Zero matrix
-//     // where Zero matrix is a matrix where only the last row is initial_acc - final_acc
-//     // Z(ry, rx) = eq(rx, 1...1) * row(ry)
-
-//     // input_acc_permuted = permutation_matrix * input_acc
-//     pub input_acc_permuted: RLWETraceMLE<F>,
-//     pub permutation_info: PermutationInfo<F>,
-// }
-
 #[derive(Serialize)]
 pub struct AccTraceEval<F: Field> {
     pub log_coeff_count: usize,
@@ -279,24 +254,6 @@ impl<F: Field> PackableTrace<F> for AccTrace<F> {
     }
 }
 
-// impl<F: Field> PackableTrace<F> for AccIterationTraceMLE<F> {
-//     fn num_vars(&self) -> usize {
-//         self.log_coeff_count + self.log_num_round
-//     }
-
-//     fn num_oracles(&self) -> usize {
-//         self.input_acc.num_oracles() + self.output_acc.num_oracles()
-//     }
-
-//     fn pack_to_vec(&self) -> Vec<F> {
-//         self.input_acc
-//             .pack_to_vec()
-//             .into_iter()
-//             .chain(self.output_acc.pack_to_vec())
-//             .collect()
-//     }
-// }
-
 impl<F: Field> PackableEval<F> for AccTraceEval<F> {
     #[inline]
     fn num_evals(&self) -> usize {
@@ -347,22 +304,6 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for AccTraceMLE
     }
 }
 
-// impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for AccIterationTraceMLE<F> {
-//     type Output = AccIterationTraceMLE<EF>;
-//     fn to_ef(&self) -> AccIterationTraceMLE<EF> {
-//         AccIterationTraceMLE {
-//             log_coeff_count: self.log_coeff_count,
-//             log_num_round: self.log_num_round,
-//             initial_acc: self.initial_acc.to_ef(),
-//             final_acc: self.final_acc.to_ef(),
-//             input_acc: self.input_acc.to_ef(),
-//             output_acc: self.output_acc.to_ef(),
-//             input_acc_permuted: self.input_acc_permuted.to_ef(),
-//             permutation_info: self.permutation_info.to_ef(),
-//         }
-//     }
-// }
-
 impl<F: Field> AccTraceMLE<F> {
     #[inline]
     pub fn extract_hadamard_trace(&self) -> SumHadamardTraceMLE<F> {
@@ -381,20 +322,6 @@ impl<F: Field> AccTraceMLE<F> {
             sum_prod,
         }
     }
-
-    // #[inline]
-    // pub fn extract_acc_iteration_trace(&self) -> AccIterationTraceMLE<F> {
-    //     AccIterationTraceMLE {
-    //         log_coeff_count: self.log_coeff_count,
-    //         log_num_round: self.log_num_round,
-    //         initial_acc: self.initial_acc.clone(),
-    //         final_acc: self.final_acc.clone(),
-    //         input_acc: self.input_acc.clone(),
-    //         output_acc: self.output_acc.clone(),
-    //         input_acc_permuted: self.input_acc_permuted.clone(),
-    //         permutation_info: self.permutation_info.clone(),
-    //     }
-    // }
 }
 
 impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for AccTraceMLE<F> {

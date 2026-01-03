@@ -97,7 +97,8 @@ impl<Q: NTTField> EvaluationKey<Q> {
             SumHadamardTrace::<Q>::new(ks_hadamard_len, ks_log_coeff_count, ks_log_rounds);
 
         let mut permutation_trace = None;
-        let output_lwe =
+        // perform key switching, along with sample extraction
+        let (output_lwe, sample_extraction_trace) =
             ksk.key_switch_for_rlwe_w_trace(acc, &mut ks_hadamard_trace, &mut permutation_trace);
 
         let key_switching_trace = KeySwitchingTrace {
@@ -111,6 +112,7 @@ impl<Q: NTTField> EvaluationKey<Q> {
         let pbs_trace = PBSTrace {
             blind_rotation_trace,
             key_switching_trace,
+            sample_extraction_trace,
         };
 
         (output_lwe, pbs_trace)

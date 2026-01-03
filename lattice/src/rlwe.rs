@@ -5,7 +5,7 @@ use algebra::{
     ntt_add_mul_assign_fast, ntt_add_mul_inplace, transformation::AbstractNTT,
 };
 use rand::{CryptoRng, Rng};
-use trace::basic_ops::SumHadamardTrace;
+use trace::basic_ops::{RowPermTrace, SumHadamardTrace, row_perm_trace::PermutationInfo};
 
 use crate::{
     DecompositionSpace, GadgetRLWE, LWE, NTTGadgetRLWE, NTTRGSW, NTTRLWESpace, PolynomialSpace,
@@ -397,6 +397,38 @@ impl<F: NTTField> RLWE<F> {
 
         a.truncate(dimension);
         LWE::<F>::new(a, b[0])
+    }
+
+    /// Extract an LWE sample from RLWE.
+    #[inline]
+    pub fn extract_partial_lwe_locally_w_trace(
+        self,
+        dimension: usize,
+    ) -> (LWE<F>, RowPermTrace<F>) {
+        let Self { a, b } = self;
+
+        let mut a = a.data();
+
+        // -- Only For Trace --
+        let permutation_info = PermutationInfo::<F>::new_sample_extraction_permutation(a.len());
+        let mut permutation_trace = RowPermTrace {
+            log_num_rows: permutation_info.log_num,
+            log_num_cols: 0,
+            input: a.clone(),
+            output: Vec::with_capacity(a.len()),
+            permutation_info,
+        };
+        // -- End For Trace --
+
+        a[1..].reverse();
+        a[1..].iter_mut().for_each(|v| *v = -*v);
+
+        // -- Recording Trace --
+        permutation_trace.output = a.clone();
+        // -- End Recording Trace --
+
+        a.truncate(dimension);
+        (LWE::<F>::new(a, b[0]), permutation_trace)
     }
 
     /// Perform `destination = self * (X^r - 1)`.

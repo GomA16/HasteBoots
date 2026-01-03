@@ -85,6 +85,29 @@ impl<F: Field> PermutationInfo<F> {
         }
     }
 
+    // sample extraction permutation
+    pub fn new_sample_extraction_permutation(num: usize) -> Self {
+        assert!(num.is_power_of_two());
+        let mut permutation_table = (0..num).map(|x| x).collect::<Vec<usize>>();
+        let mut sign = vec![-F::one(); num];
+        sign[0] = F::one();
+        permutation_table[1..].reverse();
+        let permutation_field = permutation_table
+            .iter()
+            .map(|&i| F::new((i as u32).as_into()))
+            .collect::<Vec<F>>();
+        let trace = PermutationSignedInfo {
+            log_dim: num.trailing_zeros() as usize,
+            permutation: permutation_field,
+            sign,
+        };
+        Self {
+            log_num: num.trailing_zeros() as usize,
+            permutation_table,
+            signed: Some(trace),
+        }
+    }
+
     pub fn get_inverse_permutation(&self) -> Self {
         let mut inversed_permutation_table = vec![0; 1 << self.log_num];
         for (i, &p) in self.permutation_table.iter().enumerate() {
