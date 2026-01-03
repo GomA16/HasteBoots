@@ -54,6 +54,9 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 # RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features --no-deps
 
+[[example]]
+name = "zk_nand_pbs"
+path = "examples/zk_nand_op/zk_nand_pbs.rs"
 
 [[example]]
 name = "zk_blind_rotation"
