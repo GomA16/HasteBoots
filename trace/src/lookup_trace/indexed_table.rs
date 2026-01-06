@@ -17,18 +17,13 @@
 //! the table is T[y] = eq(y, ry) of size n and the input are m pairs (col(k), E(k))
 //! for k in [m]. Here col(k) is the index for each E(k).
 //! It satisfies E[k] = T[col(k)].
-use algebra::{AbstractExtensionField, AsInto};
+use algebra::{AsInto};
 use algebra::{DenseMultilinearExtension, Field};
-use core::num;
 use helper::utils::{batch_inverse, gen_identity_evaluations};
-use itertools::Itertools;
 use rayon::iter::ParallelIterator;
 use rayon::slice::ParallelSlice;
-use rayon::vec;
-use std::sync::Arc;
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{ConvertToEF, EvaluableTrace, EvaluableTraceEF, PackableEval, PackableTrace};
 use log::info;
 
 // Conversion Chain: LookupTraceMLE => LookupWitness
@@ -42,7 +37,7 @@ pub struct IndexedLookupTrace<F: Field> {
     pub input: Vec<F>,
     pub table: Vec<F>,
     // table T[y] = eq(y, ry) for a random point ry
-    pub table_point: Vec<F>,
+    pub table_point: Option<Vec<F>>,
 }
 
 #[derive(Clone)]
@@ -54,14 +49,15 @@ pub struct IndexedLookupTraceMLE<F: Field> {
     pub input: Rc<DenseMultilinearExtension<F>>,
     pub table: Rc<DenseMultilinearExtension<F>>,
     // table T[y] = eq(y, ry) for a random point ry
-    pub table_point: Vec<F>,
+    pub table_point: Option<Vec<F>>,
 }
 
 #[derive(Clone)]
 pub struct IndexedLookupWitness<F: Field> {
     // pub num_input_vars: usize,
     pub num_table_vars: usize,
-    pub table_point: Vec<F>,
+    pub table: Rc<DenseMultilinearExtension<F>>,
+    pub table_point: Option<Vec<F>>,
     // pub trace: IndexedLookupTraceMLE<F>,
     pub multiplicity: Rc<DenseMultilinearExtension<F>>,
 }
@@ -88,6 +84,32 @@ pub struct LookupWitnessHelperEval<F: Field> {
 }
 
 impl<F: Field> IndexedLookupTrace<F> {
+    pub fn from_table(
+        num_input_vars: usize,
+        num_table_vars: usize,
+        table: &Vec<F>,
+        index: &Vec<usize>,
+    ) -> Self {
+        assert_eq!(table.len(), 1 << num_table_vars);
+        assert_eq!(index.len(), 1 << num_input_vars);
+        let mut input = vec![F::zero(); 1 << num_input_vars];
+        for i in 0..(1 << num_input_vars) {
+            input[i] = table[index[i]];
+        }
+        let index = index
+            .iter()
+            .map(|&i| F::new((i as u32).as_into()))
+            .collect::<Vec<F>>();
+        Self {
+            num_input_vars,
+            num_table_vars,
+            index,
+            input,
+            table: table.clone(),
+            table_point: None,
+        }
+    }
+
     pub fn random<R: rand::Rng + rand::CryptoRng>(
         rng: &mut R,
         num_input_vars: usize,
@@ -130,7 +152,7 @@ impl<F: Field> IndexedLookupTrace<F> {
             index,
             input,
             table,
-            table_point,
+            table_point: Some(table_point),
         }
     }
 }
@@ -178,6 +200,7 @@ impl<F: Field> IndexedLookupTraceMLE<F> {
 
         IndexedLookupWitness {
             num_table_vars: self.num_table_vars,
+            table: self.table.clone(),
             multiplicity: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
                 self.num_table_vars,
                 multiplicity,

@@ -173,8 +173,9 @@ where
             == proof.table_piop_proof.multiplicity_at_ry;
         res &= evaluate_table_at_r(&proof.helper_table_commitment)
             == proof.table_piop_proof.helper_table_at_ry;
+        assert!(proof.table_instance_info.table_point.is_some());
         res &= eval_identity_function(
-            &proof.table_instance_info.table_point,
+            proof.table_instance_info.table_point.as_ref().unwrap(),
             &piop_subclaim2.point_r,
         ) == proof.table_piop_proof.table_at_ry;
         res

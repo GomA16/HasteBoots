@@ -203,7 +203,7 @@ impl<F: Field> SparseRowEvalInstance<F> {
             num_table_vars: self.num_y_vars,
             index: Rc::clone(&self.col),
             input: Rc::clone(&self.eval_mle_ry),
-            table_point: self.kernel_ry.point.clone(),
+            table_point: Some(self.kernel_ry.point.clone()),
             table: self.kernel_ry.eq_at_point.clone(),
         }
     }

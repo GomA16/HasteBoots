@@ -210,7 +210,7 @@ impl<F: Field> PermutationInfo<F> {
             index: Rc::new(lookup_index),
             input: Rc::new(lookup_input),
             table: Rc::new(eq_at_rx),
-            table_point: point.to_vec(),
+            table_point: Some(point.to_vec()),
         }
     }
 

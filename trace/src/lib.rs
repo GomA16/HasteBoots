@@ -8,6 +8,7 @@ pub mod blind_rotation_trace;
 pub mod key_switching_trace;
 pub mod lookup_trace;
 pub mod pbs_trace;
+pub mod modulus_switching_trace;
 
 pub use acc_trace::{AccTrace, AccTraceEval, AccTraceMLE};
 pub use blind_rotation_trace::{BlindRotationTrace, BlindRotationTraceMLE};

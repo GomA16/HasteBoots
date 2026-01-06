@@ -45,7 +45,7 @@ pub struct IndexedLogUpInputInstanceInfo<F: Field> {
 #[derive(Serialize)]
 pub struct IndexedLogUpTableInstanceInfo<F: Field> {
     pub num_table_vars: usize,
-    pub table_point: Vec<F>,
+    pub table_point: Option<Vec<F>>,
     pub random_value: F,
     pub random_s_hash: F,
 }
@@ -366,7 +366,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for IndexedLogUpTableIOP<F> {
         let (mut proof, state) = Self::prover_without_evals(trans, instance);
         proof.phi_table_at_ry = instance.helper.phi_table.evaluate(&state.point_r);
         proof.multiplicity_at_ry = instance.witness.multiplicity.evaluate(&state.point_r);
-        proof.table_at_ry = eval_identity_function(&instance.witness.table_point, &state.point_r);
+        proof.table_at_ry = instance.witness.table.evaluate(&state.point_r);
         proof.helper_table_at_ry = instance.helper.helper_table.evaluate(&state.point_r);
         (proof, state)
     }
@@ -409,6 +409,7 @@ mod test {
         derive::{Field, Prime},
     };
     use helper::Transcript;
+    use rand::Rng;
     use rand_distr::Distribution;
     use trace::lookup_trace::indexed_table::IndexedLookupTrace;
 
@@ -418,14 +419,8 @@ mod test {
     // field type
     type FF = Fp32;
 
-    #[test]
-    fn test_logup_iop() {
+    fn log_up_piop(lookup_trace: IndexedLookupTrace<FF>) -> bool {
         let mut rng = rand::rng();
-        let num_input_vars = 2;
-        let num_table_vars = 5;
-
-        let lookup_trace =
-            IndexedLookupTrace::<FF>::random(&mut rng, num_input_vars, num_table_vars);
         let lookup_mle: IndexedLookupTraceMLE<FF> = lookup_trace.into();
         let lookup_witness = lookup_mle.compute_witness();
 
@@ -458,6 +453,39 @@ mod test {
             &lookup_table_info,
             &proof2,
         );
-        assert!(res1 && res2);
+        
+        res1 && res2
+    }
+
+    #[test]
+    fn test_random_logup_iop() {
+        let mut rng = rand::rng();
+        let num_input_vars = 2;
+        let num_table_vars = 5;
+
+        let lookup_trace =
+            IndexedLookupTrace::<FF>::random(&mut rng, num_input_vars, num_table_vars);
+        assert!(log_up_piop(lookup_trace));
+    }
+
+    #[test]
+    fn test_custom_table_iop() {
+        let mut rng = &mut rand::rng();
+        let num_input_vars = 2;
+        let num_table_vars = 4;
+        let table = (1..=(1 << num_table_vars))
+            .map(|x| FF::new(x as u32))
+            .collect::<Vec<FF>>();
+        let index = (0..1 << num_input_vars)
+            .map(|_| rng.random_range(0..1 << num_table_vars))
+            .collect::<Vec<usize>>();
+        let lookup_trace = IndexedLookupTrace::<FF>::from_table(
+            num_input_vars,
+            num_table_vars,
+            &table,
+            &index,
+        );
+
+        assert!(log_up_piop(lookup_trace));
     }
 }

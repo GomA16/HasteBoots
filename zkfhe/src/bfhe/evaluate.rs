@@ -53,6 +53,7 @@ impl<Q: NTTField> EvaluationKey<Q> {
 
         let c_prime = lwe_modulus_switch(&c, pre.twice_ring_dimension_value());
 
+        // -- Blind Rotation with Trace --
         let log_coeff_count = parameters.ring_dimension().trailing_zeros() as usize;
         let log_num_round = parameters
             .lwe_dimension()
@@ -79,6 +80,7 @@ impl<Q: NTTField> EvaluationKey<Q> {
             acc_trace,
             hadamard_trace,
         };
+        // -- End --
 
         acc.b_mut()[0] += Q::new(Q::MODULUS_VALUE >> 3u32);
 
@@ -87,6 +89,7 @@ impl<Q: NTTField> EvaluationKey<Q> {
             _ => panic!("Unable to get the corresponding key switching key!"),
         };
 
+        // -- Key Switching & Sample Extraction with Trace --
         let ks_log_coeff_count = parameters
             .lwe_dimension()
             .next_power_of_two()
@@ -108,6 +111,7 @@ impl<Q: NTTField> EvaluationKey<Q> {
             hadamard_trace: ks_hadamard_trace,
             permutation_trace,
         };
+        // -- End --
 
         let pbs_trace = PBSTrace {
             blind_rotation_trace,

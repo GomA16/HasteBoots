@@ -1,5 +1,3 @@
-use core::time;
-
 use algebra::{BabyBear, BabyBearExetension};
 use helper::Transcript;
 use pcs::{
