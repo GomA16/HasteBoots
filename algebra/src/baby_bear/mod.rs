@@ -14,7 +14,9 @@ use num_traits::{Inv, One, Pow, Zero};
 
 use crate::{
     DecomposableField, FheField, Field, Packable, PrimeField, TwoAdicField, div_ceil,
-    modulus::{self, BabyBearModulus, MONTY_NEG_ONE, MONTY_ONE, MONTY_ZERO, from_monty, to_monty},
+    modulus::{
+        BABY_BEAR_P, BabyBearModulus, MONTY_NEG_ONE, MONTY_ONE, MONTY_ZERO, from_monty, to_monty,
+    },
     reduce::{
         AddReduce, AddReduceAssign, DivReduce, DivReduceAssign, InvReduce, MulReduce,
         MulReduceAssign, NegReduce, PowReduce, SubReduce, SubReduceAssign,
@@ -29,7 +31,7 @@ impl Field for BabyBear {
     type Value = u32;
     type Order = u32;
 
-    const MODULUS_VALUE: Self::Value = modulus::BABY_BEAR_P;
+    const MODULUS_VALUE: Self::Value = BABY_BEAR_P;
 
     #[inline]
     fn neg_one() -> Self {
@@ -63,6 +65,8 @@ impl Ord for BabyBear {
     }
 }
 
+const DELTA: u32 = (1 << 27) - 1;
+
 impl DecomposableField for BabyBear {
     #[inline]
     fn mask(bits: u32) -> Self::Value {
@@ -81,6 +85,9 @@ impl DecomposableField for BabyBear {
     #[inline]
     fn decompose(self, basis: crate::Basis<Self>) -> Vec<Self> {
         let mut temp = self.value();
+        if temp < DELTA {
+            temp += BABY_BEAR_P
+        }
 
         let len = basis.decompose_len();
         let mask = basis.mask();
@@ -103,6 +110,10 @@ impl DecomposableField for BabyBear {
     fn decompose_at(self, basis: crate::Basis<Self>, destination: &mut [Self]) {
         let mut temp = self.value();
 
+        if temp < DELTA {
+            temp += BABY_BEAR_P
+        }
+
         let mask = basis.mask();
         let bits = basis.bits();
 
@@ -117,7 +128,10 @@ impl DecomposableField for BabyBear {
 
     #[inline]
     fn decompose_lsb_bits(&mut self, mask: Self::Value, bits: u32) -> Self {
-        let value = self.value();
+        let mut value = self.value();
+        if value < DELTA {
+            value += BABY_BEAR_P
+        }
         let temp = Self::new(value & mask);
         *self = Self::new(value >> bits);
         temp
@@ -125,7 +139,10 @@ impl DecomposableField for BabyBear {
 
     #[inline]
     fn decompose_lsb_bits_at(&mut self, destination: &mut Self, mask: Self::Value, bits: u32) {
-        let value = self.value();
+        let mut value = self.value();
+        if value < DELTA {
+            value += BABY_BEAR_P
+        }
         *destination = Self::new(value & mask);
         *self = Self::new(value >> bits);
     }

@@ -14,7 +14,7 @@ use num_traits::{Inv, One, Pow, Zero};
 
 use crate::{
     DecomposableField, FheField, Field, Packable, PrimeField, TwoAdicField, div_ceil,
-    modulus::{self, GoldilocksModulus, to_canonical_u64},
+    modulus::{GOLDILOCKS_P, GoldilocksModulus, to_canonical_u64},
     reduce::{
         AddReduce, AddReduceAssign, DivReduce, DivReduceAssign, InvReduce, MulReduce,
         MulReduceAssign, NegReduce, PowReduce, SubReduce, SubReduceAssign,
@@ -30,8 +30,8 @@ impl Goldilocks {
     fn as_canonical_u64(&self) -> u64 {
         let mut c = self.0;
         // We only need one condition subtraction, since 2 * ORDER would not fit in a u64.
-        if c >= modulus::GOLDILOCKS_P {
-            c -= modulus::GOLDILOCKS_P;
+        if c >= GOLDILOCKS_P {
+            c -= GOLDILOCKS_P;
         }
         c
     }
@@ -41,11 +41,11 @@ impl Field for Goldilocks {
     type Value = u64;
     type Order = u64;
 
-    const MODULUS_VALUE: Self::Value = modulus::GOLDILOCKS_P;
+    const MODULUS_VALUE: Self::Value = GOLDILOCKS_P;
 
     #[inline]
     fn neg_one() -> Self {
-        Self(modulus::GOLDILOCKS_P - 1)
+        Self(GOLDILOCKS_P - 1)
     }
 
     #[inline]
@@ -58,6 +58,8 @@ impl Field for Goldilocks {
         to_canonical_u64(self.0)
     }
 }
+
+const DELTA: u64 = (1 << 32) - 1;
 
 impl DecomposableField for Goldilocks {
     #[inline]
@@ -77,6 +79,10 @@ impl DecomposableField for Goldilocks {
     #[inline]
     fn decompose(self, basis: crate::Basis<Self>) -> Vec<Self> {
         let mut temp = self.value();
+
+        if temp <= DELTA {
+            temp += GOLDILOCKS_P
+        }
 
         let len = basis.decompose_len();
         let mask = basis.mask();
@@ -99,6 +105,10 @@ impl DecomposableField for Goldilocks {
     fn decompose_at(self, basis: crate::Basis<Self>, destination: &mut [Self]) {
         let mut temp = self.value();
 
+        if temp <= DELTA {
+            temp += GOLDILOCKS_P
+        }
+
         let mask = basis.mask();
         let bits = basis.bits();
 
@@ -113,7 +123,10 @@ impl DecomposableField for Goldilocks {
 
     #[inline]
     fn decompose_lsb_bits(&mut self, mask: Self::Value, bits: u32) -> Self {
-        let value = self.value();
+        let mut value = self.value();
+        if value <= DELTA {
+            value += GOLDILOCKS_P
+        }
         let temp = Self(value & mask);
         *self = Self(value >> bits);
         temp
@@ -121,7 +134,10 @@ impl DecomposableField for Goldilocks {
 
     #[inline]
     fn decompose_lsb_bits_at(&mut self, destination: &mut Self, mask: Self::Value, bits: u32) {
-        let value = self.value();
+        let mut value = self.value();
+        if value <= DELTA {
+            value += GOLDILOCKS_P
+        }
         *destination = Self(value & mask);
         *self = Self(value >> bits);
     }
