@@ -11,9 +11,9 @@ use crate::SumcheckClaim;
 use crate::SumcheckInfo;
 use crate::SumcheckInstance;
 use crate::SumcheckPIOP;
+use crate::SumcheckProverStateTrait;
 use crate::SumcheckPureProof;
-use crate::SumcheckPureProverState;
-use crate::SumcheckPureSubclaim;
+use crate::SumcheckSubclaimTrait;
 use crate::ntt::fourier_eval::NTTFourierProof;
 use crate::ntt::{NTTFourierEvalIOP, NTTFourierEvalInfo};
 
@@ -125,7 +125,7 @@ impl<F: Field> SumcheckPureProof<F> for NTTEvalProof<F> {
     }
 }
 
-impl<F: Field> SumcheckPureProverState<F> for NTTEvalProverState<F> {
+impl<F: Field> SumcheckProverStateTrait<F> for NTTEvalProverState<F> {
     fn from_sumcheck(
         _sumcheck_prover_state: sumcheck::prover::ProverState<F>,
         _claim: SumcheckClaim<F>,
@@ -134,7 +134,7 @@ impl<F: Field> SumcheckPureProverState<F> for NTTEvalProverState<F> {
     }
 }
 
-impl<F: Field> SumcheckPureSubclaim<F> for NTTEvalVerifierSubclaim<F> {
+impl<F: Field> SumcheckSubclaimTrait<F> for NTTEvalVerifierSubclaim<F> {
     fn from_sumcheck(_sumcheck_subclaim: SubClaim<F>) -> Self {
         unimplemented!("from_sumcheck is not implemented for NTTEvalVerifierSubclaim");
     }

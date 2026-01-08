@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use algebra::AsInto;
 use algebra::{
     AbstractExtensionField, DenseMultilinearExtension, Field, NTTField, transformation::AbstractNTT,
 };
@@ -9,6 +10,7 @@ use serde::Serialize;
 use super::rlwe_trace::{
     PolynomialEval, PolynomialTrace, PolynomialTraceMLE, RLWEEval, RLWETrace, RLWETraceMLE,
 };
+use crate::lookup_trace::indexed_table::IndexedLookupTraceMLE;
 use crate::lookup_trace::normal_table::LookupTraceMLE as LookupTraceMLENormalTable;
 use crate::lookup_trace::small_table::LookupTraceMLE as LookupTraceMLESmallTable;
 use crate::{
@@ -404,6 +406,33 @@ impl<F: Field> SumHadamardTraceMLE<F> {
             range,
             vec_input,
         }
+    }
+
+    #[inline]
+    pub fn extract_indexed_lookup_trace_mle(&self, range: usize) -> Vec<IndexedLookupTraceMLE<F>> {
+        let table = (0..range)
+            .map(|i| F::new((i as u32).as_into()))
+            .collect::<Vec<F>>();
+        let num_table_vars = range.next_power_of_two().trailing_zeros() as usize;
+        let table = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
+            num_table_vars,
+            table,
+        ));
+        self.vec_hadamard
+            .iter()
+            .map(|trace| {
+                let input = trace.bit.poly.clone();
+                let index = input.clone();
+                IndexedLookupTraceMLE {
+                    num_input_vars: self.log_coeff_count + self.log_num_poly,
+                    num_table_vars,
+                    index,
+                    input,
+                    table: table.clone(),
+                    table_point: None,
+                }
+            })
+            .collect::<Vec<IndexedLookupTraceMLE<F>>>()
     }
 }
 

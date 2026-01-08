@@ -12,8 +12,8 @@ use trace::lookup_trace::normal_table::{
 };
 
 use crate::{
-    LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance, SumcheckPIOP, SumcheckPureProof,
-    SumcheckPureProverState, SumcheckPureSubclaim,
+    LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance, SumcheckPIOP,
+    SumcheckProverStateTrait, SumcheckPureProof, SumcheckSubclaimTrait,
 };
 use rayon::prelude::*;
 
@@ -231,7 +231,7 @@ impl<F: Field> SumcheckPureProof<F> for LogUpProof<F> {
     }
 }
 
-impl<F: Field> SumcheckPureProverState<F> for LogUpProverState<F> {
+impl<F: Field> SumcheckProverStateTrait<F> for LogUpProverState<F> {
     fn from_sumcheck(sumcheck_prover_state: ProverState<F>, claim: SumcheckClaim<F>) -> Self {
         LogUpProverState {
             point_r: sumcheck_prover_state.randomness,
@@ -239,7 +239,7 @@ impl<F: Field> SumcheckPureProverState<F> for LogUpProverState<F> {
     }
 }
 
-impl<F: Field> SumcheckPureSubclaim<F> for LogUpVerifierSubclaim<F> {
+impl<F: Field> SumcheckSubclaimTrait<F> for LogUpVerifierSubclaim<F> {
     fn from_sumcheck(sumcheck_subclaim: sumcheck::verifier::SubClaim<F>) -> Self {
         LogUpVerifierSubclaim {
             point_r: sumcheck_subclaim.point,

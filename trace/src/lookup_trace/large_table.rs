@@ -18,7 +18,6 @@ pub struct LookupLargeTableTraceMLE<F: Field> {
     pub range_bits: usize,
 }
 
-
 pub struct LookupLargeTableWitness<F: DecomposableField> {
     pub input_bits: Vec<Rc<DenseMultilinearExtension<F>>>,
     pub basis_bits: usize,

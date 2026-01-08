@@ -23,10 +23,12 @@ use crate::SumcheckClaim;
 use crate::SumcheckInfo;
 use crate::SumcheckInstance;
 use crate::SumcheckPIOP;
+use crate::SumcheckProverState;
+use crate::SumcheckProverStateTrait;
 use crate::SumcheckPureBatchedProof;
 use crate::SumcheckPureProof;
-use crate::SumcheckPureProverState;
-use crate::SumcheckPureSubclaim;
+use crate::SumcheckSubclaim;
+use crate::SumcheckSubclaimTrait;
 
 pub struct HadamardPIOP<F: Field> {
     _marker: std::marker::PhantomData<F>,
@@ -41,16 +43,6 @@ pub struct SumHadamardInstance<F: Field> {
     )>,
     // result = \sum products[i][0] * products[i][1]
     pub result: Rc<DenseMultilinearExtension<F>>,
-}
-
-pub struct HadamardProverState<F: Field> {
-    pub point_r: Vec<F>,
-    pub flattened_mle_evals: Vec<F>,
-    raw_pointers_lookup_table: HashMap<*const DenseMultilinearExtension<F>, usize>,
-}
-
-pub struct HadamardVerifierSubclaim<F: Field> {
-    pub point_r: Vec<F>,
 }
 
 #[derive(Serialize)]
@@ -73,7 +65,7 @@ pub struct SumHadamardProof<F: Field> {
     pub hadamard_at_r: SumHadamardEval<F>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Default)]
 pub struct BatchedSumHadamardProof<F: Field> {
     pub poly_info: PolynomialInfo,
     pub sumcheck_proof: Proof<F>,
@@ -109,7 +101,7 @@ impl<F: Field> SumHadamardInstance<F> {
 
     pub fn fast_eval_from_prover_state(
         &self,
-        state: &HadamardProverState<F>,
+        state: &SumcheckProverState<F>,
     ) -> SumHadamardEval<F> {
         let lookup = |m: &Rc<DenseMultilinearExtension<F>>| {
             let m_ptr: *const DenseMultilinearExtension<F> = Rc::as_ptr(m);
@@ -361,7 +353,7 @@ impl<F: Field> SumcheckPureProof<F> for BatchedSumHadamardProof<F> {
 impl<F: Field + Serialize> SumcheckPureBatchedProof<F> for BatchedSumHadamardProof<F> {
     type Instance = SumHadamardInstance<F>;
     type Info = SumHadamardInfo<F>;
-    type ProverState = HadamardProverState<F>;
+    type ProverState = SumcheckProverState<F>;
 
     fn append_evaluations(
         &mut self,
@@ -404,49 +396,12 @@ impl<F: Field + Serialize> SumcheckPureBatchedProof<F> for BatchedSumHadamardPro
     }
 }
 
-impl<F: Field> SumcheckPureProverState<F> for HadamardProverState<F> {
-    // Computation Opmitization:
-    // Flattened MLE evaluations in prover_state are tables of size 2,
-    // which are the evluations of f(r_1, ..., r_n-1, X) for X in {0,1}.
-    // To avoid repeated computations, prover can directly compute all
-    // f(r_1, ..., r_n) from these tables.
-    fn from_sumcheck(
-        sumcheck_prover_state: prover::ProverState<F>,
-        claim: SumcheckClaim<F>,
-    ) -> Self {
-        // f(r) = f(0) + r_n * (f(1) - f(0))
-        let fast_compute = |mle: &DenseMultilinearExtension<F>| {
-            mle.evaluations[0]
-                + *sumcheck_prover_state.randomness.last().unwrap()
-                    * (mle.evaluations[1] - mle.evaluations[0])
-        };
-        let flattened_mle_evals = sumcheck_prover_state
-            .flattened_ml_extensions
-            .iter()
-            .map(fast_compute)
-            .collect::<Vec<_>>();
-        HadamardProverState {
-            point_r: sumcheck_prover_state.randomness,
-            flattened_mle_evals,
-            raw_pointers_lookup_table: claim.poly.raw_pointers_lookup_table,
-        }
-    }
-}
-
-impl<F: Field> SumcheckPureSubclaim<F> for HadamardVerifierSubclaim<F> {
-    fn from_sumcheck(sumcheck_subclaim: SubClaim<F>) -> Self {
-        HadamardVerifierSubclaim {
-            point_r: sumcheck_subclaim.point,
-        }
-    }
-}
-
 impl<F: Field + Serialize> SumcheckPIOP<F> for HadamardPIOP<F> {
     type Instance = SumHadamardInstance<F>;
     type Info = SumHadamardInfo<F>;
     type Proof = SumHadamardProof<F>;
-    type ProverState = HadamardProverState<F>;
-    type VerifierSubclaim = HadamardVerifierSubclaim<F>;
+    type ProverState = SumcheckProverState<F>;
+    type VerifierSubclaim = SumcheckSubclaim<F>;
 
     fn prover(
         trans: &mut Transcript<F>,
@@ -454,7 +409,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for HadamardPIOP<F> {
     ) -> (Self::Proof, Self::ProverState) {
         let (mut proof, state) = Self::prover_without_evals(trans, instance);
 
-        proof.hadamard_at_r = instance.eval_at_point(&state.point_r);
+        proof.hadamard_at_r = instance.eval_at_point(&state.randomness);
 
         // proof.hadamard_at_r = instance.from_flatten_mle_evals(&state);
 
@@ -494,8 +449,8 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for HadamardPIOP<F> {
 
 impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for HadamardPIOP<F> {
     type BatchedProof = BatchedSumHadamardProof<F>;
-    type BatchedProverState = HadamardProverState<F>;
-    type BatchedVerifierSubclaim = HadamardVerifierSubclaim<F>;
+    type BatchedProverState = SumcheckProverState<F>;
+    type BatchedVerifierSubclaim = SumcheckSubclaim<F>;
 }
 
 #[cfg(test)]

@@ -138,8 +138,7 @@ where
         trans.append_message(b"[PIOP Phase]", &proof.piop_proof);
         res &= piop_res;
 
-        let evaluate_at_r =
-            |poly: &PCS::EFPolynomial| poly.evaluate(&piop_subclaim.sumcheck_point_r);
+        let evaluate_at_r = |poly: &PCS::EFPolynomial| poly.evaluate(&piop_subclaim.randomness);
         res &= evaluate_at_r(&proof.eval_mle_ry_commitment) == proof.piop_proof.eval_mle_at_r;
         res &= evaluate_at_r(&proof.val_commitment) == proof.piop_proof.val_at_r;
 

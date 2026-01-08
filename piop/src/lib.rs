@@ -1,3 +1,4 @@
+pub mod grand_prod;
 pub mod hadamard;
 pub mod lookup;
 pub mod ntt;
@@ -9,7 +10,7 @@ use helper::{
     FiatShamirTranscript, Transcript,
     utils::{eval_identity_function, gen_identity_evaluations},
 };
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 use sumcheck::{MLSumcheck, Proof, prover::ProverState, verifier::SubClaim};
 
 pub struct SumcheckClaim<F: Field> {
@@ -104,7 +105,7 @@ pub trait SumcheckPureProof<F: Field> {
 pub trait SumcheckPureBatchedProof<F: Field + Serialize>: SumcheckPureProof<F> {
     type Instance: SumcheckInstance<F>;
     type Info: SumcheckInfo<F>;
-    type ProverState: SumcheckPureProverState<F>;
+    type ProverState: SumcheckProverStateTrait<F>;
     // prover: append evaluations of each involved MLE at the random point
     fn append_evaluations(
         &mut self,
@@ -121,12 +122,22 @@ pub trait SumcheckPureBatchedProof<F: Field + Serialize>: SumcheckPureProof<F> {
     );
 }
 
-pub trait SumcheckPureSubclaim<F: Field> {
+pub trait SumcheckSubclaimTrait<F: Field> {
     fn from_sumcheck(sumcheck_subclaim: SubClaim<F>) -> Self;
 }
 
-pub trait SumcheckPureProverState<F: Field> {
+pub trait SumcheckProverStateTrait<F: Field> {
     fn from_sumcheck(sumcheck_prover_state: ProverState<F>, claim: SumcheckClaim<F>) -> Self;
+}
+
+pub struct SumcheckProverState<F: Field> {
+    pub randomness: Vec<F>,
+    pub flattened_mle_evals: Vec<F>,
+    raw_pointers_lookup_table: HashMap<*const DenseMultilinearExtension<F>, usize>,
+}
+
+pub struct SumcheckSubclaim<F: Field> {
+    pub randomness: Vec<F>,
 }
 
 /// PIOP trait for sumcheck-based protocols
@@ -134,8 +145,8 @@ pub trait SumcheckPIOP<F: Field + Serialize> {
     type Instance: SumcheckInstance<F>;
     type Info: SumcheckInfo<F> + Serialize;
     type Proof: SumcheckPureProof<F>; // Proof stored for verifier to check evaluation proofs.
-    type ProverState: SumcheckPureProverState<F>; // State stored for prover to generate evaluation proofs later.
-    type VerifierSubclaim: SumcheckPureSubclaim<F>; // Subclaim stored for verifier to check evaluation proofs later.
+    type ProverState: SumcheckProverStateTrait<F>; // State stored for prover to generate evaluation proofs later.
+    type VerifierSubclaim: SumcheckSubclaimTrait<F>; // Subclaim stored for verifier to check evaluation proofs later.
     // type FSTranscript: FiatShamirTranscript<F>;
 
     /// Generate the PIOP proof (with transcript) for given instance
@@ -245,8 +256,8 @@ pub trait BatchedSumcheckPIOP<F: Field + Serialize>: SumcheckPIOP<F> {
             Info = Self::Info,
             ProverState = Self::BatchedProverState,
         >; // Proof stored for verifier to check evaluation proofs.
-    type BatchedProverState: SumcheckPureProverState<F>; // State stored for prover to generate evaluation proofs later.
-    type BatchedVerifierSubclaim: SumcheckPureSubclaim<F>; // Subclaim stored for verifier to check evaluation proofs later.
+    type BatchedProverState: SumcheckProverStateTrait<F>; // State stored for prover to generate evaluation proofs later.
+    type BatchedVerifierSubclaim: SumcheckSubclaimTrait<F>; // Subclaim stored for verifier to check evaluation proofs later.
 
     fn prover_batch(
         trans: &mut Transcript<F>,
@@ -369,6 +380,28 @@ impl<F: Field> SumcheckClaim<F> {
         Self {
             poly: ListOfProductsOfPolynomials::new(num_vars),
             sum: F::zero(),
+        }
+    }
+}
+
+impl<F: Field> SumcheckProverStateTrait<F> for SumcheckProverState<F> {
+    fn from_sumcheck(
+        sumcheck_prover_state: sumcheck::prover::ProverState<F>,
+        claim: crate::SumcheckClaim<F>,
+    ) -> Self {
+        let flattened_mle_evals = sumcheck_prover_state.fast_evaluate();
+        Self {
+            randomness: sumcheck_prover_state.randomness,
+            flattened_mle_evals,
+            raw_pointers_lookup_table: claim.poly.raw_pointers_lookup_table,
+        }
+    }
+}
+
+impl<F: Field> SumcheckSubclaimTrait<F> for SumcheckSubclaim<F> {
+    fn from_sumcheck(sumcheck_subclaim: sumcheck::verifier::SubClaim<F>) -> Self {
+        SumcheckSubclaim {
+            randomness: sumcheck_subclaim.point.clone(),
         }
     }
 }

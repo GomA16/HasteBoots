@@ -1,25 +1,34 @@
 use core::time;
 
-use algebra::{AsInto, Field, FieldUniformSampler};
+use algebra::{AsInto, BabyBear, BabyBearExetension, Field, FieldUniformSampler};
 use fhe_core::{DefaultFieldU32, utils::*};
 use helper::Transcript;
+use pcs::multilinear::BrakedownPCS;
+use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use piop::lookup::normal_table::{LogUpIOP, LogUpInstance};
 use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInstance};
 use piop::{SumcheckInstance, SumcheckPIOP};
 use rand::Rng;
+use snarks::lookup::indexed_table::indexed_batch::{
+    BatchedIndexedLogUpParams, BatchedIndexedLogUpSnarks,
+};
 use trace::basic_ops::SumHadamardTraceMLE;
 use trace::lookup_trace::normal_table::LookupWitness;
 // use trace::HadamardProdTraceMLE;
-use zkfhe::bfhe::{CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator};
+use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
+type FF = BabyBear;
+type EF = BabyBearExetension;
+type Hash = sha2::Sha256;
+const BASE_FIELD_BITS: usize = 31;
 fn main() {
     env_logger::init();
     // set random generator
     let mut rng = rand::rng();
 
     // set parameter
-    let params = *CUSTOM_TERNARY_128_BITS_PARAMETERS;
+    let params = *BABYBEAR_BINARY_128_BITS_PARAMETERS;
     println!("Parameters: {params:?}\n");
 
     let noise_max = (params.lwe_cipher_modulus_value() as f64 / 16.0).as_into();
@@ -54,7 +63,7 @@ fn main() {
 
     let _start = std::time::Instant::now();
     // let (ct_nand, trace) = eval.nand(&x, &y);
-    let (ct_nand, trace) = eval.nand(&x, &y);
+    let (ct_nand, mut trace) = eval.nand(&x, &y);
 
     // nand
     let (m, noise) = dec.decrypt_with_noise(&ct_nand);
@@ -63,40 +72,32 @@ fn main() {
 
     // Generate SNARKs for nand
     println!("Starting verification of nand.\n");
-    let blk_size = 1;
-    let randomness = DefaultFieldU32::random(&mut rng);
 
     let mut trace = trace.blind_rotation_trace;
+    trace.finalize(params.lwe_dimension());
     let trace = trace.hadamard_trace;
     let trace_mle: SumHadamardTraceMLE<_> = trace.into();
     let range = 1 << params.blind_rotation_basis().bits() as usize;
-    let lookup_trace_mle = trace_mle.extract_lookup_trace_mle_normal_table(range);
-    let lookup_witness: LookupWitness<_> = lookup_trace_mle.into();
-    let lookup_helper = lookup_witness.compute_helper_functions(blk_size, randomness);
+    let lookup_trace_mle = trace_mle.extract_indexed_lookup_trace_mle(range);
+    let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
+    let snarks = BatchedIndexedLogUpSnarks::<
+        FF,
+        EF,
+        ExpanderCodeSpec,
+        BrakedownPCS<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>,
+    >::default();
 
-    let instance = LogUpInstance::from(&lookup_witness, &lookup_helper);
-    let info = instance.info();
-
+    let params = BatchedIndexedLogUpParams::new(code_spec, &lookup_trace_mle);
     let mut prover_trans = Transcript::new();
     let time = std::time::Instant::now();
-    let (proof, _) = LogUpIOP::prover(&mut prover_trans, &instance);
+    let proof = snarks.prove(&mut prover_trans, &lookup_trace_mle, &params);
     println!("Prover time: {:?}", time.elapsed());
     let mut verifier_trans = Transcript::new();
     let time = std::time::Instant::now();
-    let (res, _) = LogUpIOP::verifier(&mut verifier_trans, &info, &proof);
+    let res = snarks.verify(&mut verifier_trans, &proof);
     println!("Verifier time: {:?}", time.elapsed());
     assert!(res);
     println!("Verification of nand done!\n");
-    println!(
-        "Lookup Info: num_vars = {}, block_size = {}, num_blks = {}\n",
-        info.num_vars, info.block_size, info.num_blocks
-    );
-    println!("Lookup num columns: {}\n", info.num_columns);
-    println!("range is {}\n", range);
-    println!(
-        "num_vars is {} and num_round is {}",
-        trace_mle.log_coeff_count, trace_mle.log_num_poly
-    );
 }
 
 // fn main() {}

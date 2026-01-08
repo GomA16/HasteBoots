@@ -116,8 +116,8 @@ where
         //[Hadamard PIOP] reduce to queries on NTT evaluation matrix
 
         // [NTT PIOP] compute the common query point on each NTT evaluation matrix
-        let point_u = hadamard_piop_state.point_r[..trace_mle.log_coeff_count].to_vec();
-        let mut point_v = hadamard_piop_state.point_r[trace_mle.log_coeff_count..].to_vec();
+        let point_u = hadamard_piop_state.randomness[..trace_mle.log_coeff_count].to_vec();
+        let mut point_v = hadamard_piop_state.randomness[trace_mle.log_coeff_count..].to_vec();
 
         // [NTT PIOP] compute the combined query point on the (virtual) large NTT evaluation matrix
         // This virtual NTT evaluation matrix normally corresponds to the coefficient matrix that is committed at the beginning.
@@ -179,8 +179,8 @@ where
 
         trans.append_message(b"[PIOP Phase]", &proof.hadamard_proof);
 
-        let _point_u = hadamard_subclaim.point_r[..proof.ntt_info.log_coeff_count].to_vec();
-        let mut point_v = hadamard_subclaim.point_r[proof.ntt_info.log_coeff_count..].to_vec();
+        let _point_u = hadamard_subclaim.randomness[..proof.ntt_info.log_coeff_count].to_vec();
+        let mut point_v = hadamard_subclaim.randomness[proof.ntt_info.log_coeff_count..].to_vec();
         let point_bit_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
             proof.log_num_oracles,

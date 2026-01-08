@@ -53,8 +53,9 @@ use trace::{
 };
 
 use crate::{
-    LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance, SumcheckPIOP, SumcheckPureProof,
-    SumcheckPureProverState, SumcheckPureSubclaim,
+    LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance, SumcheckPIOP,
+    SumcheckProverState, SumcheckProverStateTrait, SumcheckPureProof, SumcheckSubclaim,
+    SumcheckSubclaimTrait,
 };
 /// We don't prove the indexed lookup argument here. Instead, we prove it in the
 /// snarks layer using the IndexedLogUpSnarks.
@@ -97,14 +98,6 @@ pub struct SparseRowEvalProof<F: Field> {
     pub sumcheck_proof: Proof<F>,
     pub eval_mle_at_r: F,
     pub val_at_r: F,
-}
-
-pub struct SparseRowProverState<F: Field> {
-    pub sumcheck_point_r: Vec<F>,
-}
-
-pub struct SparseRowVerifierSubclaim<F: Field> {
-    pub sumcheck_point_r: Vec<F>,
 }
 
 impl<F: Field + Serialize> SumcheckInstance<F> for SparseRowEvalInstance<F> {
@@ -321,28 +314,12 @@ impl<F: Field> SumcheckPureProof<F> for SparseRowEvalProof<F> {
     }
 }
 
-impl<F: Field> SumcheckPureProverState<F> for SparseRowProverState<F> {
-    fn from_sumcheck(sumcheck_prover_state: ProverState<F>, claim: SumcheckClaim<F>) -> Self {
-        SparseRowProverState {
-            sumcheck_point_r: sumcheck_prover_state.randomness.clone(),
-        }
-    }
-}
-
-impl<F: Field> SumcheckPureSubclaim<F> for SparseRowVerifierSubclaim<F> {
-    fn from_sumcheck(sumcheck_subclaim: SubClaim<F>) -> Self {
-        SparseRowVerifierSubclaim {
-            sumcheck_point_r: sumcheck_subclaim.point.clone(),
-        }
-    }
-}
-
 impl<F: Field + Serialize> SumcheckPIOP<F> for SparseRowEvalPIOP<F> {
     type Instance = SparseRowEvalInstance<F>;
     type Info = SparseRowEvalInfo<F>;
     type Proof = SparseRowEvalProof<F>;
-    type ProverState = SparseRowProverState<F>;
-    type VerifierSubclaim = SparseRowVerifierSubclaim<F>;
+    type ProverState = SumcheckProverState<F>;
+    type VerifierSubclaim = SumcheckSubclaim<F>;
 
     fn prover(
         trans: &mut helper::Transcript<F>,
@@ -350,8 +327,8 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for SparseRowEvalPIOP<F> {
     ) -> (Self::Proof, Self::ProverState) {
         let (mut proof, state) = Self::prover_without_evals(trans, instance);
 
-        proof.eval_mle_at_r = instance.eval_mle_ry.evaluate(&state.sumcheck_point_r);
-        proof.val_at_r = instance.val.evaluate(&state.sumcheck_point_r);
+        proof.eval_mle_at_r = instance.eval_mle_ry.evaluate(&state.randomness);
+        proof.val_at_r = instance.val.evaluate(&state.randomness);
         (proof, state)
     }
 

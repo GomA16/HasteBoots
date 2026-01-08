@@ -12,8 +12,8 @@ use trace::basic_ops::NTTTraceMLE;
 
 use crate::{
     BatchedSumcheckPIOP, LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance,
-    SumcheckPIOP, SumcheckPureBatchedProof, SumcheckPureProof, SumcheckPureProverState,
-    SumcheckPureSubclaim,
+    SumcheckPIOP, SumcheckProverStateTrait, SumcheckPureBatchedProof, SumcheckPureProof,
+    SumcheckSubclaimTrait,
     hadamard::BatchedSumHadamardProof,
     ntt::{
         NTTFourierEvalIOP, NTTFourierEvalInfo, fourier_eval::NTTFourierProof,
@@ -199,7 +199,7 @@ impl<F: Field> SumcheckPureProof<F> for NTTMatrixEvalProof<F> {
     }
 }
 
-impl<F: Field> SumcheckPureProverState<F> for NTTMatrixEvalProverState<F> {
+impl<F: Field> SumcheckProverStateTrait<F> for NTTMatrixEvalProverState<F> {
     fn from_sumcheck(
         _sumcheck_prover_state: sumcheck::prover::ProverState<F>,
         _claim: SumcheckClaim<F>,
@@ -208,7 +208,7 @@ impl<F: Field> SumcheckPureProverState<F> for NTTMatrixEvalProverState<F> {
     }
 }
 
-impl<F: Field> SumcheckPureSubclaim<F> for NTTMatrixEvalVerifierSubclaim<F> {
+impl<F: Field> SumcheckSubclaimTrait<F> for NTTMatrixEvalVerifierSubclaim<F> {
     fn from_sumcheck(_sumcheck_subclaim: SubClaim<F>) -> Self {
         unimplemented!("from_sumcheck is not implemented for NTTMatrixEvalVerifierSubclaim");
     }
@@ -394,7 +394,7 @@ impl<F: Field + Serialize> SumcheckPureBatchedProof<F> for BatchedNTTMatrixEvalP
     }
 }
 
-impl<F: Field> SumcheckPureProverState<F> for BatchedNTTMatrixEvalProverState<F> {
+impl<F: Field> SumcheckProverStateTrait<F> for BatchedNTTMatrixEvalProverState<F> {
     fn from_sumcheck(
         _sumcheck_prover_state: sumcheck::prover::ProverState<F>,
         claim: SumcheckClaim<F>,
@@ -403,7 +403,7 @@ impl<F: Field> SumcheckPureProverState<F> for BatchedNTTMatrixEvalProverState<F>
     }
 }
 
-impl<F: Field> SumcheckPureSubclaim<F> for BatchedNTTMatrixVerifierSubclaim<F> {
+impl<F: Field> SumcheckSubclaimTrait<F> for BatchedNTTMatrixVerifierSubclaim<F> {
     fn from_sumcheck(_sumcheck_subclaim: SubClaim<F>) -> Self {
         unimplemented!("from_sumcheck is not implemented for BatchedNTTMatrixVerifierSubclaim");
     }

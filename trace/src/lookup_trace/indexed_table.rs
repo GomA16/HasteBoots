@@ -17,7 +17,7 @@
 //! the table is T[y] = eq(y, ry) of size n and the input are m pairs (col(k), E(k))
 //! for k in [m]. Here col(k) is the index for each E(k).
 //! It satisfies E[k] = T[col(k)].
-use algebra::{AsInto};
+use algebra::{AbstractExtensionField, AsInto};
 use algebra::{DenseMultilinearExtension, Field};
 use helper::utils::{batch_inverse, gen_identity_evaluations};
 use rayon::iter::ParallelIterator;
@@ -25,6 +25,8 @@ use rayon::slice::ParallelSlice;
 use std::{collections::HashMap, rc::Rc};
 
 use log::info;
+
+use crate::{ConvertToEF, PackableTrace};
 
 // Conversion Chain: LookupTraceMLE => LookupWitness
 // LookupWitnessHelper is computed from LookupWitness with a random value
@@ -179,6 +181,24 @@ impl<F: Field> From<IndexedLookupTrace<F>> for IndexedLookupTraceMLE<F> {
     }
 }
 
+impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for IndexedLookupTraceMLE<F> {
+    type Output = IndexedLookupTraceMLE<EF>;
+
+    fn to_ef(&self) -> Self::Output {
+        IndexedLookupTraceMLE {
+            num_input_vars: self.num_input_vars,
+            num_table_vars: self.num_table_vars,
+            index: Rc::new(self.index.to_ef()),
+            input: Rc::new(self.input.to_ef()),
+            table: Rc::new(self.table.to_ef()),
+            table_point: match &self.table_point {
+                Some(point) => Some(point.to_ef()),
+                None => None,
+            },
+        }
+    }
+}
+
 impl<F: Field> IndexedLookupTraceMLE<F> {
     pub fn compute_witness(&self) -> IndexedLookupWitness<F> {
         let mut multiplicity_hashmap = HashMap::new();
@@ -294,5 +314,125 @@ impl<F: Field> IndexedLookupTraceMLE<F> {
                 hashed_table_plus_r,
             )),
         }
+    }
+
+    pub fn compute_helper_functions_ef<EF: AbstractExtensionField<F>>(
+        &self,
+        witness: &IndexedLookupWitness<F>,
+        randomness: EF,
+        s_hash: EF,
+    ) -> IndexedLookupWitnessHelper<EF> {
+        assert_eq!(self.num_table_vars, witness.num_table_vars);
+        // phi_input = E[x] + s * I[x] + r
+        let hashed_inputs_plus_r = self
+            .input
+            .iter()
+            .zip(self.index.iter())
+            .map(|(&e_x, &i_x)| s_hash * i_x + randomness + e_x)
+            .collect::<Vec<EF>>();
+
+        // phi_table =T[y] + s * y + r
+        let hashed_table_plus_r = self
+            .table
+            .iter()
+            .enumerate()
+            .map(|(y, &t_y)| s_hash * F::new((y as u32).as_into()) + randomness + t_y)
+            .collect::<Vec<EF>>();
+
+        let num_threads = rayon::current_num_threads();
+        info!("Computing helper functions using {} threads", num_threads);
+        let chunk_size = std::cmp::max(
+            1,
+            (hashed_inputs_plus_r.len() + num_threads - 1) / num_threads,
+        );
+
+        // helper_input = 1 / phi_input
+        let helper_input = hashed_inputs_plus_r
+            .par_chunks(chunk_size)
+            .map(|chunk| batch_inverse(chunk))
+            .flatten()
+            .collect::<Vec<EF>>();
+
+        let num_threads = rayon::current_num_threads();
+        info!("Computing helper functions using {} threads", num_threads);
+        let chunk_size = std::cmp::max(
+            1,
+            (hashed_table_plus_r.len() + num_threads - 1) / num_threads,
+        );
+
+        // 1 / phi_table
+        let table_inversed_values = hashed_table_plus_r
+            .par_chunks(chunk_size)
+            .map(|chunk| batch_inverse(chunk))
+            .flatten()
+            .collect::<Vec<EF>>();
+
+        // helper_table = multiplicity / phi_table
+        // sum = \sum m(y) / phi_table(y)
+        let mut sum = EF::zero();
+        let helper_table = table_inversed_values
+            .iter()
+            .zip(witness.multiplicity.iter())
+            .map(|(&t_i, &m_i)| {
+                let val = t_i * m_i;
+                sum += val;
+                val
+            })
+            .collect::<Vec<EF>>();
+
+        IndexedLookupWitnessHelper {
+            random_value: randomness,
+            random_s_hash: s_hash,
+            helper_input: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
+                self.num_input_vars,
+                helper_input,
+            )),
+            helper_table: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
+                self.num_table_vars,
+                helper_table,
+            )),
+            sum,
+            phi_input: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
+                self.num_input_vars,
+                hashed_inputs_plus_r,
+            )),
+            phi_table: Rc::new(DenseMultilinearExtension::from_evaluations_vec(
+                self.num_table_vars,
+                hashed_table_plus_r,
+            )),
+        }
+    }
+}
+
+impl<F: Field> PackableTrace<F> for Vec<IndexedLookupWitnessHelper<F>> {
+    fn num_vars(&self) -> usize {
+        self[0].helper_input.num_vars()
+    }
+
+    fn num_oracles(&self) -> usize {
+        self.len()
+    }
+
+    fn pack_to_vec(&self) -> Vec<F> {
+        self.iter()
+            .flat_map(|trace| trace.helper_input.iter().cloned())
+            .collect()
+    }
+}
+
+impl<F: Field> PackableTrace<F> for Vec<IndexedLookupTraceMLE<F>> {
+    fn num_vars(&self) -> usize {
+        self[0].num_input_vars
+    }
+
+    fn num_oracles(&self) -> usize {
+        // input and index
+        self.len() * 2
+    }
+
+    fn pack_to_vec(&self) -> Vec<F> {
+        self.iter()
+            .flat_map(|trace| trace.input.iter().chain(trace.index.iter()).cloned())
+            .collect()
     }
 }

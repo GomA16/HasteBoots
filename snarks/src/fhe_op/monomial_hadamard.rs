@@ -118,14 +118,14 @@ where
         let (mut hadamard_piop_proof, hadamard_piop_state) =
             HadamardPIOP::prover_batch_without_evals(trans, &hadamard_instance);
 
-        let acc_eval = trace_mle.evaluate_ef(&hadamard_piop_state.point_r);
+        let acc_eval = trace_mle.evaluate_ef(&hadamard_piop_state.randomness);
         let hadamard_evals = acc_eval.extract_hadamard_eval();
         hadamard_piop_proof.append_eval(&hadamard_evals);
         trans.append_message(b"[PIOP Phase]", &hadamard_piop_proof);
 
         // Subclaim from Hadamard PIOP are evaluations on NTT Matrix
-        let point_u = hadamard_piop_state.point_r[..trace_mle.log_coeff_count].to_vec();
-        let point_v = hadamard_piop_state.point_r[trace_mle.log_coeff_count..].to_vec();
+        let point_u = hadamard_piop_state.randomness[..trace_mle.log_coeff_count].to_vec();
+        let point_v = hadamard_piop_state.randomness[trace_mle.log_coeff_count..].to_vec();
 
         // NTT Sparse Matrix Evaluation
         let monomial_poly = Rc::new(trace_mle.monomial.poly.to_ef());
@@ -219,8 +219,8 @@ where
         res &= hadamard_res;
         trans.append_message(b"[PIOP Phase]", &proof.hadamard_proof);
 
-        let _point_u = hadamard_subclaim.point_r[..proof.log_coeff_count].to_vec();
-        let point_v = hadamard_subclaim.point_r[proof.log_coeff_count..].to_vec();
+        let _point_u = hadamard_subclaim.randomness[..proof.log_coeff_count].to_vec();
+        let point_v = hadamard_subclaim.randomness[proof.log_coeff_count..].to_vec();
         let point_bit_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
             proof.log_num_oracles,

@@ -6,6 +6,7 @@
 //!
 //! When proving multiple bootstrapping operations in a batch, we can use
 //! PCS to boost efficiency of the evaluation.
+pub mod indexed_batch;
 pub mod indexed_table_pcs;
 
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};

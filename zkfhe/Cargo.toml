@@ -91,3 +91,6 @@ path = "examples/zk_nand_op/zk_monomial_hadamard.rs"
 name = "zk_lookup"
 path = "examples/zk_nand_op/zk_lookup.rs"
 
+[[example]]
+name = "zk_indexed_lookup"
+path = "examples/zk_nand_op/zk_indexed_lookup.rs"

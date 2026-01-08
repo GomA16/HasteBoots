@@ -49,10 +49,12 @@ use crate::BatchedSumcheckPIOP;
 use crate::SumcheckInfo;
 use crate::SumcheckInstance;
 use crate::SumcheckPIOP;
+use crate::SumcheckProverState;
+use crate::SumcheckProverStateTrait;
 use crate::SumcheckPureBatchedProof;
 use crate::SumcheckPureProof;
-use crate::SumcheckPureProverState;
-use crate::SumcheckPureSubclaim;
+use crate::SumcheckSubclaim;
+use crate::SumcheckSubclaimTrait;
 
 pub struct RowPermPIOP<F: Field> {
     _marker: std::marker::PhantomData<F>,
@@ -89,16 +91,6 @@ pub struct BatchedRowPermProof<F: Field> {
     pub sumcheck_proof: Proof<F>,
     pub perm_at_r_rx: Vec<F>,
     pub input_at_ry_r: Vec<F>,
-}
-
-pub struct RowPermProverState<F: Field> {
-    pub randomness: Vec<F>,
-    pub flattened_mle_evals: Vec<F>,
-    raw_pointers_lookup_table: HashMap<*const DenseMultilinearExtension<F>, usize>,
-}
-
-pub struct RowPermVerifierSubclaim<F: Field> {
-    pub randomness: Vec<F>,
 }
 
 impl<F: Field> RowPermInstance<F> {
@@ -297,7 +289,7 @@ impl<F: Field> SumcheckPureProof<F> for BatchedRowPermProof<F> {
 impl<F: Field + Serialize> SumcheckPureBatchedProof<F> for BatchedRowPermProof<F> {
     type Info = RowPermInfo<F>;
     type Instance = RowPermInstance<F>;
-    type ProverState = RowPermProverState<F>;
+    type ProverState = SumcheckProverState<F>;
 
     fn append_evaluations(
         &mut self,
@@ -337,34 +329,12 @@ impl<F: Field + Serialize> SumcheckPureBatchedProof<F> for BatchedRowPermProof<F
     }
 }
 
-impl<F: Field> SumcheckPureProverState<F> for RowPermProverState<F> {
-    fn from_sumcheck(
-        sumcheck_prover_state: sumcheck::prover::ProverState<F>,
-        claim: crate::SumcheckClaim<F>,
-    ) -> Self {
-        let flattened_mle_evals = sumcheck_prover_state.fast_evaluate();
-        Self {
-            randomness: sumcheck_prover_state.randomness,
-            flattened_mle_evals,
-            raw_pointers_lookup_table: claim.poly.raw_pointers_lookup_table,
-        }
-    }
-}
-
-impl<F: Field> SumcheckPureSubclaim<F> for RowPermVerifierSubclaim<F> {
-    fn from_sumcheck(sumcheck_subclaim: sumcheck::verifier::SubClaim<F>) -> Self {
-        RowPermVerifierSubclaim {
-            randomness: sumcheck_subclaim.point.clone(),
-        }
-    }
-}
-
 impl<F: Field + Serialize> SumcheckPIOP<F> for RowPermPIOP<F> {
     type Instance = RowPermInstance<F>;
     type Info = RowPermInfo<F>;
     type Proof = RowPermProof<F>;
-    type ProverState = RowPermProverState<F>;
-    type VerifierSubclaim = RowPermVerifierSubclaim<F>;
+    type ProverState = SumcheckProverState<F>;
+    type VerifierSubclaim = SumcheckSubclaim<F>;
 
     fn prover(
         trans: &mut helper::Transcript<F>,
@@ -400,17 +370,16 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for RowPermPIOP<F> {
 
 impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for RowPermPIOP<F> {
     type BatchedProof = BatchedRowPermProof<F>;
-    type BatchedProverState = RowPermProverState<F>;
-    type BatchedVerifierSubclaim = RowPermVerifierSubclaim<F>;
+    type BatchedProverState = SumcheckProverState<F>;
+    type BatchedVerifierSubclaim = SumcheckSubclaim<F>;
 }
 
 #[cfg(test)]
 mod test {
 
     use super::*;
-    use algebra::{DenseMultilinearExtension, Field, MultilinearExtension, derive::Field};
+    use algebra::derive::Field;
     use helper::Transcript;
-    use rayon::vec;
 
     #[derive(Field)]
     #[modulus = 132120577]

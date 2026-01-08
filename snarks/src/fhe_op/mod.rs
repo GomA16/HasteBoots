@@ -24,3 +24,4 @@ pub mod hadamard;
 pub mod key_switching;
 pub mod monomial_hadamard;
 pub mod row_permutation;
+// pub mod external_product_updated;

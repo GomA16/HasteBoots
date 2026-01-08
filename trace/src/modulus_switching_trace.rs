@@ -135,5 +135,4 @@ impl<F: Field> From<ModulusSwitchingTrace<F>> for ModulusSwitchingTraceMLE<F> {
             helper_basis_len: trace.helper_basis_len,
         }
     }
-
 }

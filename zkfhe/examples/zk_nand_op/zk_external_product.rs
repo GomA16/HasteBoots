@@ -79,7 +79,7 @@ fn main() {
         .unwrap()
         .root_powers();
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
-    let blk_size = 3;
+    let blk_size = 1;
     let basis = params.blind_rotation_basis().basis() as usize;
     let params = ExternalProductParams::new(code_spec, ntt_table, blk_size, basis, &trace_mle);
     let snarks = ExternalProductSnarks::<

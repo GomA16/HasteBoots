@@ -5,10 +5,11 @@ use algebra::{
 pub mod acc_trace;
 pub mod basic_ops;
 pub mod blind_rotation_trace;
+pub mod cmp_trace;
 pub mod key_switching_trace;
 pub mod lookup_trace;
-pub mod pbs_trace;
 pub mod modulus_switching_trace;
+pub mod pbs_trace;
 
 pub use acc_trace::{AccTrace, AccTraceEval, AccTraceMLE};
 pub use blind_rotation_trace::{BlindRotationTrace, BlindRotationTraceMLE};
@@ -38,7 +39,10 @@ pub trait PackableTrace<F: Field> {
     fn num_vars(&self) -> usize;
     fn num_oracles(&self) -> usize;
     fn log_num_oracles(&self) -> usize {
-        self.num_oracles().next_power_of_two().trailing_zeros() as usize
+        match self.num_oracles() {
+            1 => 0,
+            _ => self.num_oracles().next_power_of_two().trailing_zeros() as usize,
+        }
     }
     fn pack_to_vec(&self) -> Vec<F>;
     fn generate_oracle(&self) -> DenseMultilinearExtension<F> {
