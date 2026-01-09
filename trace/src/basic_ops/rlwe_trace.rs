@@ -22,7 +22,7 @@ pub struct PolynomialTraceMLE<F: Field> {
     pub ntt: Rc<DenseMultilinearExtension<F>>,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Default)]
 pub struct PolynomialEval<F: Field> {
     pub poly: F,
     pub ntt: F,
@@ -339,6 +339,17 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for Polyno
             ntt: hash_table.lookup_mle_eval_ef(&self.ntt, &trace_ef.ntt, eval_table, point),
         }
     }
+
+    fn evaluate_ef_ntt_only(
+        &self,
+        eval: &mut Self::TraceEvalEF,
+        point: &[EF],
+        trace_ef: &Self::TraceMLEEF,
+        hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+        eval_table: &[EF],
+    ) {
+        eval.ntt = hash_table.lookup_mle_eval_ef(&self.ntt, &trace_ef.ntt, eval_table, point);
+    }
 }
 
 impl<F: Field> EvaluableTrace<F> for MonomialTraceMLE<F> {
@@ -377,6 +388,17 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for Monomi
         hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
         eval_table: &[EF],
     ) -> Self::TraceEvalEF {
+        unimplemented!()
+    }
+
+    fn evaluate_ef_ntt_only(
+        &self,
+        eval: &mut Self::TraceEvalEF,
+        point: &[EF],
+        trace_ef: &Self::TraceMLEEF,
+        hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+        eval_table: &[EF],
+    ) {
         unimplemented!()
     }
 }
@@ -441,6 +463,20 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for RLWETr
                 hash_table.lookup_mle_eval_ef(&self.ntt.1, &trace_ef.ntt.1, eval_table, point),
             ),
         }
+    }
+
+    fn evaluate_ef_ntt_only(
+        &self,
+        eval: &mut Self::TraceEvalEF,
+        point: &[EF],
+        trace_ef: &Self::TraceMLEEF,
+        hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+        eval_table: &[EF],
+    ) {
+        eval.ntt = (
+            hash_table.lookup_mle_eval_ef(&self.ntt.0, &trace_ef.ntt.0, eval_table, point),
+            hash_table.lookup_mle_eval_ef(&self.ntt.1, &trace_ef.ntt.1, eval_table, point),
+        );
     }
 }
 

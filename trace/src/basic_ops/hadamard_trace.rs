@@ -10,12 +10,12 @@ use serde::Serialize;
 use super::rlwe_trace::{
     PolynomialEval, PolynomialTrace, PolynomialTraceMLE, RLWEEval, RLWETrace, RLWETraceMLE,
 };
+use crate::basic_ops::decomp_trace::DecompTraceMLE;
+use crate::cmp_trace::lt_general_trace::{LTGeneralTables, LTGeneralTablesMLE};
 use crate::lookup_trace::indexed_table::IndexedLookupTraceMLE;
 use crate::lookup_trace::normal_table::LookupTraceMLE as LookupTraceMLENormalTable;
 use crate::lookup_trace::small_table::LookupTraceMLE as LookupTraceMLESmallTable;
-use crate::{
-    ConvertToEF, EvaluableTrace, EvaluableTraceEF, LookupableTraceEF, PackableEval, PackableTrace,
-};
+use crate::{ConvertToEF, EvaluableTrace, EvaluableTraceEF, PackableEval, PackableTrace};
 
 /// Store the traces of the multiplication between a bit polynomial and an RLWE ciphertext
 #[derive(Clone)]
@@ -46,7 +46,7 @@ pub struct HadamardTraceMLE<F: Field> {
     pub rlwe: RLWETraceMLE<F>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Default, Clone)]
 pub struct HadamardTraceEval<F: Field> {
     pub bit: PolynomialEval<F>,
     pub rlwe: RLWEEval<F>,
@@ -162,6 +162,25 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for Hadama
                 .evaluate_ef_with_lookup(point, &trace_ef.rlwe, hash_table, eval_table),
         }
     }
+
+    fn evaluate_ef_ntt_only(
+        &self,
+        eval: &mut Self::TraceEvalEF,
+        point: &[EF],
+        trace_ef: &Self::TraceMLEEF,
+        hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+        eval_table: &[EF],
+    ) {
+        self.bit
+            .evaluate_ef_ntt_only(&mut eval.bit, point, &trace_ef.bit, hash_table, eval_table);
+        self.rlwe.evaluate_ef_ntt_only(
+            &mut eval.rlwe,
+            point,
+            &trace_ef.rlwe,
+            hash_table,
+            eval_table,
+        );
+    }
 }
 
 impl<F: Field> EvaluableTrace<F> for HadamardTraceMLE<F> {
@@ -264,6 +283,36 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for SumHad
                 eval_table,
             ),
         }
+    }
+
+    fn evaluate_ef_ntt_only(
+        &self,
+        eval: &mut Self::TraceEvalEF,
+        point: &[EF],
+        trace_ef: &Self::TraceMLEEF,
+        hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+        eval_table: &[EF],
+    ) {
+        if eval.vec_hadamard.is_empty() {
+            eval.vec_hadamard = vec![HadamardTraceEval::<EF>::default(); self.vec_hadamard.len()];
+        }
+        assert_eq!(eval.vec_hadamard.len(), self.vec_hadamard.len());
+        for (i, trace) in self.vec_hadamard.iter().enumerate() {
+            trace.evaluate_ef_ntt_only(
+                &mut eval.vec_hadamard[i],
+                point,
+                &trace_ef.vec_hadamard[i],
+                hash_table,
+                eval_table,
+            );
+        }
+        self.sum_prod.evaluate_ef_ntt_only(
+            &mut eval.sum_prod,
+            point,
+            &trace_ef.sum_prod,
+            hash_table,
+            eval_table,
+        );
     }
 }
 
@@ -409,30 +458,33 @@ impl<F: Field> SumHadamardTraceMLE<F> {
     }
 
     #[inline]
-    pub fn extract_indexed_lookup_trace_mle(&self, range: usize) -> Vec<IndexedLookupTraceMLE<F>> {
-        let table = (0..range)
-            .map(|i| F::new((i as u32).as_into()))
-            .collect::<Vec<F>>();
-        let num_table_vars = range.next_power_of_two().trailing_zeros() as usize;
-        let table = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
-            num_table_vars,
-            table,
-        ));
-        self.vec_hadamard
-            .iter()
-            .map(|trace| {
-                let input = trace.bit.poly.clone();
-                let index = input.clone();
-                IndexedLookupTraceMLE {
-                    num_input_vars: self.log_coeff_count + self.log_num_poly,
-                    num_table_vars,
-                    index,
-                    input,
-                    table: table.clone(),
-                    table_point: None,
-                }
-            })
-            .collect::<Vec<IndexedLookupTraceMLE<F>>>()
+    pub fn extract_indexed_lookup_trace_mle(
+        &self,
+        tables: &LTGeneralTablesMLE<F>,
+    ) -> Vec<IndexedLookupTraceMLE<F>> {
+        assert_eq!(self.num_bit_poly(), tables.decomp_len * 2);
+        let extract_traces = |start: usize| {
+            assert!(start + tables.decomp_len <= self.num_bit_poly());
+            self.vec_hadamard[start..start + tables.decomp_len]
+                .iter()
+                .enumerate()
+                .map(|(i, trace)| {
+                    let index = trace.bit.poly.clone();
+                    let input = tables.lookup(i, &index);
+                    IndexedLookupTraceMLE {
+                        num_input_vars: self.log_coeff_count + self.log_num_poly,
+                        num_table_vars: tables.tables[i].num_vars(),
+                        index,
+                        input,
+                        table: tables.get_table(i),
+                        table_point: None,
+                    }
+                })
+                .collect::<Vec<_>>()
+        };
+        let traces_0 = extract_traces(0);
+        let traces_1 = extract_traces(tables.decomp_len);
+        traces_0.into_iter().chain(traces_1.into_iter()).collect()
     }
 }
 

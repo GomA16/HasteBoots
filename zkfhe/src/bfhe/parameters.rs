@@ -1,6 +1,7 @@
 use algebra::{BabyBear, Field};
 use fhe_core::{ConstParameters, DefaultFieldU32, LWESecretKeyType, Parameters, RingSecretKeyType};
 use once_cell::sync::Lazy;
+use pcs::utils::code::ExpanderCodeSpec;
 
 /// Default 128-bits security Parameters
 pub static DEFAULT_TERNARY_128_BITS_PARAMETERS: Lazy<Parameters<DefaultFieldU32>> =
@@ -57,3 +58,10 @@ pub static BABYBEAR_BINARY_128_BITS_PARAMETERS: Lazy<Parameters<BabyBear>> = Laz
     })
     .unwrap()
 });
+
+/// The default code spec for Brakedown PCS
+pub static BABYBEAR_CODE_SPEC: Lazy<ExpanderCodeSpec> =
+    Lazy::new(|| ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, 31, 10));
+/// The default code spec for Brakedown PCS
+pub static GOLDILOCK_CODE_SPEC: Lazy<ExpanderCodeSpec> =
+    Lazy::new(|| ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, 64, 10));

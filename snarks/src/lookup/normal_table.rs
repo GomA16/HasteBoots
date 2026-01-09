@@ -50,8 +50,8 @@ where
         Self {
             // code_spec,
             blk_size,
-            pcs_params: PCS::setup(trace.witness_num_vars(), Some(code_spec.clone())),
-            pcs_params_ef: PCS::setup(trace.helper_num_vars(blk_size), Some(code_spec.clone())),
+            pcs_params: PCS::setup(trace.witness_num_vars(), Some(&code_spec)),
+            pcs_params_ef: PCS::setup(trace.helper_num_vars(blk_size), Some(&code_spec)),
         }
     }
 }

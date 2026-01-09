@@ -46,7 +46,7 @@ where
 {
     pub fn new(code_spec: S, ntt_table: &Rc<Vec<EF>>, trace: &SumHadamardTrace<F>) -> Self {
         let num_oracle_vars = trace.num_vars() + trace.log_num_oracles();
-        let pcs_params = PCS::setup(num_oracle_vars, Some(code_spec.clone()));
+        let pcs_params = PCS::setup(num_oracle_vars, Some(&code_spec));
         HadamardParams {
             pcs_params,
             ntt_table: ntt_table.clone(),

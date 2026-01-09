@@ -7,6 +7,9 @@ use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
 use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks};
+use snarks::fhe_op::blind_rotation_updated::{
+    BlindRotationParamsUpdated, BlindRotationSnarksUpdated,
+};
 use snarks::fhe_op::external_product::{ExternalProductParams, ExternalProductSnarks};
 use snarks::fhe_op::key_switching::{self, KeySwitchingParams, KeySwitchingSnarks};
 use snarks::fhe_op::row_permutation::RowPermutationSignedSnarks;
@@ -31,7 +34,7 @@ where
     S: Clone,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
-    pub blind_rotation: BlindRotationSnarks<F, EF, S, PCS>,
+    pub blind_rotation: BlindRotationSnarksUpdated<F, EF, S, PCS>,
     pub key_switching: KeySwitchingSnarks<F, EF, S, PCS>,
     pub sample_extraction: RowPermutationSignedSnarks<F, EF, S, PCS>,
 }
@@ -108,7 +111,7 @@ fn main() {
 
     let blk_size = 3;
     let blind_rotation_basis = params.blind_rotation_basis().basis() as usize;
-    let blind_rotation_params = BlindRotationParams::new(
+    let blind_rotation_params = BlindRotationParamsUpdated::new(
         code_spec.clone(),
         blind_rotation_ntt_table,
         blk_size,

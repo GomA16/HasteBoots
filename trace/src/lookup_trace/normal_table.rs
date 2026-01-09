@@ -433,6 +433,17 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for Lookup
             multiplicity_at_r,
         }
     }
+
+    fn evaluate_ef_ntt_only(
+        &self,
+        eval: &mut Self::TraceEvalEF,
+        point: &[EF],
+        trace_ef: &Self::TraceMLEEF,
+        hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+        eval_table: &[EF],
+    ) {
+        unimplemented!()
+    }
 }
 
 impl<F: Field> EvaluableTrace<F> for LookupWitnessHelper<F> {

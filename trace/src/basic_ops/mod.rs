@@ -1,3 +1,4 @@
+pub mod decomp_trace;
 pub mod hadamard_trace;
 pub mod ntt_trace;
 pub mod rlwe_trace;

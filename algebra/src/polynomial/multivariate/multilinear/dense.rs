@@ -1,7 +1,7 @@
 // It is derived from https://github.com/arkworks-rs/sumcheck.
 
 use std::fmt;
-use std::ops::{Add, AddAssign, Index, Neg, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Index, Mul, Neg, Sub, SubAssign};
 use std::slice::{Iter, IterMut};
 use std::vec;
 
@@ -524,5 +524,15 @@ impl<'a, F: Field> SubAssign<&'a DenseMultilinearExtension<F>> for DenseMultilin
     #[inline]
     fn sub_assign(&mut self, rhs: &'a DenseMultilinearExtension<F>) {
         self.iter_mut().zip(rhs.iter()).for_each(|(x, y)| *x -= y);
+    }
+}
+
+impl<'a, F: Field> Mul<F> for &DenseMultilinearExtension<F> {
+    type Output = DenseMultilinearExtension<F>;
+
+    #[inline]
+    fn mul(self, rhs: F) -> Self::Output {
+        let result: Vec<F> = self.iter().map(|&a| a * rhs).collect();
+        Self::Output::from_evaluations_vec(self.num_vars, result)
     }
 }

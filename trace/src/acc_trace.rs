@@ -69,7 +69,7 @@ pub struct AccTraceMLE<F: Field> {
     pub external_product_input: RLWETraceMLE<F>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Default)]
 pub struct AccTraceEval<F: Field> {
     pub log_coeff_count: usize,
     pub log_num_round: usize,
@@ -400,6 +400,47 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for AccTra
             monomial_times_acc,
             external_product_input,
         }
+    }
+
+    fn evaluate_ef_ntt_only(
+        &self,
+        eval: &mut Self::TraceEvalEF,
+        point: &[EF],
+        trace_ef: &Self::TraceMLEEF,
+        hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+        eval_table: &[EF],
+    ) {
+        self.input_acc.evaluate_ef_ntt_only(
+            &mut eval.input_acc,
+            point,
+            &trace_ef.input_acc,
+            hash_table,
+            eval_table,
+        );
+        self.monomial.evaluate_ef_ntt_only(
+            &mut eval.monomial,
+            point,
+            &trace_ef.monomial,
+            hash_table,
+            eval_table,
+        );
+        self.monomial_times_acc.evaluate_ef_ntt_only(
+            &mut eval.monomial_times_acc,
+            point,
+            &trace_ef.monomial_times_acc,
+            hash_table,
+            eval_table,
+        );
+        let rlwe_sub = |a: &RLWEEval<EF>, b: &RLWEEval<EF>, dst: &mut RLWEEval<EF>| {
+            dst.ntt = (a.ntt.0 - b.ntt.0, a.ntt.1 - b.ntt.1);
+        };
+        rlwe_sub(
+            &eval.monomial_times_acc,
+            &eval.input_acc,
+            &mut eval.external_product_input,
+        );
+        eval.initial_acc = self.initial_acc.evaluate_ef(&point[..self.log_coeff_count]);
+        eval.final_acc = self.final_acc.evaluate_ef(&point[..self.log_coeff_count]);
     }
 }
 

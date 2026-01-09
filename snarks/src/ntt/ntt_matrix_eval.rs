@@ -54,7 +54,7 @@ where
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
     pub fn new(code_spec: S, trace: &NTTTraceMLE<F>) -> Self {
-        let pcs_params = PCS::setup(trace.num_vars(), Some(code_spec.clone()));
+        let pcs_params = PCS::setup(trace.num_vars(), Some(&code_spec));
         Self { pcs_params }
     }
 }

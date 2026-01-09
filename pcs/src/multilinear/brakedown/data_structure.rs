@@ -35,7 +35,7 @@ impl<F: Field, EF: AbstractExtensionField<F>, C: LinearCode<F>> BrakedownParams<
     /// * `num_vars` - The number of variables supported.
     /// * `code_spec` - The specification of the code.
     /// * `rng` - Randomness generator.
-    pub fn new(num_vars: usize, code_spec: impl LinearCodeSpec<F, Code = C>) -> Self {
+    pub fn new(num_vars: usize, code_spec: &impl LinearCodeSpec<F, Code = C>) -> Self {
         // Find the optimal num_cols to minimize proof size.
 
         // Estimated number of queries.

@@ -46,8 +46,8 @@ where
 {
     pub fn new(code_spec: S, trace: &IndexedLookupTraceMLE<EF>) -> Self {
         Self {
-            pcs_input_params: PCS::setup(trace.num_input_vars, Some(code_spec.clone())),
-            pcs_table_params: PCS::setup(trace.num_table_vars, Some(code_spec.clone())),
+            pcs_input_params: PCS::setup(trace.num_input_vars, Some(&code_spec)),
+            pcs_table_params: PCS::setup(trace.num_table_vars, Some(&code_spec)),
         }
     }
 }

@@ -36,11 +36,14 @@ use trace::{
 use trace::{EvaluableTrace, PackableEval};
 
 use crate::fhe_op::acc_iteration::{self, AccIterationSnarks, AccIterationSnarksProof};
+use crate::fhe_op::decomposition::{
+    DecompositionParams, DecompositionSnarks, DecompositionSnarksProof,
+};
 use crate::sparse_matrix_eval::SparseRowEvalSnarks;
 use crate::sparse_matrix_eval::sparse_row::SparseRowEvalSnarksProof;
 
 #[derive(Default)]
-pub struct BlindRotationSnarks<F, EF, S, PCS>
+pub struct BlindRotationSnarksUpdated<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F>,
@@ -53,13 +56,14 @@ where
     _marker_pcs: std::marker::PhantomData<PCS>,
 }
 
-pub struct BlindRotationParams<F, EF, S, PCS>
+pub struct BlindRotationParamsUpdated<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F>,
     S: Clone,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
+    pub code_spec: S,
     pub blk_size: usize,
     // basis is the range size of the lookup table
     pub basis: usize,
@@ -68,7 +72,7 @@ where
     pub ntt_table: Rc<Vec<EF>>,
 }
 
-impl<F, EF, S, PCS> BlindRotationParams<F, EF, S, PCS>
+impl<F, EF, S, PCS> BlindRotationParamsUpdated<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F>,
@@ -87,7 +91,8 @@ where
         let helper_num_vars = trace.num_vars() + trace.hadamard_trace.log_num_helper_poly(blk_size);
         let pcs_params_ef = PCS::setup(helper_num_vars, Some(&code_spec));
 
-        BlindRotationParams {
+        BlindRotationParamsUpdated {
+            code_spec,
             blk_size,
             basis,
             pcs_params,
@@ -107,36 +112,28 @@ where
 {
     pub log_coeff_count: usize,
     pub log_num_oracle: usize,
-    pub log_num_helper_poly: usize,
+    // pub log_num_helper_poly: usize,
     #[serde(skip)]
     pub pcs_params: PCS::Parameters,
     #[serde(skip)]
     pub commitment: PCS::Commitment,
     #[serde(skip)]
-    pub pcs_params_ef: PCS::Parameters,
-    #[serde(skip)]
-    pub helper_commitment: PCS::Commitment,
     pub sumcheck_poly_info: PolynomialInfo,
     pub sumcheck_proof: Proof<EF>,
-    pub lookup_info: LogUpInstanceInfo<EF>,
-    pub lookup_proof: LogUpProof<EF>,
     pub hadamard_info: Vec<SumHadamardInfo<EF>>,
     pub hadamard_proof: BatchedSumHadamardProof<EF>,
     pub ntt_infos: Vec<NTTMatrixEvalInfo<EF>>,
     pub ntt_proof: BatchedNTTMatrixEvalProof<EF>,
     pub acc_iteration_proof: AccIterationSnarksProof<F, EF, S, PCS>,
+    pub decomp_proof: DecompositionSnarksProof<F, EF, S, PCS>,
 
     #[serde(skip)]
-    pub eval_proof: Vec<PCS::Proof>,
-    #[serde(skip)]
-    pub eval_ef_proof: PCS::ProofEF,
+    pub eval_proof: PCS::Proof,
     pub sparse_eval_proof: SparseRowEvalSnarksProof<F, EF, S, PCS>,
 
     // Redudant fields for ease of implementation
     #[serde(skip)]
     pub trace_evals: BlindRotationTraceEval<EF>,
-    #[serde(skip)]
-    pub helper_evals: LookupWitnessHelperEval<EF>,
 }
 
 impl<F, EF, S, PCS> BlindRotationProof<F, EF, S, PCS>
@@ -160,12 +157,6 @@ where
             + bincode::serde::encode_to_vec(&self.sumcheck_proof, standard())
                 .unwrap()
                 .len()
-            + bincode::serde::encode_to_vec(&self.lookup_info, standard())
-                .unwrap()
-                .len()
-            + bincode::serde::encode_to_vec(&self.lookup_proof, standard())
-                .unwrap()
-                .len()
             + bincode::serde::encode_to_vec(&self.hadamard_info, standard())
                 .unwrap()
                 .len()
@@ -181,31 +172,20 @@ where
             + bincode::serde::encode_to_vec(&self.trace_evals, standard())
                 .unwrap()
                 .len()
-            + bincode::serde::encode_to_vec(&self.helper_evals, standard())
-                .unwrap()
-                .len()
     }
 
     pub fn pcs_proof_len(&self) -> usize {
         let mut len = 0;
-        for proof in &self.eval_proof {
-            len += bincode::serde::encode_to_vec(proof, standard())
-                .unwrap()
-                .len();
-        }
-        len + bincode::serde::encode_to_vec(&self.eval_ef_proof, standard())
+        len += bincode::serde::encode_to_vec(&self.eval_proof, standard())
+            .unwrap()
+            .len();
+        len + bincode::serde::encode_to_vec(&self.commitment, standard())
             .unwrap()
             .len()
-            + bincode::serde::encode_to_vec(&self.commitment, standard())
-                .unwrap()
-                .len()
-            + bincode::serde::encode_to_vec(&self.helper_commitment, standard())
-                .unwrap()
-                .len()
     }
 }
 
-impl<F, EF, S, PCS> BlindRotationSnarks<F, EF, S, PCS>
+impl<F, EF, S, PCS> BlindRotationSnarksUpdated<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F> + Serialize,
@@ -224,7 +204,7 @@ where
         trans: &mut Transcript<EF>,
         // trace_mle: &SumHadamardTraceMLE<F>,
         blind_rotation_trace: BlindRotationTrace<F>,
-        params: &BlindRotationParams<F, EF, S, PCS>,
+        params: &BlindRotationParamsUpdated<F, EF, S, PCS>,
     ) -> BlindRotationProof<F, EF, S, PCS> {
         let time = std::time::Instant::now();
         // [Commit Phase] commit to the trace polynomial
@@ -233,28 +213,11 @@ where
         let (commitment, commitment_state) = PCS::commit(&params.pcs_params, &bit_poly);
         trans.append_message(b"[Commit Phase]", &commitment);
 
-        // [Commit Phase] commit to the helper polynomial for lookup
-        let random_value =
-            trans.get_challenge(b"[Challenge] random value used in the rational identity");
-        let lookup_trace = blind_rotation_trace_mle
-            .hadamard_trace
-            .extract_lookup_trace_mle_small_table(params.basis);
-        let lookup_witness = lookup_trace.compute_witness_pure();
-        let lookup_helper = lookup_trace.compute_helper_functions_ef::<EF>(
-            params.blk_size,
-            random_value,
-            &lookup_witness,
-        );
-        let helper_poly = lookup_helper.generate_oracle();
-        let (helper_commitment, helper_commitment_state) =
-            PCS::commit_ef(&params.pcs_params_ef, &helper_poly);
-        println!("[P] Commit Phase time: {:?}", time.elapsed());
-
-        // [PIOP Phase] extract the Hadamard instances
+        // [PIOP Phase] extract all the Hadamard instances
         let piop_time = std::time::Instant::now();
         let time = std::time::Instant::now();
         let blind_rotation_trace_ef = blind_rotation_trace_mle.to_ef();
-        let lookup_trace_ef = lookup_trace.to_ef();
+
         let hadamard_instance = SumHadamardInstance::from(&blind_rotation_trace_ef.hadamard_trace);
         let acc_hadamard_instance =
             SumHadamardInstance::from(&blind_rotation_trace_ef.acc_trace.extract_hadamard_trace());
@@ -262,26 +225,17 @@ where
             .into_iter()
             .flatten()
             .collect::<Vec<_>>();
-
-        // [PIOP Phase] extract the Lookup instance
-        let lookup_instance = LogUpInstance::from(&lookup_trace_ef, &lookup_helper);
         let hadamard_instance_info = hadamard_instance
             .iter()
             .map(SumcheckInstance::info)
             .collect::<Vec<_>>();
         trans.append_message(b"[Hadamard Statement]", &hadamard_instance_info);
-        let lookup_instance_info = lookup_instance.info();
-        trans.append_message(b"[Lookup Statement]", &lookup_instance_info);
 
-        assert_eq!(
-            hadamard_instance_info[0].sumcheck_num_vars(),
-            lookup_instance_info.sumcheck_num_vars()
-        );
         let sumcheck_num_vars = hadamard_instance_info[0].sumcheck_num_vars();
         let mut sumcheck_claim = SumcheckClaim::new(sumcheck_num_vars);
         let lagrange_kernel = Some(&LagrangeKernel::random(trans, sumcheck_num_vars));
 
-        // [PIOP Phase] prove Hadamard and Lookup via one sumcheck protocol
+        // [PIOP Phase] prove all Hadamard via one sumcheck protocol
         // [PIOP Phase] add sumchecks from Hadamard instance
         let randomness_hadamard = hadamard_instance_info[0]
             .sample_randomness_for_sumcheck_batch(trans, hadamard_instance.len());
@@ -291,14 +245,7 @@ where
             &randomness_hadamard,
             lagrange_kernel,
         );
-        // [PIOP Phase] add sumchecks from Lookup instance
-        let randomness_lookup = lookup_instance_info.sample_randomness_for_sumcheck(trans);
-        LogUpIOP::prover_add_sumcheck(
-            &lookup_instance,
-            &mut sumcheck_claim,
-            &randomness_lookup,
-            lagrange_kernel,
-        );
+
         // [PIOP Phase] run the sumcheck protocol
         let (sumcheck_proof, sumcheck_state) = MLSumcheck::prove(trans, &sumcheck_claim.poly)
             .expect("[External Product PIOP] Fail to generate sumcheck proof.");
@@ -311,39 +258,30 @@ where
         );
 
         let time = std::time::Instant::now();
-        let trace_evals = blind_rotation_trace_mle.evaluate_ef_with_lookup(
+        let mut trace_evals = BlindRotationTraceEval::<EF>::default();
+        blind_rotation_trace_mle.evaluate_ef_ntt_only(
+            &mut trace_evals,
             &sumcheck_state.randomness,
             &blind_rotation_trace_ef,
             &sumcheck_claim.poly,
             &eval_table,
         );
-        let helper_evals = lookup_helper.evaluate_with_lookup(
-            &sumcheck_state.randomness,
-            &sumcheck_claim.poly,
-            &eval_table,
-        );
+
         println!(
             "[P] PIOP Phase: Evaluating the remaining oracle in {:?}",
             time.elapsed()
         );
 
         // [PIOP Phase] evaluate the polynomials and append them into proof
-        // let trace_evals = pbs_trace_mle.evaluate_ef(&sumcheck_state.randomness);
-        // let helper_evals = lookup_helper.evaluate(&sumcheck_state.randomness);
         let hadamard_eval_proof =
             BatchedSumHadamardProof::from_blind_rotation_trace_eval(&trace_evals);
-        let lookup_eval_proof = LogUpProof::from_hadamard_trace_eval(
-            &trace_evals.hadamard_trace,
-            &helper_evals,
-            random_value,
-        );
+
         trans.append_message(b"[Hadamard Evals]", &hadamard_eval_proof);
-        trans.append_message(b"[Lookup Evals]", &lookup_eval_proof);
 
         let point_u = sumcheck_state.randomness
             [..blind_rotation_trace_mle.hadamard_trace.log_coeff_count]
             .to_vec();
-        let mut point_v = sumcheck_state.randomness
+        let point_v = sumcheck_state.randomness
             [blind_rotation_trace_mle.hadamard_trace.log_coeff_count..]
             .to_vec();
 
@@ -363,19 +301,6 @@ where
             b"[Challenge] random point used to verify evaluations",
             blind_rotation_trace_mle.log_num_oracles(),
         );
-        let point_helper_oracle = trans.get_vec_challenge(
-            b"[Challenge] random point used to verify evaluations",
-            lookup_trace.log_num_helper_oracles(params.blk_size),
-        );
-        // Reduced subclaim from Lookup: query the coefficient polynomial at `open_point_1`
-        let mut open_point_1 =
-            Vec::with_capacity(point_u.len() + point_v.len() + point_bit_oracle.len());
-        let mut open_point_ef =
-            Vec::with_capacity(point_u.len() + point_v.len() + point_helper_oracle.len());
-        open_point_1.extend_from_slice(&sumcheck_state.randomness);
-        open_point_1.extend_from_slice(&point_bit_oracle);
-        open_point_ef.extend_from_slice(&sumcheck_state.randomness);
-        open_point_ef.extend_from_slice(&point_helper_oracle);
 
         // Reduced subclaim from Hadamard: query the evluation polynomial at `open_point_1`,
         // which can be further proven by NTT PIOP
@@ -406,7 +331,7 @@ where
         trans.append_message(b"[PIOP Phase]", &ntt_proof);
 
         let time = std::time::Instant::now();
-        // Acc Iteration Structure
+        // Proving Acc Iteration Structure
         let indexed_lookup_permutation = blind_rotation_trace_ef
             .acc_trace
             .permutation_info
@@ -429,28 +354,19 @@ where
 
         let time = std::time::Instant::now();
         // Open the coeffcient matrix evaluation `ntt_proof.coeff_eval_at_r_v[1]` at point_r_v_prime
-        let mut open_point_2 = Vec::with_capacity(ntt_state.randomness.len() + point_v_prime.len());
-        open_point_2.extend_from_slice(&ntt_state.randomness);
-        open_point_2.extend_from_slice(&point_v_prime);
-        let open_points = vec![open_point_1, open_point_2];
-        let eval_proof = PCS::batch_open(
+        let mut open_point = Vec::with_capacity(ntt_state.randomness.len() + point_v_prime.len());
+        open_point.extend_from_slice(&ntt_state.randomness);
+        open_point.extend_from_slice(&point_v_prime);
+        let eval_proof = PCS::open(
             &params.pcs_params,
             &commitment,
             &commitment_state,
-            &open_points,
-            trans,
-        );
-
-        let eval_ef_proof = PCS::open_ef(
-            &params.pcs_params_ef,
-            &helper_commitment,
-            &helper_commitment_state,
-            &open_point_ef,
+            &open_point,
             trans,
         );
 
         println!(
-            "[P] PCS Opening 3 Points on 2 Oracles in {:?}",
+            "[P] PCS Opening one point on Oracles in {:?}",
             time.elapsed()
         );
 
@@ -470,29 +386,37 @@ where
         );
         println!("[P] Sparse PCS Opening Phase time: {:?}", time.elapsed());
 
+        // Prove decomposition relation via lookup PIOP
+        let time = std::time::Instant::now();
+        let decomposition_trace = blind_rotation_trace_mle.extract_decomposition_traces();
+        let decomp_params = DecompositionParams::new(
+            params.code_spec.clone(),
+            &blind_rotation_trace_mle.lt_tables,
+        );
+        let decomp_proof = DecompositionSnarks::<F, EF, S, PCS>::prove_as_subprotocol(
+            trans,
+            &decomposition_trace,
+            &decomp_params,
+        );
+        println!("[P] Decomposition time: {:?}", time.elapsed());
+
         BlindRotationProof {
             log_coeff_count: blind_rotation_trace_mle.log_coeff_count,
             log_num_oracle: blind_rotation_trace_mle.log_num_oracles(),
-            log_num_helper_poly: lookup_trace.log_num_helper_oracles(params.blk_size),
             pcs_params: params.pcs_params.clone(),
             commitment,
-            pcs_params_ef: params.pcs_params_ef.clone(),
-            helper_commitment,
             sumcheck_poly_info: sumcheck_claim.poly.info(),
             sumcheck_proof,
-            lookup_info: lookup_instance_info,
-            lookup_proof: lookup_eval_proof,
             hadamard_info: hadamard_instance_info,
             hadamard_proof: hadamard_eval_proof,
             ntt_infos,
             ntt_proof,
             acc_iteration_proof,
             eval_proof,
-            eval_ef_proof,
             sparse_eval_proof,
+            decomp_proof,
 
             trace_evals,
-            helper_evals,
         }
     }
 
@@ -504,26 +428,16 @@ where
         trans.append_message(b"[Commit Phase]", &proof.commitment);
         let mut res = true;
 
-        let _random_value =
-            trans.get_challenge(b"[Challenge] random value used in the rational identity");
-
         let time = std::time::Instant::now();
         // PIOP Phase
         trans.append_message(b"[Hadamard Statement]", &proof.hadamard_info);
-        trans.append_message(b"[Lookup Statement]", &proof.lookup_info);
 
-        assert_eq!(
-            proof.hadamard_info[0].sumcheck_num_vars(),
-            proof.lookup_info.sumcheck_num_vars()
-        );
         let sumcheck_num_vars = proof.hadamard_info[0].sumcheck_num_vars();
         let lagrange_point = LagrangeKernel::random_point(trans, sumcheck_num_vars);
 
         // Combine all sumcheck from Hadamard protocol into one
         let randomness_hadamard = proof.hadamard_info[0]
             .sample_randomness_for_sumcheck_batch(trans, proof.hadamard_info.len());
-        // Combine all sumcheck form Lookup protocol into one
-        let randomness_lookup = proof.lookup_info.sample_randomness_for_sumcheck(trans);
 
         let mut sumcheck_subclaim = MLSumcheck::verify(
             trans,
@@ -537,20 +451,11 @@ where
         let kernel_at_r = eval_identity_function(&lagrange_point, &sumcheck_subclaim.point);
 
         trans.append_message(b"[Hadamard Evals]", &proof.hadamard_proof);
-        trans.append_message(b"[Lookup Evals]", &proof.lookup_proof);
         HadamardPIOP::verifier_batch_compute_subclaim(
             &proof.hadamard_info,
             &proof.hadamard_proof,
             &mut sumcheck_subclaim,
             &randomness_hadamard,
-            Some(kernel_at_r),
-        );
-
-        LogUpIOP::verifier_compute_subclaim(
-            &proof.lookup_info,
-            &proof.lookup_proof,
-            &mut sumcheck_subclaim,
-            &randomness_lookup,
             Some(kernel_at_r),
         );
 
@@ -563,26 +468,6 @@ where
             b"[Challenge] random point used to verify evaluations",
             proof.log_num_oracle,
         );
-        let point_helper_oracle = trans.get_vec_challenge(
-            b"[Challenge] random point used to verify evaluations",
-            proof.log_num_helper_poly,
-        );
-        // Reduced subclaim from Lookup: query the coefficient polynomial at `open_point_1`
-        let mut open_point_1 =
-            Vec::with_capacity(point_u.len() + point_v.len() + point_bit_oracle.len());
-        let mut open_point_ef =
-            Vec::with_capacity(point_u.len() + point_v.len() + point_helper_oracle.len());
-        open_point_1.extend_from_slice(&point_u);
-        open_point_1.extend_from_slice(&point_v);
-        open_point_1.extend_from_slice(&point_bit_oracle);
-        open_point_ef.extend_from_slice(&sumcheck_subclaim.point);
-        open_point_ef.extend_from_slice(&point_helper_oracle);
-
-        let bit_poly_evals = proof.trace_evals.pack_poly_to_vec();
-        let open_eval_1 = compute_oracle_evals(&bit_poly_evals, &point_bit_oracle);
-
-        let helper_poly_evals = proof.helper_evals.pack_to_vec();
-        let open_helper_eval = compute_oracle_evals(&helper_poly_evals, &point_helper_oracle);
 
         point_v.extend_from_slice(&point_bit_oracle);
         let (ntt_res, ntt_subclaim) =
@@ -605,32 +490,17 @@ where
         open_point_2.extend_from_slice(&ntt_subclaim.randomness);
         open_point_2.extend_from_slice(&point_v);
 
-        // Verify the coeffcient matrix evaluation `ntt_proof.coeff_eval_at_r_v[1]` at point_r_v_prime
-        let open_points = vec![open_point_1, open_point_2];
-        let open_evals = vec![open_eval_1, open_eval_2[1]];
-
         // PCS Opening Phase
-        let eval_res = PCS::batch_verify(
+        let eval_res = PCS::verify(
             &proof.pcs_params,
             &proof.commitment,
-            &open_points,
-            &open_evals,
+            &open_point_2,
+            open_eval_2[1],
             &proof.eval_proof,
             trans,
         );
         res &= eval_res;
         assert!(res, "PCS Opening verification failed.");
-
-        let eval_ef_res = PCS::verify_ef(
-            &proof.pcs_params_ef,
-            &proof.helper_commitment,
-            &open_point_ef,
-            open_helper_eval,
-            &proof.eval_ef_proof,
-            trans,
-        );
-        res &= eval_ef_res;
-        assert!(res, "PCS EF Opening verification failed.");
 
         println!("[V] PCS Opening Phase time: {:?}", time.elapsed());
 
@@ -643,6 +513,12 @@ where
         println!("[V] Sparse PCS Opening Phase time: {:?}", time.elapsed());
         res &= sparse_eval_res;
         assert!(res, "Sparse Matrix Evaluation verification failed.");
+
+        // Verify decomposition relation via lookup PIOP
+        let decomp_res =
+            DecompositionSnarks::<F, EF, S, PCS>::verify_as_subprotocol(trans, &proof.decomp_proof);
+        res &= decomp_res;
+        assert!(res, "Decomposition verification failed.");
 
         res
     }

@@ -4,6 +4,7 @@ use fhe_core::{
     SecretKeyPack, lwe_modulus_switch,
 };
 use trace::basic_ops::SumHadamardTrace;
+use trace::cmp_trace::lt_general_trace::{LTGeneralTable, LTGeneralTables};
 use trace::key_switching_trace::KeySwitchingTrace;
 use trace::pbs_trace::PBSTrace;
 use trace::{AccTrace, BlindRotationTrace};
@@ -74,11 +75,14 @@ impl<Q: NTTField> EvaluationKey<Q> {
             &mut hadamard_trace,
         );
 
+        let lt_general_tables = LTGeneralTables::<Q>::new(&parameters.blind_rotation_basis(), None);
+
         let blind_rotation_trace = BlindRotationTrace {
             log_coeff_count,
             log_num_round,
             acc_trace,
             hadamard_trace,
+            tables: lt_general_tables,
         };
         // -- End --
 

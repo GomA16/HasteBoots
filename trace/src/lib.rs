@@ -59,8 +59,12 @@ pub trait PackableEval<F: Field> {
     fn num_evals(&self) -> usize;
     fn pack_to_vec(&self) -> Vec<F>;
     // These two functions are used when the polynomials are stored both in coefficient form and NTT form
-    fn pack_poly_to_vec(&self) -> Vec<F>;
-    fn pack_ntt_to_vec(&self) -> Vec<F>;
+    fn pack_poly_to_vec(&self) -> Vec<F> {
+        unimplemented!()
+    }
+    fn pack_ntt_to_vec(&self) -> Vec<F> {
+        unimplemented!()
+    }
 }
 
 pub trait EvaluableTrace<F: Field> {
@@ -79,7 +83,10 @@ pub trait EvaluableTrace<F: Field> {
 pub trait EvaluableTraceEF<F: Field, EF: AbstractExtensionField<F>> {
     type TraceMLEEF;
     type TraceEvalEF;
-    fn evaluate_ef(&self, point: &[EF]) -> Self::TraceEvalEF;
+    fn evaluate_ef(&self, point: &[EF]) -> Self::TraceEvalEF {
+        unimplemented!()
+    }
+
     // Lookup evaluation if it has be computed in ProverState of the sumcheck protocol.
     // Otherwise, evaluate it normally.
     // [Optimized with base field * extension field evaluations]
@@ -89,9 +96,18 @@ pub trait EvaluableTraceEF<F: Field, EF: AbstractExtensionField<F>> {
         trace_ef: &Self::TraceMLEEF,
         hash_table: &ListOfProductsOfPolynomials<EF>,
         eval_table: &[EF],
-    ) -> Self::TraceEvalEF;
-}
+    ) -> Self::TraceEvalEF {
+        unimplemented!()
+    }
 
-pub trait LookupableTraceEF<F: Field, EF: AbstractExtensionField<F>> {
-    type TraceEvalEF;
+    fn evaluate_ef_ntt_only(
+        &self,
+        eval: &mut Self::TraceEvalEF,
+        point: &[EF],
+        trace_ef: &Self::TraceMLEEF,
+        hash_table: &ListOfProductsOfPolynomials<EF>,
+        eval_table: &[EF],
+    ) {
+        unimplemented!()
+    }
 }

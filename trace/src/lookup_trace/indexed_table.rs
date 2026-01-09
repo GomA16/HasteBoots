@@ -22,11 +22,12 @@ use algebra::{DenseMultilinearExtension, Field};
 use helper::utils::{batch_inverse, gen_identity_evaluations};
 use rayon::iter::ParallelIterator;
 use rayon::slice::ParallelSlice;
+use serde::Serialize;
 use std::{collections::HashMap, rc::Rc};
 
 use log::info;
 
-use crate::{ConvertToEF, PackableTrace};
+use crate::{ConvertToEF, EvaluableTraceEF, PackableEval, PackableTrace};
 
 // Conversion Chain: LookupTraceMLE => LookupWitness
 // LookupWitnessHelper is computed from LookupWitness with a random value
@@ -52,6 +53,12 @@ pub struct IndexedLookupTraceMLE<F: Field> {
     pub table: Rc<DenseMultilinearExtension<F>>,
     // table T[y] = eq(y, ry) for a random point ry
     pub table_point: Option<Vec<F>>,
+}
+
+#[derive(Serialize)]
+pub struct IndexedLookupEval<F: Field> {
+    pub index_at_r: F,
+    pub input_at_r: F,
 }
 
 #[derive(Clone)]
@@ -433,6 +440,34 @@ impl<F: Field> PackableTrace<F> for Vec<IndexedLookupTraceMLE<F>> {
     fn pack_to_vec(&self) -> Vec<F> {
         self.iter()
             .flat_map(|trace| trace.input.iter().chain(trace.index.iter()).cloned())
+            .collect()
+    }
+}
+
+impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF>
+    for Vec<IndexedLookupTraceMLE<F>>
+{
+    type TraceMLEEF = Vec<IndexedLookupTraceMLE<EF>>;
+    type TraceEvalEF = Vec<IndexedLookupEval<EF>>;
+    fn evaluate_ef(&self, point: &[EF]) -> Self::TraceEvalEF {
+        self.iter()
+            .map(|trace| IndexedLookupEval {
+                index_at_r: trace.index.evaluate_ext(&point),
+                input_at_r: trace.input.evaluate_ext(&point),
+            })
+            .collect()
+    }
+}
+
+impl<F: Field> PackableEval<F> for Vec<IndexedLookupEval<F>> {
+    fn num_evals(&self) -> usize {
+        // input and index
+        self.len() * 2
+    }
+
+    fn pack_to_vec(&self) -> Vec<F> {
+        self.iter()
+            .flat_map(|eval| vec![eval.input_at_r, eval.index_at_r])
             .collect()
     }
 }

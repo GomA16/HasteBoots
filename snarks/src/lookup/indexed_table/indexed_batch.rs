@@ -1,3 +1,5 @@
+use core::time;
+
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 use helper::{
     FiatShamirTranscript, Transcript,
@@ -12,8 +14,11 @@ use piop::{
         IndexedLogUpTableProof,
     },
 };
-use serde::Serialize;
-use trace::{ConvertToEF, PackableTrace, lookup_trace::indexed_table::IndexedLookupTraceMLE};
+use serde::{Serialize, ser};
+use trace::{
+    ConvertToEF, EvaluableTraceEF, PackableEval, PackableTrace,
+    lookup_trace::indexed_table::{IndexedLookupEval, IndexedLookupTraceMLE},
+};
 
 #[derive(Default)]
 pub struct BatchedIndexedLogUpSnarks<F, EF, S, PCS>
@@ -49,14 +54,14 @@ where
 {
     pub fn new(code_spec: S, trace: &Vec<IndexedLookupTraceMLE<F>>) -> Self {
         let num_oracle_vars = trace.num_vars() + trace.log_num_oracles();
-        let pcs_params = PCS::setup(num_oracle_vars, Some(code_spec.clone()));
+        let pcs_params = PCS::setup(num_oracle_vars, Some(&code_spec));
         let helper_log_num_oracles = if trace.len() == 1 {
             0
         } else {
             trace.len().next_power_of_two().trailing_zeros() as usize
         };
         let helper_num_oracle_vars = trace.num_vars() + helper_log_num_oracles;
-        let pcs_params_ef = PCS::setup(helper_num_oracle_vars, Some(code_spec.clone()));
+        let pcs_params_ef = PCS::setup(helper_num_oracle_vars, Some(&code_spec));
         BatchedIndexedLogUpParams {
             pcs_params,
             pcs_params_ef,
@@ -74,13 +79,18 @@ where
 {
     pub trace_log_num_oracles: usize,
     pub helper_log_num_oracles: usize,
+    #[serde(skip)]
     pub pcs_params: PCS::Parameters,
+    #[serde(skip)]
     pub commitment: PCS::Commitment,
+    #[serde(skip)]
     pub pcs_params_ef: PCS::Parameters,
+    #[serde(skip)]
     pub helper_commitment: PCS::Commitment,
     pub input_instance_info: Vec<IndexedLogUpInputInstanceInfo<EF>>,
     pub input_piop_proof: BatchedIndexLogUpInputProof<EF>,
-    pub eval: EF,
+    pub input_point_r: Vec<EF>,
+    pub lookup_evals: Vec<IndexedLookupEval<EF>>,
     pub eval_proof: PCS::Proof,
     pub eval_helper_proof: PCS::ProofEF,
 }
@@ -175,7 +185,7 @@ where
         point.extend_from_slice(&point_oracle);
         point_helper.extend_from_slice(&input_piop_state.point_r);
         point_helper.extend_from_slice(&point_helper_oracle);
-        let eval = poly.evaluate_ext(&point);
+        let lookup_evals = trace_mle.evaluate_ef(&input_piop_state.point_r);
 
         let eval_proof = PCS::open(
             &params.pcs_params,
@@ -204,7 +214,8 @@ where
                 .map(|instance| instance.info())
                 .collect(),
             input_piop_proof,
-            eval,
+            input_point_r: input_piop_state.point_r,
+            lookup_evals,
             eval_proof,
             eval_helper_proof,
         }
@@ -248,11 +259,13 @@ where
         point_helper.extend_from_slice(&piop_subclaim1.point_r);
         point_helper.extend_from_slice(&point_helper_oracle);
 
+        let evals = proof.lookup_evals.pack_to_vec();
+        let eval = compute_oracle_evals(&evals, &point_oracle);
         let eval_res = PCS::verify(
             &proof.pcs_params,
             &proof.commitment,
             &point,
-            proof.eval,
+            eval,
             &proof.eval_proof,
             trans,
         );

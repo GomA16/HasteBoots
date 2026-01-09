@@ -9,13 +9,15 @@ use piop::lookup::normal_table::{LogUpIOP, LogUpInstance};
 use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInstance};
 use piop::{SumcheckInstance, SumcheckPIOP};
 use rand::Rng;
+use snarks::fhe_op::decomposition::{self, DecompositionParams, DecompositionSnarks};
 use snarks::lookup::indexed_table::indexed_batch::{
     BatchedIndexedLogUpParams, BatchedIndexedLogUpSnarks,
 };
+use trace::BlindRotationTraceMLE;
 use trace::basic_ops::SumHadamardTraceMLE;
 use trace::lookup_trace::normal_table::LookupWitness;
 // use trace::HadamardProdTraceMLE;
-use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
+use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, BABYBEAR_CODE_SPEC, Evaluator};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
 type FF = BabyBear;
@@ -73,24 +75,23 @@ fn main() {
     // Generate SNARKs for nand
     println!("Starting verification of nand.\n");
 
-    let mut trace = trace.blind_rotation_trace;
-    trace.finalize(params.lwe_dimension());
-    let trace = trace.hadamard_trace;
-    let trace_mle: SumHadamardTraceMLE<_> = trace.into();
-    let range = 1 << params.blind_rotation_basis().bits() as usize;
-    let lookup_trace_mle = trace_mle.extract_indexed_lookup_trace_mle(range);
-    let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
-    let snarks = BatchedIndexedLogUpSnarks::<
+    let mut blind_rotation_trace = trace.blind_rotation_trace;
+    blind_rotation_trace.finalize(params.lwe_dimension());
+    let trace_mle: BlindRotationTraceMLE<_> = blind_rotation_trace.into();
+    let decomp_trace_mle = trace_mle.extract_decomposition_traces();
+
+    let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, 31, 10);
+    let snarks = DecompositionSnarks::<
         FF,
         EF,
         ExpanderCodeSpec,
         BrakedownPCS<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>,
     >::default();
 
-    let params = BatchedIndexedLogUpParams::new(code_spec, &lookup_trace_mle);
+    let params = DecompositionParams::new(code_spec, &trace_mle.lt_tables);
     let mut prover_trans = Transcript::new();
     let time = std::time::Instant::now();
-    let proof = snarks.prove(&mut prover_trans, &lookup_trace_mle, &params);
+    let proof = snarks.prove(&mut prover_trans, &decomp_trace_mle, &params);
     println!("Prover time: {:?}", time.elapsed());
     let mut verifier_trans = Transcript::new();
     let time = std::time::Instant::now();

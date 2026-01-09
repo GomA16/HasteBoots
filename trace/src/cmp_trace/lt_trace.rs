@@ -2,8 +2,18 @@ use std::rc::Rc;
 
 use algebra::{AsInto, Basis, DecomposableField, DenseMultilinearExtension, Field};
 
+// When we prove the decomposition of x < p where p is the field, we compute x < p - 1 or x = p - 1.
+
+// In this implementation, we only consider p - 1 in the form of 2^k1 - 2^k2 for k1 > k2 >= 0.
+// (x < p - 1) <=> 1 - (x >= p - 1)
+
+// When c = p - 1 which is in form of 111100000
+// Each bit_constant is 11111...1, 11..10...0, and 000.00
+// bit_gt_eq = 1 if x_i >= c_i
+// \prod {bit_gt_eq} = 1 if and only if x >= c
+// Hence, lt_result = 1 - \prod {bit_gt_eq}
 #[derive(Clone)]
-pub struct EQTable<F: Field> {
+pub struct GTEQTable<F: Field> {
     pub num_table_vars: usize,
     pub bit_constant: F,
     pub bit_position: usize,
@@ -11,47 +21,48 @@ pub struct EQTable<F: Field> {
 }
 
 #[derive(Clone)]
-pub struct EQTables<F: Field> {
-    pub eq_constant: F,
+pub struct GTEQTables<F: Field> {
+    pub gt_eq_constant: F,
     pub basis_bits: usize,
     pub decomp_len: usize,
-    pub tables: Vec<EQTable<F>>,
+    pub tables: Vec<GTEQTable<F>>,
 }
 
-pub struct EQTablesMLE<F: Field> {
+pub struct GTEQTablesMLE<F: Field> {
     pub eq_constant: F,
     pub basis_bits: usize,
     pub decomp_len: usize,
     pub tables: Vec<Rc<DenseMultilinearExtension<F>>>,
 }
 
-pub struct EQTrace<F: Field> {
+pub struct LTTrace<F: Field> {
     pub num_vars: usize,
     pub num_bits: usize,
 
     pub input: Vec<F>,
-    pub eq_result: Vec<F>,
+    // lt_result = 1 - \prod {bit_gt_eq}
+    pub lt_result: Vec<F>,
     pub bits: Vec<Vec<F>>,
-    pub bit_eq: Vec<Vec<F>>,
+    pub bit_gt_eq: Vec<Vec<F>>,
 }
 
-pub struct EQTraceMLE<F: Field> {
+pub struct LTTraceMLE<F: Field> {
     pub num_vars: usize,
     pub num_bits: usize,
 
     pub input: Rc<DenseMultilinearExtension<F>>,
-    pub eq_result: Rc<DenseMultilinearExtension<F>>,
+    pub lt_result: Rc<DenseMultilinearExtension<F>>,
     pub bits: Vec<Rc<DenseMultilinearExtension<F>>>,
-    pub bit_eq: Vec<Rc<DenseMultilinearExtension<F>>>,
+    pub bit_gt_eq: Vec<Rc<DenseMultilinearExtension<F>>>,
 }
 
-impl<F: Field> EQTable<F> {
+impl<F: Field> GTEQTable<F> {
     pub fn new(num_table_vars: usize, bit_constant: F, bit_position: usize) -> Self {
         let table_size = 1 << num_table_vars;
         let mut table = vec![F::zero(); table_size];
         let bit_pivot: usize = bit_constant.value().as_into();
 
-        table[bit_pivot] = F::one();
+        table[bit_pivot..].iter_mut().for_each(|t| *t = F::one());
 
         Self {
             num_table_vars,
@@ -62,20 +73,20 @@ impl<F: Field> EQTable<F> {
     }
 }
 
-impl<F: DecomposableField> EQTables<F> {
-    pub fn new(eq_constant: F, basis_bits: usize) -> Self {
-        let mut decomposed_constant = eq_constant;
+impl<F: DecomposableField> GTEQTables<F> {
+    pub fn new(basis_bits: usize) -> Self {
+        let mut decomposed_constant = -F::one();
         let mut decomp_len = 0;
         let mut tables = Vec::new();
         while !decomposed_constant.is_zero() {
             let bit_constant = decomposed_constant
                 .decompose_lsb_bits(F::mask(basis_bits as u32), basis_bits as u32);
-            let table = EQTable::new(basis_bits, bit_constant, decomp_len);
+            let table = GTEQTable::new(basis_bits, bit_constant, decomp_len);
             tables.push(table);
             decomp_len += 1;
         }
-        EQTables {
-            eq_constant,
+        GTEQTables {
+            gt_eq_constant: -F::one(),
             basis_bits,
             decomp_len,
             tables,
@@ -83,53 +94,55 @@ impl<F: DecomposableField> EQTables<F> {
     }
 }
 
-impl<F: DecomposableField> EQTrace<F> {
+impl<F: DecomposableField> LTTrace<F> {
     pub fn random<R: rand::Rng + rand::CryptoRng>(
         rng: &mut R,
         num_vars: usize,
-        eq_tables: &EQTables<F>,
+        gt_eq_tables: &GTEQTables<F>,
     ) -> Self {
-        let num_bits = eq_tables.decomp_len;
+        let num_bits = gt_eq_tables.decomp_len;
         let input_size = 1 << num_vars;
         let mut input = vec![F::zero(); input_size];
         for i in 0..input_size {
             input[i] = F::random(rng);
         }
-
-        input[0] = eq_tables.eq_constant; // ensure at least one equal case
+        input[0] = gt_eq_tables.gt_eq_constant;
 
         let mut bits = vec![vec![F::zero(); input_size]; num_bits];
-        let mut bit_eq = vec![vec![F::zero(); input_size]; num_bits];
-        let mut eq_result = vec![F::one(); input_size];
+        let mut bit_gt_eq = vec![vec![F::zero(); input_size]; num_bits];
+        let mut lt_result = vec![F::zero(); input_size];
 
         for i in 0..input_size {
             let mut x = input[i];
-            for (j, table) in eq_tables.tables.iter().enumerate() {
+            for (j, table) in gt_eq_tables.tables.iter().enumerate() {
                 let bit = x.decompose_lsb_bits(
-                    F::mask(eq_tables.basis_bits as u32),
-                    eq_tables.basis_bits as u32,
+                    F::mask(gt_eq_tables.basis_bits as u32),
+                    gt_eq_tables.basis_bits as u32,
                 );
                 bits[j][i] = bit;
                 let table_index: usize = bit.value().as_into();
-                let eq_bit = table.table[table_index];
-                bit_eq[j][i] = eq_bit;
-                eq_result[i] *= eq_bit;
+                let gt_eq_bit = table.table[table_index];
+                bit_gt_eq[j][i] = gt_eq_bit;
+            }
+
+            if input[i] < gt_eq_tables.gt_eq_constant {
+                lt_result[i] = F::one();
             }
         }
 
-        EQTrace {
+        LTTrace {
             num_vars,
             num_bits,
             input,
-            eq_result,
+            lt_result,
             bits,
-            bit_eq,
+            bit_gt_eq,
         }
     }
 }
 
-impl<F: Field> From<EQTrace<F>> for EQTraceMLE<F> {
-    fn from(trace: EQTrace<F>) -> Self {
+impl<F: Field> From<LTTrace<F>> for LTTraceMLE<F> {
+    fn from(trace: LTTrace<F>) -> Self {
         let num_vars = trace.num_vars;
         let num_bits = trace.num_bits;
 
@@ -137,52 +150,28 @@ impl<F: Field> From<EQTrace<F>> for EQTraceMLE<F> {
             num_vars,
             trace.input,
         ));
-        let eq_result = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
+        let lt_result = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
             num_vars,
-            trace.eq_result,
+            trace.lt_result,
         ));
         let bits = trace
             .bits
             .into_iter()
             .map(|b| Rc::new(DenseMultilinearExtension::from_evaluations_vec(num_vars, b)))
             .collect();
-        let bit_eq = trace
-            .bit_eq
+        let bit_gt_eq = trace
+            .bit_gt_eq
             .into_iter()
             .map(|b| Rc::new(DenseMultilinearExtension::from_evaluations_vec(num_vars, b)))
             .collect();
 
-        EQTraceMLE {
+        LTTraceMLE {
             num_vars,
             num_bits,
             input,
-            eq_result,
+            lt_result,
             bits,
-            bit_eq,
+            bit_gt_eq,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use algebra::{BabyBear, derive::Field};
-    use num_traits::One;
-
-    // field type
-    type FF = BabyBear;
-
-    #[test]
-    fn test_cmp_table_trace() {
-        let basis_bits = 7;
-        let eq_tables = EQTables::<FF>::new(-FF::one(), basis_bits);
-        println!("RHS constant: {:b}", (-FF::one()).value());
-        eq_tables.tables.iter().for_each(|table| {
-            println!(
-                "{:07b}: {}",
-                table.bit_constant.value(),
-                table.bit_constant.value()
-            );
-        });
     }
 }

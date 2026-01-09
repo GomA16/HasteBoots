@@ -4,7 +4,7 @@ use algebra::{DenseMultilinearExtension, Field, PolynomialInfo};
 use rand::random;
 use serde::Serialize;
 use sumcheck::Proof;
-use trace::cmp_trace::eq_trace::EQTraceMLE;
+use trace::cmp_trace::{eq_trace::EQTraceMLE, lt_trace::LTTraceMLE};
 
 use crate::{
     LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance, SumcheckPIOP,
@@ -54,11 +54,24 @@ impl<F: Field> GrandProdInstance<F> {
         );
     }
 
-    pub fn from_trace(trace: &EQTraceMLE<F>) -> Self {
+    pub fn from_eq_trace(trace: &EQTraceMLE<F>) -> Self {
         GrandProdInstance {
             num_vars: trace.num_vars,
             products: trace.bit_eq.clone(),
             result: Rc::clone(&trace.eq_result),
+        }
+    }
+
+    pub fn from_lt_trace(trace: &LTTraceMLE<F>) -> Self {
+        let result = trace.lt_result.iter().map(|x| F::one() - *x).collect();
+        let result = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
+            trace.num_vars,
+            result,
+        ));
+        GrandProdInstance {
+            num_vars: trace.num_vars,
+            products: trace.bit_gt_eq.clone(),
+            result: result,
         }
     }
 }
@@ -169,20 +182,23 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for GrandProdPIOP<F> {
 
 #[cfg(test)]
 mod test {
-    use algebra::derive::{DecomposableField, Field};
+    use algebra::{
+        BabyBear,
+        derive::{DecomposableField, Field},
+    };
     use helper::Transcript;
-    use trace::cmp_trace::eq_trace::{self, EQTables, EQTrace};
+    use trace::cmp_trace::{
+        eq_trace::{self, EQTables, EQTrace},
+        lt_trace::{GTEQTables, LTTrace, LTTraceMLE},
+    };
 
     use super::*;
     use num_traits::One;
-    #[derive(Field, DecomposableField)]
-    #[modulus = 132120577]
-    pub struct Fp32(u32);
     // field type
-    type FF = Fp32;
+    type FF = BabyBear;
 
     #[test]
-    fn test_grand_prod_piop() {
+    fn test_eq_piop() {
         let mut rng = rand::rng();
         let eq_constant = -FF::one();
         let basis_bits = 7;
@@ -190,7 +206,24 @@ mod test {
         let eq_trace = EQTrace::random(&mut rng, 4, &eq_tables);
         let eq_trace_mle: EQTraceMLE<_> = eq_trace.into();
 
-        let instance = GrandProdInstance::from_trace(&eq_trace_mle);
+        let instance = GrandProdInstance::from_eq_trace(&eq_trace_mle);
+        let info = instance.info();
+        let mut prover_trans = Transcript::default();
+        let (proof, _prover_state) = GrandProdPIOP::<FF>::prover(&mut prover_trans, &instance);
+        let mut verifier_trans = Transcript::default();
+        let (res, _) = GrandProdPIOP::<FF>::verifier(&mut verifier_trans, &info, &proof);
+        assert!(res);
+    }
+
+    #[test]
+    fn test_lt_piop() {
+        let mut rng = rand::rng();
+        let basis_bits = 7;
+        let gt_eq_tables = GTEQTables::new(basis_bits);
+        let lt_trace = LTTrace::random(&mut rng, 4, &gt_eq_tables);
+        let lt_trace_mle: LTTraceMLE<_> = lt_trace.into();
+
+        let instance = GrandProdInstance::from_lt_trace(&lt_trace_mle);
         let info = instance.info();
         let mut prover_trans = Transcript::default();
         let (proof, _prover_state) = GrandProdPIOP::<FF>::prover(&mut prover_trans, &instance);

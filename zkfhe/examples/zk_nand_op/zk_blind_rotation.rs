@@ -6,6 +6,9 @@ use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
 use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks};
+use snarks::fhe_op::blind_rotation_updated::{
+    BlindRotationParamsUpdated, BlindRotationSnarksUpdated,
+};
 use snarks::fhe_op::external_product::{ExternalProductParams, ExternalProductSnarks};
 use trace::BlindRotationTraceMLE;
 // use trace::HadamardProdTraceMLE;
@@ -80,8 +83,8 @@ fn main() {
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
     let blk_size = 3;
     let basis = params.blind_rotation_basis().basis() as usize;
-    let params = BlindRotationParams::new(code_spec, ntt_table, blk_size, basis, &trace);
-    let snarks = BlindRotationSnarks::<
+    let params = BlindRotationParamsUpdated::new(code_spec, ntt_table, blk_size, basis, &trace);
+    let snarks = BlindRotationSnarksUpdated::<
         FF,
         EF,
         ExpanderCodeSpec,
