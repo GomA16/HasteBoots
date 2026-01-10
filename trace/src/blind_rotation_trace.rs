@@ -1,6 +1,6 @@
 use crate::basic_ops::decomp_trace::DecompTraceMLE;
 use crate::basic_ops::{RLWEEval, SumHadamardTrace, SumHadamardTraceEval, SumHadamardTraceMLE};
-use crate::cmp_trace::lt_general_trace::{LTGeneralTables, LTGeneralTablesMLE};
+use crate::cmp_trace::lt_trace::{LTTables, LTTablesMLE};
 use crate::{
     AccTrace, AccTraceEval, AccTraceMLE, ConvertToEF, EvaluableTrace, EvaluableTraceEF,
     PackableEval, PackableTrace,
@@ -28,7 +28,7 @@ pub struct BlindRotationTrace<F: Field> {
     pub log_num_round: usize,
     pub acc_trace: AccTrace<F>,
     pub hadamard_trace: SumHadamardTrace<F>,
-    pub tables: LTGeneralTables<F>,
+    pub tables: LTTables<F>,
     // pub ks_hadamard_trace: SumHadamardTrace<F>,
     // pub params: PBSParameters,
 }
@@ -38,7 +38,7 @@ pub struct BlindRotationTraceMLE<F: Field> {
     pub log_num_round: usize,
     pub acc_trace: AccTraceMLE<F>,
     pub hadamard_trace: SumHadamardTraceMLE<F>,
-    pub lt_tables: LTGeneralTablesMLE<F>,
+    pub lt_tables: LTTablesMLE<F>,
     // pub params: PBSParameters,
 }
 
@@ -76,7 +76,7 @@ impl<F: Field> From<BlindRotationTrace<F>> for BlindRotationTraceMLE<F> {
             log_num_round: trace.acc_trace.log_num_round,
             acc_trace: AccTraceMLE::from(trace.acc_trace),
             hadamard_trace: SumHadamardTraceMLE::from(trace.hadamard_trace),
-            lt_tables: LTGeneralTablesMLE::from(trace.tables),
+            lt_tables: LTTablesMLE::from(trace.tables),
             // params: trace.params,
         }
     }

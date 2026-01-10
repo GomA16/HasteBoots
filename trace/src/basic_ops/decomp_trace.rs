@@ -4,7 +4,7 @@ use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 
 use crate::{
     EvaluableTraceEF, PackableTrace,
-    cmp_trace::lt_general_trace::{LTGeneralTable, LTGeneralTables, LTGeneralTablesMLE},
+    cmp_trace::lt_trace::{LTTable, LTTables, LTTablesMLE},
     lookup_trace::indexed_table::IndexedLookupTraceMLE,
 };
 
@@ -28,7 +28,7 @@ impl<F: Field> DecompTraceMLE<F> {
 
     pub fn extract_lt_general_lookup_trace(
         &self,
-        lt_tables: &LTGeneralTablesMLE<F>,
+        lt_tables: &LTTablesMLE<F>,
     ) -> Vec<IndexedLookupTraceMLE<F>> {
         assert_eq!(self.bits.len(), lt_tables.decomp_len);
 

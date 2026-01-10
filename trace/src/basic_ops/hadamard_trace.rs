@@ -11,7 +11,7 @@ use super::rlwe_trace::{
     PolynomialEval, PolynomialTrace, PolynomialTraceMLE, RLWEEval, RLWETrace, RLWETraceMLE,
 };
 use crate::basic_ops::decomp_trace::DecompTraceMLE;
-use crate::cmp_trace::lt_general_trace::{LTGeneralTables, LTGeneralTablesMLE};
+use crate::cmp_trace::lt_trace::{LTTables, LTTablesMLE};
 use crate::lookup_trace::indexed_table::IndexedLookupTraceMLE;
 use crate::lookup_trace::normal_table::LookupTraceMLE as LookupTraceMLENormalTable;
 use crate::lookup_trace::small_table::LookupTraceMLE as LookupTraceMLESmallTable;
@@ -460,7 +460,7 @@ impl<F: Field> SumHadamardTraceMLE<F> {
     #[inline]
     pub fn extract_indexed_lookup_trace_mle(
         &self,
-        tables: &LTGeneralTablesMLE<F>,
+        tables: &LTTablesMLE<F>,
     ) -> Vec<IndexedLookupTraceMLE<F>> {
         assert_eq!(self.num_bit_poly(), tables.decomp_len * 2);
         let extract_traces = |start: usize| {

@@ -1,6 +1,17 @@
 use std::rc::Rc;
 
-use algebra::{AsInto, Basis, DecomposableField, DenseMultilinearExtension, Field};
+use algebra::{
+    AbstractExtensionField, AsInto, Basis, DecomposableField, DenseMultilinearExtension, Field,
+};
+use itertools::izip;
+use rayon::iter::{
+    IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
+};
+
+use crate::{
+    ConvertToEF, basic_ops::decomp_trace::DecompTraceMLE,
+    lookup_trace::indexed_table::IndexedLookupTraceMLE,
+};
 
 #[derive(Clone)]
 pub struct EQTable<F: Field> {
@@ -65,20 +76,52 @@ impl<F: Field> EQTable<F> {
 impl<F: DecomposableField> EQTables<F> {
     pub fn new(eq_constant: F, basis_bits: usize) -> Self {
         let mut decomposed_constant = eq_constant;
-        let mut decomp_len = 0;
-        let mut tables = Vec::new();
-        while !decomposed_constant.is_zero() {
-            let bit_constant = decomposed_constant
+        let basis = Basis::<F>::new(basis_bits as u32);
+
+        let mut tables = Vec::with_capacity(basis.decompose_len());
+        for i in 0..basis.decompose_len() {
+            let bit_constant = (&mut decomposed_constant)
                 .decompose_lsb_bits(F::mask(basis_bits as u32), basis_bits as u32);
-            let table = EQTable::new(basis_bits, bit_constant, decomp_len);
+            let table = EQTable::new(basis_bits, bit_constant, i);
             tables.push(table);
-            decomp_len += 1;
         }
+
         EQTables {
             eq_constant,
             basis_bits,
-            decomp_len,
+            decomp_len: basis.decompose_len(),
             tables,
+        }
+    }
+}
+
+impl<F: Field> EQTablesMLE<F> {
+    pub fn get_table(&self, index: usize) -> Rc<DenseMultilinearExtension<F>> {
+        Rc::clone(&self.tables[index])
+    }
+}
+
+impl<F: Field> From<EQTables<F>> for EQTablesMLE<F> {
+    fn from(tables: EQTables<F>) -> Self {
+        let eq_constant = tables.eq_constant;
+        let basis_bits = tables.basis_bits;
+        let decomp_len = tables.decomp_len;
+        let mle_tables = tables
+            .tables
+            .into_iter()
+            .map(|table| {
+                Rc::new(DenseMultilinearExtension::from_evaluations_vec(
+                    table.num_table_vars,
+                    table.table,
+                ))
+            })
+            .collect();
+
+        EQTablesMLE {
+            eq_constant,
+            basis_bits,
+            decomp_len,
+            tables: mle_tables,
         }
     }
 }
@@ -93,7 +136,7 @@ impl<F: DecomposableField> EQTrace<F> {
         let input_size = 1 << num_vars;
         let mut input = vec![F::zero(); input_size];
         for i in 0..input_size {
-            input[i] = F::random(rng);
+            input[i] = eq_tables.eq_constant + F::one();
         }
 
         input[0] = eq_tables.eq_constant; // ensure at least one equal case
@@ -104,8 +147,9 @@ impl<F: DecomposableField> EQTrace<F> {
 
         for i in 0..input_size {
             let mut x = input[i];
+
             for (j, table) in eq_tables.tables.iter().enumerate() {
-                let bit = x.decompose_lsb_bits(
+                let bit = (&mut x).decompose_lsb_bits(
                     F::mask(eq_tables.basis_bits as u32),
                     eq_tables.basis_bits as u32,
                 );
@@ -155,6 +199,100 @@ impl<F: Field> From<EQTrace<F>> for EQTraceMLE<F> {
         EQTraceMLE {
             num_vars,
             num_bits,
+            input,
+            eq_result,
+            bits,
+            bit_eq,
+        }
+    }
+}
+
+impl<F: DecomposableField> EQTraceMLE<F> {
+    pub fn from(input: &Rc<DenseMultilinearExtension<F>>, eq_tables: &EQTables<F>) -> Self {
+        let num_vars = input.num_vars();
+        let num_bits = eq_tables.decomp_len;
+        let input_size = 1 << num_vars;
+
+        let mut bits = vec![vec![F::zero(); input_size]; num_bits];
+        let mut bit_eq = vec![vec![F::zero(); input_size]; num_bits];
+        let mut eq_result_evals = vec![F::one(); 1 << num_vars];
+
+        input
+            .evaluations
+            .iter()
+            .zip(eq_result_evals.iter_mut())
+            .enumerate()
+            .for_each(|(i, (input, eq_result))| {
+                *eq_result = match *input == eq_tables.eq_constant {
+                    true => F::one(),
+                    false => F::zero(),
+                };
+                let mut x = *input;
+                eq_tables.tables.iter().enumerate().for_each(|(j, table)| {
+                    let bit = (&mut x).decompose_lsb_bits(
+                        F::mask(eq_tables.basis_bits as u32),
+                        eq_tables.basis_bits as u32,
+                    );
+                    bits[j][i] = bit;
+                    let table_index: usize = bits[j][i].value().as_into();
+                    bit_eq[j][i] = table.table[table_index];
+                });
+            });
+
+        let eq_result = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
+            num_vars,
+            eq_result_evals,
+        ));
+        let bits = bits
+            .into_iter()
+            .map(|b| Rc::new(DenseMultilinearExtension::from_evaluations_vec(num_vars, b)))
+            .collect();
+        let bit_eq = bit_eq
+            .into_iter()
+            .map(|b| Rc::new(DenseMultilinearExtension::from_evaluations_vec(num_vars, b)))
+            .collect();
+
+        EQTraceMLE {
+            num_vars,
+            num_bits,
+            input: Rc::clone(input),
+            eq_result,
+            bits,
+            bit_eq,
+        }
+    }
+
+    pub fn extract_eq_lookup_traces(
+        &self,
+        eq_tables: &EQTablesMLE<F>,
+    ) -> Vec<IndexedLookupTraceMLE<F>> {
+        self.bits
+            .iter()
+            .zip(self.bit_eq.iter())
+            .enumerate()
+            .map(|(i, (bits, bit_eq))| IndexedLookupTraceMLE {
+                num_input_vars: self.num_vars,
+                num_table_vars: eq_tables.tables[i].num_vars(),
+                index: Rc::clone(bits),
+                input: Rc::clone(bit_eq),
+                table: eq_tables.get_table(i),
+                table_point: None,
+            })
+            .collect()
+    }
+}
+
+impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for EQTraceMLE<F> {
+    type Output = EQTraceMLE<EF>;
+    fn to_ef(&self) -> Self::Output {
+        let input = Rc::new(self.input.to_ef());
+        let eq_result = Rc::new(self.eq_result.to_ef());
+        let bits = self.bits.iter().map(|b| Rc::new(b.to_ef())).collect();
+        let bit_eq = self.bit_eq.iter().map(|b| Rc::new(b.to_ef())).collect();
+
+        EQTraceMLE {
+            num_vars: self.num_vars,
+            num_bits: self.num_bits,
             input,
             eq_result,
             bits,

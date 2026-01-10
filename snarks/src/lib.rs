@@ -2,6 +2,7 @@ use algebra::{AbstractExtensionField, Field};
 use helper::Transcript;
 use pcs::PolynomialCommitmentScheme;
 
+pub mod cmp;
 pub mod fhe_op;
 pub mod lookup;
 pub mod ntt;

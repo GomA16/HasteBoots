@@ -6,8 +6,7 @@ use helper::{FiatShamirTranscript, Transcript, utils::compute_oracle_evals};
 use pcs::{PolynomialCommitmentScheme, utils::code};
 use serde::{Serialize, ser};
 use trace::{
-    PackableTrace, basic_ops::decomp_trace::DecompTraceMLE,
-    cmp_trace::lt_general_trace::LTGeneralTablesMLE,
+    PackableTrace, basic_ops::decomp_trace::DecompTraceMLE, cmp_trace::lt_trace::LTTablesMLE,
 };
 
 use crate::lookup::indexed_table::indexed_batch::{
@@ -33,7 +32,7 @@ where
     F: Field,
     S: Clone,
 {
-    pub lt_tables: &'a LTGeneralTablesMLE<F>,
+    pub lt_tables: &'a LTTablesMLE<F>,
     pub code_spec: S,
 }
 
@@ -62,7 +61,7 @@ where
     F: Field,
     S: Clone,
 {
-    pub fn new(code_spec: S, lt_tables: &'a LTGeneralTablesMLE<F>) -> Self {
+    pub fn new(code_spec: S, lt_tables: &'a LTTablesMLE<F>) -> Self {
         Self {
             code_spec: code_spec.clone(),
             lt_tables,

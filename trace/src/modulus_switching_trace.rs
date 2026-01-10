@@ -48,7 +48,9 @@ pub struct ModulusSwitchingTraceMLE<F: Field> {
     // denoted by b' s.t. b' = b mod q AND b' \in [1, q]
     pub output_witness: Rc<DenseMultilinearExtension<F>>,
 
-    // denoted by e = a - (2b' - 1) * k - 1 \in [0, 2k)
+    // denoted by e = a - (2b' - 1) * k - 1 \in [0, 2k] < (2k + 1)
+    // a = k: e = 2k
+    // otherwise: a < 2k
     pub helper: Rc<DenseMultilinearExtension<F>>, // (no need to commit)
     // 2k = (Q - 1) / q
     pub helper_range: usize,
@@ -90,7 +92,7 @@ impl<F: Field> ModulusSwitchingTrace<F> {
             .par_iter()
             .map(|b| if b.is_one() { self.modulus_after } else { *b })
             .collect();
-        // e = a - (2b' - 1) * k - 1 \in [0, 2k)
+        // e = a - (2b' - 1) * k - 1 \in [0, 2k]
         self.helper = self
             .input
             .par_iter()
