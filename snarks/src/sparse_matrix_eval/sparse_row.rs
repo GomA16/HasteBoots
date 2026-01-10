@@ -87,11 +87,8 @@ where
         trans: &mut Transcript<EF>,
         instance: &SparseRowEvalInstance<EF>,
     ) -> SparseRowEvalSnarksProof<F, EF, S, PCS> {
-        // Commit phase: send the polynomials directly to the verifier
+        // [PCS Phase] send the polynomial directly to the verifier (since thery are small polynomials)
         trans.append_message(b"[Commit Phase]", instance.val.as_ref());
-        // These two will be committed in the indexed lookup argument
-        // trans.append_message(b"[Commit Phase]", instance.col.as_ref());
-        // trans.append_message(b"[Commit Phase]", instance.eval_mle_ry.as_ref());
 
         // Prove the eval_mle_ry = eq(to-bits(col), ry) using IndexedLogUpSnarks
         let indexed_lookup_trace = instance.extract_indexed_lookup_trace();

@@ -3,6 +3,7 @@ use core::time;
 use algebra::{AbstractExtensionField, AsInto, DenseMultilinearExtension, Field};
 use bincode::de;
 use helper::{FiatShamirTranscript, Transcript, utils::compute_oracle_evals};
+use log::info;
 use pcs::{PolynomialCommitmentScheme, utils::code};
 use serde::{Serialize, ser};
 use trace::{
@@ -105,22 +106,37 @@ where
         traces: &Vec<DecompTraceMLE<F>>,
         params: &DecompositionParams<F, S>,
     ) -> DecompositionSnarksProof<F, EF, S, PCS> {
+        let commit_time = std::time::Instant::now();
+        // [PCS Phase] Commit to the input oracles
         let poly = traces.generate_oracle();
         let input_params = PCS::setup(poly.num_vars(), Some(&params.code_spec));
-
         let (input_commitment, input_comm_state) = PCS::commit(&input_params, &poly);
         trans.append_message(b"[Commit Phase]", &input_commitment);
+        info!(
+            "[P]-[PCS] Committing to a polynomial of {} variables in {:?}",
+            poly.num_vars(),
+            commit_time.elapsed()
+        );
 
-        // Prove the decomposition consistency via batched indexed log-up proofs
+        // [PIOP Phase] Prove the decomposition consistency via batched indexed log-up proofs
         // 1. each bit x_i is in range [0, 2^k)
         // 2. \sum_{i} x_i * 2^{i*k} x_i = x
         // The second part is garanteed by ensuring \sum_{i} x_i * 2^{i*k} < p via lookups.
         // refer: https://www.usenix.org/conference/usenixsecurity24/presentation/hao-meng-scalable
+
+        // parepare the lookup traces to ensure the decomposition is valid and in range of [0, p)
+        let time_prep_lookup = std::time::Instant::now();
         let lookup_trace = traces
             .iter()
             .map(|trace| trace.extract_lt_general_lookup_trace(&params.lt_tables))
             .flatten()
             .collect::<Vec<_>>();
+        info!(
+            "[P]-[PIOP] Preparing lookup traces for decomposition validity in {:?}",
+            time_prep_lookup.elapsed()
+        );
+
+        // prove it via batched indexed log-up proofs
         let lookup_params = BatchedIndexedLogUpParams::new(params.code_spec.clone(), &lookup_trace);
         let lookup_proof =
             BatchedIndexedLogUpSnarks::prove_as_subprotocol(trans, &lookup_trace, &lookup_params);

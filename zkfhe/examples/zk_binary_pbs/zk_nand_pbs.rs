@@ -10,9 +10,6 @@ use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
 use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks};
-use snarks::fhe_op::blind_rotation_updated::{
-    BlindRotationParamsUpdated, BlindRotationSnarksUpdated,
-};
 use snarks::fhe_op::external_product::{ExternalProductParams, ExternalProductSnarks};
 use snarks::fhe_op::key_switching::{self, KeySwitchingParams, KeySwitchingSnarks};
 use snarks::fhe_op::modulus_switching::{self, ModulusSwitchingSnarks};
@@ -26,8 +23,8 @@ use zkfhe::bfhe::{
 };
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
-type FF = Goldilocks;
-type EF = GoldilocksExtension;
+type FF = BabyBear;
+type EF = BabyBearExetension;
 type Hash = sha2::Sha256;
 const BASE_FIELD_BITS: usize = 64;
 
@@ -40,18 +37,19 @@ where
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
     pub modulus_switching: ModulusSwitchingSnarks<F, EF, S, PCS>,
-    pub blind_rotation: BlindRotationSnarksUpdated<F, EF, S, PCS>,
+    pub blind_rotation: BlindRotationSnarks<F, EF, S, PCS>,
     pub key_switching: KeySwitchingSnarks<F, EF, S, PCS>,
     pub sample_extraction: RowPermutationSignedSnarks<F, EF, S, PCS>,
 }
 
 fn main() {
     env_logger::init();
+    // ------------------ zkfhe nand pbs with storing trace ------------------
     // set random generator
     let mut rng = rand::rng();
 
     // set parameter
-    let params = *GOLDILOCKS_BINARY_128_BITS_PARAMETERS;
+    let params = *BABYBEAR_BINARY_128_BITS_PARAMETERS;
     println!("Parameters: {params:#?}\n");
 
     let noise_max = (params.lwe_cipher_modulus_value() as f64 / 16.0).as_into();
@@ -94,16 +92,19 @@ fn main() {
     assert_eq!(m, nand(a, b), "Noise: {noise}");
     check_noise(noise, "nand");
 
+    // ------------------ generate snarks nand pbs ------------------
+
     // Generate SNARKs for nand
     println!("");
     println!("Starting verification of nand.\n");
 
     // Perepare parameters and traces
+    let time = std::time::Instant::now();
     let PBSTrace {
-        mut modulus_switching_trace,
+        modulus_switching_trace,
         mut blind_rotation_trace,
-        mut key_switching_trace,
-        mut sample_extraction_trace,
+        key_switching_trace,
+        sample_extraction_trace,
     } = trace;
 
     blind_rotation_trace.finalize(params.lwe_dimension());
@@ -118,7 +119,7 @@ fn main() {
 
     let blk_size = 3;
     let blind_rotation_basis = params.blind_rotation_basis().basis() as usize;
-    let blind_rotation_params = BlindRotationParamsUpdated::new(
+    let blind_rotation_params = BlindRotationParams::new(
         code_spec.clone(),
         blind_rotation_ntt_table,
         blk_size,
@@ -131,8 +132,6 @@ fn main() {
     let key_switching_params = KeySwitchingParams::new(
         code_spec.clone(),
         key_switching_ntt_table,
-        blk_size,
-        key_switching_basis,
         &key_switching_trace,
     );
 
@@ -145,29 +144,59 @@ fn main() {
         ExpanderCodeSpec,
         BrakedownPCS<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>,
     >::default();
+    println!("Preparing parameters time: {:?}\n", time.elapsed());
 
     let mut prover_trans = Transcript::default();
+    let prover_total_time = std::time::Instant::now();
+
+    println!("[Prover] Starting to generate proofs for modulus switching.");
     let time = std::time::Instant::now();
     let modulus_switching_proof = snarks.modulus_switching.prove(
         &mut prover_trans,
         &modulus_switching_trace,
         &modulus_switching_params,
     );
+    println!(
+        "[Prover] Modulus switching proof generation time: {:?}\n",
+        time.elapsed()
+    );
+
+    println!("[Prover] Starting to generate proofs for blind rotation.");
+    let time = std::time::Instant::now();
     let blind_rotation_proof = snarks.blind_rotation.prove(
         &mut prover_trans,
         blind_rotation_trace,
         &blind_rotation_params,
     );
+    println!(
+        "[Prover] Blind rotation proof generation time: {:?}\n",
+        time.elapsed()
+    );
+
+    println!("[Prover] Starting to generate proofs for key switching.");
+    let time = std::time::Instant::now();
     let key_switching_proof = snarks.key_switching.prove(
         &mut prover_trans,
         &key_switching_trace,
         &key_switching_params,
     );
+    println!(
+        "[Prover] Key switching proof generation time: {:?}\n",
+        time.elapsed()
+    );
+
+    println!("[Prover] Starting to generate proofs for sample extraction.");
+    let time = std::time::Instant::now();
     let sample_extraction_proof = snarks
         .sample_extraction
         .prove(&mut prover_trans, &sample_extraction_trace.into());
+    println!(
+        "[Prover] Sample extraction proof generation time: {:?}\n",
+        time.elapsed()
+    );
+
     println!("Proofs generation done!\n");
-    println!("Proof generation time: {:?}\n", time.elapsed());
+    println!("Proof generation time: {:?}\n", prover_total_time.elapsed());
 
     let mut verifier_trans = Transcript::default();
     let mut res = true;

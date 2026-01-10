@@ -6,7 +6,7 @@
 
 use algebra::{Field, ListOfProductsOfPolynomials, PolynomialInfo};
 use helper::{FiatShamirTranscript, Transcript};
-use log::info;
+use log::{debug, info};
 use prover::{ProverMsg, ProverState};
 use serde::Serialize;
 use std::marker::PhantomData;
@@ -85,7 +85,7 @@ impl<F: Field + Serialize> MLSumcheck<F> {
         polynomial: &ListOfProductsOfPolynomials<F>,
     ) -> Result<(Proof<F>, ProverState<F>), crate::error::Error> {
         trans.append_message(b"polynomial info", &polynomial.info());
-        info!(
+        debug!(
             "[sumcheck] The polynomial (degree = {}) to be proved consists of {} MLEs (#vars = {}) in the form of {} products.",
             polynomial.max_multiplicands,
             polynomial.flattened_ml_extensions.len(),

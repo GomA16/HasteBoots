@@ -25,7 +25,7 @@ use rayon::slice::ParallelSlice;
 use serde::Serialize;
 use std::{collections::HashMap, rc::Rc};
 
-use log::info;
+use log::{debug, info};
 
 use crate::{ConvertToEF, EvaluableTraceEF, PackableEval, PackableTrace};
 
@@ -260,7 +260,7 @@ impl<F: Field> IndexedLookupTraceMLE<F> {
             .collect::<Vec<F>>();
 
         let num_threads = rayon::current_num_threads();
-        info!("Computing helper functions using {} threads", num_threads);
+        debug!("Computing helper functions using {} threads", num_threads);
         let chunk_size = std::cmp::max(
             1,
             (hashed_inputs_plus_r.len() + num_threads - 1) / num_threads,
@@ -274,7 +274,7 @@ impl<F: Field> IndexedLookupTraceMLE<F> {
             .collect::<Vec<F>>();
 
         let num_threads = rayon::current_num_threads();
-        info!("Computing helper functions using {} threads", num_threads);
+        debug!("Computing helper functions using {} threads", num_threads);
         let chunk_size = std::cmp::max(
             1,
             (hashed_table_plus_r.len() + num_threads - 1) / num_threads,
@@ -347,7 +347,7 @@ impl<F: Field> IndexedLookupTraceMLE<F> {
             .collect::<Vec<EF>>();
 
         let num_threads = rayon::current_num_threads();
-        info!("Computing helper functions using {} threads", num_threads);
+        debug!("Computing helper functions using {} threads", num_threads);
         let chunk_size = std::cmp::max(
             1,
             (hashed_inputs_plus_r.len() + num_threads - 1) / num_threads,
@@ -361,7 +361,7 @@ impl<F: Field> IndexedLookupTraceMLE<F> {
             .collect::<Vec<EF>>();
 
         let num_threads = rayon::current_num_threads();
-        info!("Computing helper functions using {} threads", num_threads);
+        debug!("Computing helper functions using {} threads", num_threads);
         let chunk_size = std::cmp::max(
             1,
             (hashed_table_plus_r.len() + num_threads - 1) / num_threads,

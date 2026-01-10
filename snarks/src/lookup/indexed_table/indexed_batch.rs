@@ -5,6 +5,7 @@ use helper::{
     FiatShamirTranscript, Transcript,
     utils::{compute_oracle_evals, eval_identity_function},
 };
+use log::info;
 use pcs::PolynomialCommitmentScheme;
 use piop::{
     BatchedSumcheckPIOP, SumcheckInstance, SumcheckPIOP,
@@ -128,6 +129,8 @@ where
         trace_mle: &Vec<IndexedLookupTraceMLE<F>>,
         params: &BatchedIndexedLogUpParams<F, EF, S, PCS>,
     ) -> BatchedIndexedLogUpSnarksProof<F, EF, S, PCS> {
+        // [Commit Phase] Commit to the trace polynomials
+        let commit_time = std::time::Instant::now();
         let witness = trace_mle
             .iter()
             .map(|trace| trace.compute_witness())
@@ -135,7 +138,14 @@ where
         let poly = trace_mle.generate_oracle();
         let (trace_commitment, commitment_state) = PCS::commit(&params.pcs_params, &poly);
         trans.append_message(b"[Commit Phase]", &trace_commitment);
+        info!(
+            "[P]-[PCS] Committing to a polynomial of {} variables in {:?}",
+            poly.num_vars(),
+            commit_time.elapsed()
+        );
 
+        // compute the helper polynomials
+        let time = std::time::Instant::now();
         let random_value =
             trans.get_challenge(b"[Challenge] random value used in the rational identity");
         let random_s_hash = trans.get_challenge(b"[Challenge] random value used for hashing.");
@@ -150,12 +160,24 @@ where
                 trace.compute_helper_functions_ef(&wit, random_value, random_s_hash)
             })
             .collect::<Vec<_>>();
+        info!(
+            "[P]-[PIOP] Computing helper polynomials in {:?}",
+            time.elapsed()
+        );
 
+        // [Commit Phase] Commit to the helper polynomials
         let helper_poly = helper.generate_oracle();
         let (helper_commitment, helper_commitment_state) =
             PCS::commit_ef(&params.pcs_params_ef, &helper_poly);
         trans.append_message(b"[Commit Phase]", &helper_commitment);
+        info!(
+            "[P]-[PCS] Committing to a polynomial (in Extension Field) of {} variables in {:?}",
+            helper_poly.num_vars(),
+            commit_time.elapsed()
+        );
 
+        // [PIOP Phase] Prove all indexed lookup instance in one sumcheck protocol
+        let piop_logup_time = std::time::Instant::now();
         let input_instance = trace_ef
             .iter()
             .zip(helper.iter())
@@ -183,7 +205,13 @@ where
         point_helper.extend_from_slice(&input_piop_state.point_r);
         point_helper.extend_from_slice(&point_helper_oracle);
         let lookup_evals = trace_mle.evaluate_ef(&input_piop_state.point_r);
+        info!(
+            "[P]-[PIOP] Generating indexed lookup proof in {:?}",
+            piop_logup_time.elapsed()
+        );
 
+        // [PCS Phase] Generate evaluation proof for the committed oracles
+        let pcs_open_time = std::time::Instant::now();
         let eval_proof = PCS::open(
             &params.pcs_params,
             &trace_commitment,
@@ -191,12 +219,24 @@ where
             &point,
             trans,
         );
+        info!(
+            "[P]-[PCS] Generating evaluation proof for a oracle of {} variables in {:?}",
+            point.len(),
+            pcs_open_time.elapsed()
+        );
+
+        // [PCS Phase] Generate evaluation proof for the helper oracles
         let eval_helper_proof = PCS::open_ef(
             &params.pcs_params_ef,
             &helper_commitment,
             &helper_commitment_state,
             &point_helper,
             trans,
+        );
+        info!(
+            "[P]-[PCS] Generating evaluation proof for a oracle (in Extension Field) of {} variables in {:?}",
+            point_helper.len(),
+            pcs_open_time.elapsed()
         );
 
         BatchedIndexedLogUpSnarksProof {

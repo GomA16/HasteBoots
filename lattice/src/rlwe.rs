@@ -5,7 +5,9 @@ use algebra::{
     ntt_add_mul_assign_fast, ntt_add_mul_inplace, transformation::AbstractNTT,
 };
 use rand::{CryptoRng, Rng};
-use trace::basic_ops::{RowPermTrace, SumHadamardTrace, row_perm_trace::PermutationInfo};
+use trace::basic_ops::{
+    RowPermTrace, SumHadamardTrace, rlwe_trace::PolynomialTrace, row_perm_trace::PermutationInfo,
+};
 
 use crate::{
     DecompositionSpace, GadgetRLWE, LWE, NTTGadgetRLWE, NTTRGSW, NTTRLWESpace, PolynomialSpace,
@@ -1176,6 +1178,7 @@ impl<F: NTTField> NTTRLWE<F> {
         // Trace
         k_idx: usize,
         trace: &mut SumHadamardTrace<F>,
+        decomposed_polys: &mut Vec<PolynomialTrace<F>>,
     ) {
         let coeff_count = polynomial.coeff_count();
         debug_assert!(coeff_count.is_power_of_two());
@@ -1184,6 +1187,14 @@ impl<F: NTTField> NTTRLWE<F> {
         let basis = gadget_rlwe.basis();
 
         polynomial.neg_assign();
+
+        let decomposed_poly = PolynomialTrace {
+            log_coeff_count: coeff_count.trailing_zeros() as usize,
+            log_num_poly: 0,
+            poly: polynomial.as_slice().to_vec(),
+            ntt: vec![F::zero(); coeff_count],
+        };
+        decomposed_polys.push(decomposed_poly);
 
         let k_idx = k_idx * basis.decompose_len();
         gadget_rlwe.iter().enumerate().for_each(|(i, g)| {

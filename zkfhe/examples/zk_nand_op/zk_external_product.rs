@@ -6,6 +6,7 @@ use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
 use snarks::fhe_op::external_product::{ExternalProductParams, ExternalProductSnarks};
+use snarks::fhe_op::hadmard_product::{HadamardProductParams, HadamardProductSnarks};
 // use trace::HadamardProdTraceMLE;
 use trace::basic_ops::SumHadamardTraceMLE;
 use zkfhe::bfhe::{
@@ -79,10 +80,8 @@ fn main() {
         .unwrap()
         .root_powers();
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
-    let blk_size = 1;
-    let basis = params.blind_rotation_basis().basis() as usize;
-    let params = ExternalProductParams::new(code_spec, ntt_table, blk_size, basis, &trace_mle);
-    let snarks = ExternalProductSnarks::<
+    let params = HadamardProductParams::new(code_spec, ntt_table, &trace_mle);
+    let snarks = HadamardProductSnarks::<
         FF,
         EF,
         ExpanderCodeSpec,

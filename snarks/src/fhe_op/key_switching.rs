@@ -23,8 +23,14 @@ use trace::lookup_trace::small_table::LookupWitnessHelperEval;
 use trace::{ConvertToEF, EvaluableTraceEF, PackableTrace};
 use trace::{EvaluableTrace, PackableEval};
 
+use crate::fhe_op::decomposition::{
+    DecompositionParams, DecompositionSnarks, DecompositionSnarksProof,
+};
 use crate::fhe_op::external_product::{
     ExternalProductParams, ExternalProductProof, ExternalProductSnarks,
+};
+use crate::fhe_op::hadmard_product::{
+    HadamardProductParams, HadamardProductProof, HadamardProductSnarks,
 };
 use crate::fhe_op::row_permutation::{RowPermutationSignedProof, RowPermutationSignedSnarks};
 
@@ -49,7 +55,8 @@ where
     S: Clone,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
-    pub external_product_params: ExternalProductParams<F, EF, S, PCS>,
+    pub hadamard_product_params: HadamardProductParams<F, EF, S, PCS>,
+    pub code_spec: S,
 }
 
 impl<F, EF, S, PCS> KeySwitchingParams<F, EF, S, PCS>
@@ -59,21 +66,14 @@ where
     S: Clone,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
-    pub fn new(
-        code_spec: S,
-        ntt_table: Vec<F>,
-        blk_size: usize,
-        basis: usize,
-        trace: &KeySwitchingTraceMLE<F>,
-    ) -> Self {
+    pub fn new(code_spec: S, ntt_table: Vec<F>, trace: &KeySwitchingTraceMLE<F>) -> Self {
         KeySwitchingParams {
-            external_product_params: ExternalProductParams::new(
-                code_spec,
+            hadamard_product_params: HadamardProductParams::new(
+                code_spec.clone(),
                 ntt_table,
-                blk_size,
-                basis,
                 &trace.hadamard_trace,
             ),
+            code_spec,
         }
     }
 }
@@ -88,7 +88,8 @@ where
 {
     pub log_lwe_dim: usize,
     pub log_rlwe_dim: usize,
-    pub external_product_proof: ExternalProductProof<F, EF, S, PCS>,
+    pub hadamard_proof: HadamardProductProof<F, EF, S, PCS>,
+    pub decomp_proof: DecompositionSnarksProof<F, EF, S, PCS>,
     pub permutation_proof: Option<RowPermutationSignedProof<F, EF, S, PCS>>,
 }
 
@@ -128,10 +129,19 @@ where
         trace_mle: &KeySwitchingTraceMLE<F>,
         params: &KeySwitchingParams<F, EF, S, PCS>,
     ) -> KeySwitchingProof<F, EF, S, PCS> {
-        let external_product_proof = ExternalProductSnarks::prove_as_subprotocol(
+        let hadamard_proof = HadamardProductSnarks::prove_as_subprotocol(
             trans,
             &trace_mle.hadamard_trace,
-            &params.external_product_params,
+            &params.hadamard_product_params,
+        );
+
+        let decomp_instances = trace_mle.extract_decomposition_traces();
+        let decomp_params =
+            DecompositionParams::new(params.code_spec.clone(), &trace_mle.lt_tables);
+        let decomp_proof = DecompositionSnarks::<F, EF, S, PCS>::prove_as_subprotocol(
+            trans,
+            &decomp_instances,
+            &decomp_params,
         );
 
         let time = std::time::Instant::now();
@@ -147,8 +157,9 @@ where
         KeySwitchingProof {
             log_lwe_dim: trace_mle.log_lwe_dim,
             log_rlwe_dim: trace_mle.log_rlwe_dim,
-            external_product_proof,
+            hadamard_proof,
             permutation_proof,
+            decomp_proof,
         }
     }
 
@@ -157,7 +168,12 @@ where
         proof: &KeySwitchingProof<F, EF, S, PCS>,
     ) -> bool {
         let mut res = true;
-        res &= ExternalProductSnarks::verify_as_subprotocol(trans, &proof.external_product_proof);
+        res &= HadamardProductSnarks::verify_as_subprotocol(trans, &proof.hadamard_proof);
+
+        let decomp_res =
+            DecompositionSnarks::<F, EF, S, PCS>::verify_as_subprotocol(trans, &proof.decomp_proof);
+        res &= decomp_res;
+        assert!(res, "Decomposition verification failed.");
 
         let time = std::time::Instant::now();
         if proof.permutation_proof.is_some() {

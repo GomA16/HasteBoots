@@ -8,7 +8,7 @@ use pcs::{
     multilinear::BrakedownPCS,
     utils::code::{ExpanderCode, ExpanderCodeSpec},
 };
-use snarks::lookup::normal_table::{LogUpParams, LogUpSnarks};
+use snarks::lookup::unindexed_normal_table::{LogUpParams, LogUpSnarks};
 use trace::lookup_trace::normal_table::{LookupTrace, LookupTraceMLE};
 
 type FF = BabyBear;

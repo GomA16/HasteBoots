@@ -94,13 +94,9 @@ where
     pub log_coeff_count: usize,
     pub log_num_oracle: usize,
     pub log_num_helper_poly: usize,
-    #[serde(skip)]
     pub pcs_params: PCS::Parameters,
-    #[serde(skip)]
     pub commitment: PCS::Commitment,
-    #[serde(skip)]
     pub pcs_params_ef: PCS::Parameters,
-    #[serde(skip)]
     pub helper_commitment: PCS::Commitment,
     pub sumcheck_poly_info: PolynomialInfo,
     pub sumcheck_proof: Proof<EF>,
@@ -110,14 +106,10 @@ where
     pub hadamard_proof: BatchedSumHadamardProof<EF>,
     pub ntt_info: NTTMatrixEvalInfo<EF>,
     pub ntt_proof: NTTMatrixEvalProof<EF>,
-    #[serde(skip)]
     pub eval_proof: Vec<PCS::Proof>,
-    #[serde(skip)]
     pub eval_ef_proof: PCS::ProofEF,
     // Redudant fields for ease of implementation
-    #[serde(skip)]
     pub trace_evals: SumHadamardTraceEval<EF>,
-    #[serde(skip)]
     pub helper_evals: LookupWitnessHelperEval<EF>,
 }
 

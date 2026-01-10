@@ -1,16 +1,13 @@
-use core::time;
 use std::rc::Rc;
 
 use algebra::transformation::AbstractNTT;
-use algebra::{AsInto, BabyBear, BabyBearExetension, FieldUniformSampler, NTTField};
+use algebra::{AsInto, BabyBear, BabyBearExetension, NTTField};
 use fhe_core::utils::*;
 use helper::Transcript;
 use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
-use snarks::fhe_op::hadamard::{HadamardParams, HadamardSnarks};
 use snarks::fhe_op::monomial_hadamard::{MonomialHadamardParams, MonomialHadamardSnarks};
-use trace::basic_ops::SumHadamardTraceMLE;
 use trace::{AccTraceMLE, ConvertToEF};
 // use trace::HadamardProdTraceMLE;
 use zkfhe::bfhe::{

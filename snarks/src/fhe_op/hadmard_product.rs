@@ -15,36 +15,19 @@ use helper::{FiatShamirTranscript, Transcript};
 use log::info;
 use pcs::PolynomialCommitmentScheme;
 use piop::hadamard::{BatchedSumHadamardProof, HadamardPIOP, SumHadamardInfo, SumHadamardInstance};
-use piop::lookup::small_table::{LogUpIOP, LogUpInstance, LogUpInstanceInfo, LogUpProof};
-use piop::ntt::{
-    BatchedNTTMatrixEvalProof, NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance,
-    NTTMatrixEvalProof,
-};
-use piop::sparse_matrix_eval::sparse_row::SparseRowEvalInstance;
+use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance, NTTMatrixEvalProof};
 use piop::{
     BatchedSumcheckPIOP, LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance,
     SumcheckPIOP,
 };
 use serde::Serialize;
 use sumcheck::{MLSumcheck, Proof};
+use trace::PackableEval;
 use trace::basic_ops::{SumHadamardTraceEval, SumHadamardTraceMLE};
-use trace::blind_rotation_trace::BlindRotationTraceEval;
-use trace::lookup_trace::small_table::LookupWitnessHelperEval;
-use trace::{
-    BlindRotationTrace, BlindRotationTraceMLE, ConvertToEF, EvaluableTraceEF, PackableTrace,
-    acc_trace, blind_rotation_trace,
-};
-use trace::{EvaluableTrace, PackableEval};
-
-use crate::fhe_op::acc_iteration::{self, AccIterationSnarks, AccIterationSnarksProof};
-use crate::fhe_op::decomposition::{
-    DecompositionParams, DecompositionSnarks, DecompositionSnarksProof,
-};
-use crate::sparse_matrix_eval::SparseRowEvalSnarks;
-use crate::sparse_matrix_eval::sparse_row::SparseRowEvalSnarksProof;
+use trace::{ConvertToEF, EvaluableTraceEF, PackableTrace};
 
 #[derive(Default)]
-pub struct BlindRotationSnarks<F, EF, S, PCS>
+pub struct HadamardProductSnarks<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F>,
@@ -57,7 +40,7 @@ where
     _marker_pcs: std::marker::PhantomData<PCS>,
 }
 
-pub struct BlindRotationParams<F, EF, S, PCS>
+pub struct HadamardProductParams<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F>,
@@ -65,46 +48,31 @@ where
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
     pub code_spec: S,
-    pub blk_size: usize,
-    // basis is the range size of the lookup table
-    pub basis: usize,
     pub pcs_params: PCS::Parameters,
-    pub pcs_params_ef: PCS::Parameters,
     pub ntt_table: Rc<Vec<EF>>,
 }
 
-impl<F, EF, S, PCS> BlindRotationParams<F, EF, S, PCS>
+impl<F, EF, S, PCS> HadamardProductParams<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F>,
     S: Clone,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
-    pub fn new(
-        code_spec: S,
-        ntt_table: Vec<F>,
-        blk_size: usize,
-        basis: usize,
-        trace: &BlindRotationTrace<F>,
-    ) -> Self {
+    pub fn new(code_spec: S, ntt_table: Vec<F>, trace: &SumHadamardTraceMLE<F>) -> Self {
         let oracle_num_vars = trace.num_vars() + trace.log_num_oracles();
         let pcs_params = PCS::setup(oracle_num_vars, Some(&code_spec));
-        let helper_num_vars = trace.num_vars() + trace.hadamard_trace.log_num_helper_poly(blk_size);
-        let pcs_params_ef = PCS::setup(helper_num_vars, Some(&code_spec));
 
-        BlindRotationParams {
+        HadamardProductParams {
             code_spec,
-            blk_size,
-            basis,
             pcs_params,
-            pcs_params_ef,
             ntt_table: Rc::new(ntt_table.to_ef()),
         }
     }
 }
 
 #[derive(Serialize)]
-pub struct BlindRotationProof<F, EF, S, PCS>
+pub struct HadamardProductProof<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F>,
@@ -120,21 +88,16 @@ where
     pub sumcheck_proof: Proof<EF>,
     pub hadamard_info: Vec<SumHadamardInfo<EF>>,
     pub hadamard_proof: BatchedSumHadamardProof<EF>,
-    pub ntt_infos: Vec<NTTMatrixEvalInfo<EF>>,
-    pub ntt_proof: BatchedNTTMatrixEvalProof<EF>,
-    pub acc_iteration_proof: AccIterationSnarksProof<F, EF, S, PCS>,
-    pub decomp_proof: DecompositionSnarksProof<F, EF, S, PCS>,
-
-    #[serde(skip)]
+    pub ntt_info: NTTMatrixEvalInfo<EF>,
+    pub ntt_proof: NTTMatrixEvalProof<EF>,
     pub eval_proof: PCS::Proof,
-    pub sparse_eval_proof: SparseRowEvalSnarksProof<F, EF, S, PCS>,
 
     // Redudant fields for ease of implementation
     #[serde(skip)]
-    pub trace_evals: BlindRotationTraceEval<EF>,
+    pub trace_evals: SumHadamardTraceEval<EF>,
 }
 
-impl<F, EF, S, PCS> BlindRotationProof<F, EF, S, PCS>
+impl<F, EF, S, PCS> HadamardProductProof<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F> + Serialize,
@@ -161,7 +124,7 @@ where
             + bincode::serde::encode_to_vec(&self.hadamard_proof, standard())
                 .unwrap()
                 .len()
-            + bincode::serde::encode_to_vec(&self.ntt_infos, standard())
+            + bincode::serde::encode_to_vec(&self.ntt_info, standard())
                 .unwrap()
                 .len()
             + bincode::serde::encode_to_vec(&self.ntt_proof, standard())
@@ -183,7 +146,7 @@ where
     }
 }
 
-impl<F, EF, S, PCS> BlindRotationSnarks<F, EF, S, PCS>
+impl<F, EF, S, PCS> HadamardProductSnarks<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F> + Serialize,
@@ -200,14 +163,29 @@ where
     pub fn prove(
         &self,
         trans: &mut Transcript<EF>,
-        blind_rotation_trace: BlindRotationTrace<F>,
-        params: &BlindRotationParams<F, EF, S, PCS>,
-    ) -> BlindRotationProof<F, EF, S, PCS> {
+        trace_mle: &SumHadamardTraceMLE<F>,
+        params: &HadamardProductParams<F, EF, S, PCS>,
+    ) -> HadamardProductProof<F, EF, S, PCS> {
+        Self::prove_as_subprotocol(trans, trace_mle, params)
+    }
+
+    pub fn verify(
+        &self,
+        trans: &mut Transcript<EF>,
+        proof: &HadamardProductProof<F, EF, S, PCS>,
+    ) -> bool {
+        Self::verify_as_subprotocol(trans, proof)
+    }
+
+    pub fn prove_as_subprotocol(
+        trans: &mut Transcript<EF>,
+        trace_mle: &SumHadamardTraceMLE<F>,
+        params: &HadamardProductParams<F, EF, S, PCS>,
+    ) -> HadamardProductProof<F, EF, S, PCS> {
         info!("[P] Start Blind Rotation Proof Generation...");
         let pcs_commit_time = std::time::Instant::now();
         // [Commit Phase] commit to the trace polynomial
-        let bit_poly = blind_rotation_trace.generate_oracle();
-        let blind_rotation_trace_mle = BlindRotationTraceMLE::from(blind_rotation_trace);
+        let bit_poly = trace_mle.generate_oracle();
         let (commitment, commitment_state) = PCS::commit(&params.pcs_params, &bit_poly);
         trans.append_message(b"[Commit Phase]", &commitment);
         info!(
@@ -218,17 +196,10 @@ where
 
         // [PIOP Phase] extract all the Hadamard instances and prove them via one single sumcheck
         let piop_hadamard_time = std::time::Instant::now();
-        let blind_rotation_trace_ef = blind_rotation_trace_mle.to_ef();
+        let trace_ef = trace_mle.to_ef();
 
         // prepare Hadamard instances
-        let external_product_hadamard_instance =
-            SumHadamardInstance::from(&blind_rotation_trace_ef.hadamard_trace);
-        let acc_hadamard_instance =
-            SumHadamardInstance::from(&blind_rotation_trace_ef.acc_trace.extract_hadamard_trace());
-        let hadamard_instances = [external_product_hadamard_instance, acc_hadamard_instance]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<_>>();
+        let hadamard_instances = SumHadamardInstance::from(&trace_ef);
         let hadamard_instance_infos = hadamard_instances
             .iter()
             .map(SumcheckInstance::info)
@@ -254,16 +225,15 @@ where
 
         // generate evaluations for verifier to check the final subclaim of the sumcheck protocol
         let eval_table = sumcheck_state.fast_evaluate();
-        let mut trace_evals = BlindRotationTraceEval::<EF>::default();
-        blind_rotation_trace_mle.evaluate_ef_ntt_only(
+        let mut trace_evals = SumHadamardTraceEval::<EF>::default();
+        trace_mle.evaluate_ef_ntt_only(
             &mut trace_evals,
             &sumcheck_state.randomness,
-            &blind_rotation_trace_ef,
+            &trace_ef,
             &sumcheck_claim.poly,
             &eval_table,
         );
-        let hadamard_eval_proof =
-            BatchedSumHadamardProof::from_blind_rotation_trace_eval(&trace_evals);
+        let hadamard_eval_proof = BatchedSumHadamardProof::from_hadamard_trace_eval(&trace_evals);
         trans.append_message(b"[Hadamard Evals]", &hadamard_eval_proof);
 
         info!(
@@ -273,27 +243,13 @@ where
 
         // [PIOP Phase] prove the validity of NTT evaluations since we consider all NTT oracles as virtual oracles
         let piop_ntt_time = std::time::Instant::now();
-        let point_u = sumcheck_state.randomness
-            [..blind_rotation_trace_mle.hadamard_trace.log_coeff_count]
-            .to_vec();
-        let point_v = sumcheck_state.randomness
-            [blind_rotation_trace_mle.hadamard_trace.log_coeff_count..]
-            .to_vec();
-
-        // prepare the NTT equality instance for monomials used in Hadamard, where the coefficient matrix is sparse
-        let monomial_poly = blind_rotation_trace_ef.acc_trace.monomial.poly.clone();
-        let ntt_sparse_instance = NTTMatrixEvalInstance::from_subclaim(
-            &monomial_poly,
-            &params.ntt_table,
-            &point_u,
-            &point_v,
-            trace_evals.acc_trace.monomial.ntt,
-        );
+        let point_u = sumcheck_state.randomness[..trace_mle.log_coeff_count].to_vec();
+        let point_v = sumcheck_state.randomness[trace_mle.log_coeff_count..].to_vec();
 
         // parepare the NTT equality instance for normal polynomials used in Hadamard, where the coefficient matrix is dense
         let point_bit_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
-            blind_rotation_trace_mle.log_num_oracles(),
+            trace_mle.log_num_oracles(),
         );
         let bit_poly = Rc::new(bit_poly.to_ef());
         let bit_ntt_evals = trace_evals.pack_ntt_to_vec();
@@ -310,9 +266,7 @@ where
             eval,
         );
         // prove both NTT instances in one sumcheck protocol
-        let ntt_infos = vec![ntt_sparse_instance.info(), ntt_dense_instance.info()];
-        let ntt_instances = vec![ntt_sparse_instance, ntt_dense_instance];
-        let (ntt_proof, ntt_state) = NTTMatrixEvalIOP::prover_batch(trans, &ntt_instances);
+        let (ntt_proof, ntt_state) = NTTMatrixEvalIOP::prover(trans, &ntt_dense_instance);
         info!(
             "[P]-[PIOP] Proving NTT Equality in {:?}",
             piop_ntt_time.elapsed()
@@ -337,84 +291,25 @@ where
             pcs_poly_open_time.elapsed()
         );
 
-        // [PIOP Phase] Open the sparse coefficient matrix evaluation `ntt_proof.coeff_eval_at_r_v[0]` at point_r_v
-        // the pcs part is skipped in this since the polynomial to be committed is too small
-        let piop_sparse_open_time = std::time::Instant::now();
-        let kernel_rx = LagrangeKernel::from_point(&point_v);
-        let kernel_ry = LagrangeKernel::from_point(&ntt_state.randomness);
-        let sparse_matrix_eval_instance = SparseRowEvalInstance::from_subclaim::<F>(
-            &blind_rotation_trace_mle.acc_trace.monomial_representation,
-            &kernel_rx,
-            &kernel_ry,
-            ntt_proof.coeff_eval_at_r_v[0],
-        );
-        let sparse_eval_proof = SparseRowEvalSnarks::<F, EF, S, PCS>::prove_as_subprotocol(
-            trans,
-            &sparse_matrix_eval_instance,
-        );
-        info!(
-            "[P]-PIOP Generating evaluation proof for a sparse polynomial in {:?}",
-            piop_sparse_open_time.elapsed()
-        );
-
-        // [PIOP Phase] Prove the correctness of Accumulator Iteration Structure
-        // the pcs part is skipped in this since the polynomial to be committed is too small
-        let piop_acc_iteration_time = std::time::Instant::now();
-        let indexed_lookup_permutation = blind_rotation_trace_ef
-            .acc_trace
-            .permutation_info
-            .extract_indexed_lookup_trace(&point_v);
-        let acc_iteration_proof = AccIterationSnarks::prove_as_subprotocol(
-            trans,
-            &blind_rotation_trace_ef,
-            &trace_evals,
-            &point_v,
-            &point_u,
-            &indexed_lookup_permutation,
-        );
-        info!(
-            "[P]-[PIOP] Proving Accumulator Iteration Structure in {:?}",
-            piop_acc_iteration_time.elapsed()
-        );
-
-        // [Prover] Prove decomposition relation via lookup PIOP
-        // For better modularity, we commit to the decomposition trace again in the decomposition SNARKs,
-        // which is actually committed here already.
-        let decomposition_trace = blind_rotation_trace_mle.extract_decomposition_traces();
-        let decomp_params = DecompositionParams::new(
-            params.code_spec.clone(),
-            &blind_rotation_trace_mle.lt_tables,
-        );
-        let decomp_proof = DecompositionSnarks::<F, EF, S, PCS>::prove_as_subprotocol(
-            trans,
-            &decomposition_trace,
-            &decomp_params,
-        );
-
-        BlindRotationProof {
-            log_coeff_count: blind_rotation_trace_mle.log_coeff_count,
-            log_num_oracle: blind_rotation_trace_mle.log_num_oracles(),
+        HadamardProductProof {
+            log_coeff_count: trace_mle.log_coeff_count,
+            log_num_oracle: trace_mle.log_num_oracles(),
             pcs_params: params.pcs_params.clone(),
             commitment,
             sumcheck_poly_info: sumcheck_claim.poly.info(),
             sumcheck_proof,
             hadamard_info: hadamard_instance_infos,
             hadamard_proof: hadamard_eval_proof,
-            ntt_infos,
+            ntt_info: ntt_dense_instance.info(),
             ntt_proof,
-            acc_iteration_proof,
             eval_proof,
-            sparse_eval_proof,
-            decomp_proof,
-
             trace_evals,
         }
     }
 
-    pub fn verify(
-        &self,
+    pub fn verify_as_subprotocol(
         trans: &mut Transcript<EF>,
-        proof: &BlindRotationProof<F, EF, S, PCS>,
+        proof: &HadamardProductProof<F, EF, S, PCS>,
     ) -> bool {
         let mut res = true;
         info!("[V] Start Blind Rotation Proof Verification...");
@@ -468,8 +363,8 @@ where
 
         point_v.extend_from_slice(&point_bit_oracle);
         let (ntt_res, ntt_subclaim) =
-            NTTMatrixEvalIOP::verifier_batch(trans, &proof.ntt_infos, &proof.ntt_proof);
-        let open_evals = &proof.ntt_proof.coeff_eval_at_r_v;
+            NTTMatrixEvalIOP::verifier(trans, &proof.ntt_info, &proof.ntt_proof);
+        let open_evals = proof.ntt_proof.coeff_eval_at_r_v;
         res &= ntt_res;
         assert!(res, "NTT Equality verification failed.");
         info!(
@@ -487,7 +382,7 @@ where
             &proof.pcs_params,
             &proof.commitment,
             &open_point,
-            open_evals[1],
+            open_evals,
             &proof.eval_proof,
             trans,
         );
@@ -498,37 +393,6 @@ where
             open_point.len(),
             pcs_poly_open_time.elapsed()
         );
-
-        // [PIOP Phase] Verify the opening proof for the sparse coefficient matrix
-        // evaluation `ntt_proof.coeff_eval_at_r_v[0]` at point_r_v
-        let piop_sparse_open_time = std::time::Instant::now();
-        let sparse_eval_res = SparseRowEvalSnarks::<F, EF, S, PCS>::verify_as_subprotocol(
-            trans,
-            &proof.sparse_eval_proof,
-        );
-        res &= sparse_eval_res;
-        assert!(res, "Sparse Matrix Evaluation verification failed.");
-        info!(
-            "[V]-[PIOP] Verifying evaluation proof for a sparse polynomial in {:?}",
-            piop_sparse_open_time.elapsed()
-        );
-
-        // [PIOP Phase] Verify the correctness of Accumulator Iteration Structure
-        let piop_acc_iteration_time = std::time::Instant::now();
-        let acc_iteration_res =
-            AccIterationSnarks::verify_as_subprotocol(trans, &proof.acc_iteration_proof);
-        res &= acc_iteration_res;
-        assert!(res, "Acc Iteration verification failed.");
-        info!(
-            "[V]-[PIOP] Verifying Accumulator Iteration Structure in {:?}",
-            piop_acc_iteration_time.elapsed()
-        );
-
-        // [Verifier] Verify decomposition relation via lookup PIOP
-        let decomp_res =
-            DecompositionSnarks::<F, EF, S, PCS>::verify_as_subprotocol(trans, &proof.decomp_proof);
-        res &= decomp_res;
-        assert!(res, "Decomposition verification failed.");
 
         res
     }

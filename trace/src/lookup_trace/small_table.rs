@@ -16,7 +16,7 @@ use std::sync::Arc;
 use std::{collections::HashMap, rc::Rc};
 
 use crate::{ConvertToEF, EvaluableTrace, EvaluableTraceEF, PackableEval, PackableTrace};
-use log::info;
+use log::{debug, info};
 
 // Conversion Chain: LookupTrace => LookupTraceMLE => LookupWitness
 // LookupWitnessHelper is computed from LookupWitness with a random value
@@ -219,7 +219,7 @@ impl<F: Field> LookupTraceMLE<F> {
             .collect::<Vec<F>>();
 
         let num_threads = rayon::current_num_threads();
-        info!("Computing helper functions using {} threads", num_threads);
+        debug!("Computing helper functions using {} threads", num_threads);
         let chunk_size =
             std::cmp::max(1, (all_inputs_plus_r.len() + num_threads - 1) / num_threads);
 
@@ -324,7 +324,7 @@ impl<F: Field> LookupTraceMLE<F> {
             .collect::<Vec<EF>>();
 
         let num_threads = rayon::current_num_threads();
-        info!("Computing helper functions using {} threads", num_threads);
+        debug!("Computing helper functions using {} threads", num_threads);
         let chunk_size =
             std::cmp::max(1, (all_inputs_plus_r.len() + num_threads - 1) / num_threads);
 

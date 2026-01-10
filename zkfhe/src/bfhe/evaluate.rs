@@ -103,11 +103,15 @@ impl<Q: NTTField> EvaluationKey<Q> {
         let ks_hadamard_len = ksk.num_rlwes_in_key();
         let mut ks_hadamard_trace =
             SumHadamardTrace::<Q>::new(ks_hadamard_len, ks_log_coeff_count, ks_log_rounds);
-
+        let mut decomposed_polys = Vec::new();
         let mut permutation_trace = None;
         // perform key switching, along with sample extraction
-        let (output_lwe, sample_extraction_trace) =
-            ksk.key_switch_for_rlwe_w_trace(acc, &mut ks_hadamard_trace, &mut permutation_trace);
+        let (output_lwe, sample_extraction_trace) = ksk.key_switch_for_rlwe_w_trace(
+            acc,
+            &mut ks_hadamard_trace,
+            &mut decomposed_polys,
+            &mut permutation_trace,
+        );
 
         let key_switching_trace = KeySwitchingTrace {
             log_lwe_dim: ks_log_coeff_count,
@@ -115,6 +119,8 @@ impl<Q: NTTField> EvaluationKey<Q> {
             log_coeff_count: ks_log_coeff_count,
             hadamard_trace: ks_hadamard_trace,
             permutation_trace,
+            decomposed_polys,
+            lt_tables: blind_rotation_trace.tables.clone(),
         };
         // -- End --
 

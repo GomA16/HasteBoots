@@ -78,9 +78,7 @@ fn main() {
         .unwrap()
         .root_powers();
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
-    let blk_size = 3;
-    let basis = 1 << params.key_switching_basis_bits() as usize;
-    let params = KeySwitchingParams::new(code_spec, ntt_table, blk_size, basis, &trace_mle);
+    let params = KeySwitchingParams::new(code_spec, ntt_table, &trace_mle);
     let snarks = KeySwitchingSnarks::<
         FF,
         EF,

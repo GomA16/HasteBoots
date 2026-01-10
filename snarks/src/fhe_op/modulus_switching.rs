@@ -26,12 +26,10 @@ use crate::{
         cmp_eq::{ComputeEqualityParams, ComputeEqualityProof, ComputeEqualitySnarks},
         cmp_lt::{ComputeLessThanParams, ComputeLessThanProof, ComputeLessThanSnarks},
     },
-    lookup::indexed_table::{
-        IndexedLogUpSnarks, IndexedLogUpSnarksProof,
-        indexed_batch::{
-            BatchedIndexedLogUpParams, BatchedIndexedLogUpSnarks, BatchedIndexedLogUpSnarksProof,
-        },
+    lookup::indexed_table::indexed_batch::{
+        BatchedIndexedLogUpParams, BatchedIndexedLogUpSnarks, BatchedIndexedLogUpSnarksProof,
     },
+    lookup::indexed_table::{IndexedLogUpSnarks, IndexedLogUpSnarksProof},
 };
 
 #[derive(Default)]

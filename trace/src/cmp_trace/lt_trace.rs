@@ -17,6 +17,7 @@ use crate::{ConvertToEF, lookup_trace::indexed_table::IndexedLookupTraceMLE};
 // [0, p_i) for lt_i = 1, z_i = 0: 1 << k + i
 // [p_i, p_i + 1) for lt_i = 0, z_i = 1: 1 << i
 // [p_i + 1, 2^len) for lt_i = 0, z_i = 0: 0
+#[derive(Clone)]
 pub struct LTTable<F: Field> {
     // denoted by len
     pub num_table_vars: usize,
@@ -35,6 +36,7 @@ pub struct LTTable<F: Field> {
     pub table: Vec<F>,
 }
 
+#[derive(Clone)]
 pub struct LTTables<F: Field> {
     pub lt_constant: Option<F>,
     pub basis_bits: usize,

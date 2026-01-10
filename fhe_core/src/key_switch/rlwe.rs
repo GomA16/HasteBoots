@@ -4,6 +4,7 @@ use algebra::{Basis, NTTField, NTTPolynomial, Polynomial};
 use lattice::{DecompositionSpace, LWE, NTTGadgetRLWE, NTTRLWE, PolynomialSpace, RLWE};
 use trace::basic_ops::{
     RowPermTrace, SumHadamardTrace,
+    rlwe_trace::PolynomialTrace,
     row_perm_trace::{PermutationInfo, PermutationSignedInfo},
 };
 
@@ -146,6 +147,7 @@ impl<Q: NTTField> KeySwitchingRLWEKey<Q> {
         mut ciphertext: RLWE<Q>,
         // Main Trace for key switching
         trace: &mut SumHadamardTrace<Q>,
+        decomposed_polys: &mut Vec<PolynomialTrace<Q>>,
         // Minor Trace for key switching when rlwe dimension != extended lwe dimension
         permutation_trace: &mut Option<RowPermTrace<Q>>,
     ) -> (LWE<Q>, RowPermTrace<Q>) {
@@ -193,6 +195,7 @@ impl<Q: NTTField> KeySwitchingRLWEKey<Q> {
             iter,
             Operation::SubAMulS,
             trace,
+            decomposed_polys,
         )
     }
 
@@ -294,6 +297,7 @@ impl<Q: NTTField> KeySwitchingRLWEKey<Q> {
         op: Operation,
         // Trace for key switching
         trace: &mut SumHadamardTrace<Q>,
+        decomposed_polys: &mut Vec<PolynomialTrace<Q>>,
     ) -> (LWE<Q>, RowPermTrace<Q>) {
         let mut polynomial_space = PolynomialSpace::new(extended_lwe_dimension);
         let mut decompose_space = DecompositionSpace::new(extended_lwe_dimension);
@@ -327,6 +331,7 @@ impl<Q: NTTField> KeySwitchingRLWEKey<Q> {
                             &mut decompose_space,
                             k_idx,
                             trace,
+                            decomposed_polys,
                         );
                     });
             }

@@ -11,7 +11,7 @@ use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInstance};
 use piop::{SumcheckInstance, SumcheckPIOP};
 use rand::Rng;
 use rand_distr::Distribution;
-use snarks::fhe_op::hadamard::{HadamardParams, HadamardSnarks};
+use snarks::fhe_op::hadamard_old::{HadamardParams, HadamardSnarks};
 use snarks::fhe_op::monomial_hadamard::{MonomialHadamardParams, MonomialHadamardSnarks};
 use trace::{AccTraceMLE, ConvertToEF};
 // use trace::HadamardProdTraceMLE;
