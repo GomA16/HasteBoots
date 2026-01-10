@@ -79,11 +79,8 @@ where
 {
     pub trace_log_num_oracles: usize,
     pub helper_log_num_oracles: usize,
-    #[serde(skip)]
     pub pcs_params: PCS::Parameters,
-    #[serde(skip)]
     pub commitment: PCS::Commitment,
-    #[serde(skip)]
     pub pcs_params_ef: PCS::Parameters,
     #[serde(skip)]
     pub helper_commitment: PCS::Commitment,

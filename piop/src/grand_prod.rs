@@ -170,7 +170,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for GrandProdPIOP<F> {
 #[cfg(test)]
 mod test {
     use algebra::{
-        BabyBear,
+        BabyBear, Basis,
         derive::{DecomposableField, Field},
     };
     use helper::Transcript;
@@ -185,8 +185,8 @@ mod test {
     fn test_eq_piop() {
         let mut rng = rand::rng();
         let eq_constant = -FF::one();
-        let basis_bits = 7;
-        let eq_tables = EQTables::new(eq_constant, basis_bits);
+        let basis = Basis::<FF>::new(7);
+        let eq_tables = EQTables::new(eq_constant, &basis);
         let eq_trace = EQTrace::random(&mut rng, 4, &eq_tables);
         let eq_trace_mle: EQTraceMLE<_> = eq_trace.into();
 

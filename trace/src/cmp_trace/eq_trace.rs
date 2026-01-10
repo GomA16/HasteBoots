@@ -74,14 +74,15 @@ impl<F: Field> EQTable<F> {
 }
 
 impl<F: DecomposableField> EQTables<F> {
-    pub fn new(eq_constant: F, basis_bits: usize) -> Self {
+    pub fn new(eq_constant: F, basis: &Basis<F>) -> Self {
         let mut decomposed_constant = eq_constant;
-        let basis = Basis::<F>::new(basis_bits as u32);
 
         let mut tables = Vec::with_capacity(basis.decompose_len());
+        let mask = basis.mask();
+        let basis_bits = basis.bits() as usize;
         for i in 0..basis.decompose_len() {
-            let bit_constant = (&mut decomposed_constant)
-                .decompose_lsb_bits(F::mask(basis_bits as u32), basis_bits as u32);
+            let bit_constant =
+                (&mut decomposed_constant).decompose_lsb_bits(mask, basis_bits as u32);
             let table = EQTable::new(basis_bits, bit_constant, i);
             tables.push(table);
         }
@@ -136,7 +137,7 @@ impl<F: DecomposableField> EQTrace<F> {
         let input_size = 1 << num_vars;
         let mut input = vec![F::zero(); input_size];
         for i in 0..input_size {
-            input[i] = eq_tables.eq_constant + F::one();
+            input[i] = F::random(rng);
         }
 
         input[0] = eq_tables.eq_constant; // ensure at least one equal case
@@ -148,14 +149,14 @@ impl<F: DecomposableField> EQTrace<F> {
         for i in 0..input_size {
             let mut x = input[i];
 
-            for (j, table) in eq_tables.tables.iter().enumerate() {
+            for (j, eq_table) in eq_tables.tables.iter().enumerate() {
                 let bit = (&mut x).decompose_lsb_bits(
                     F::mask(eq_tables.basis_bits as u32),
                     eq_tables.basis_bits as u32,
                 );
                 bits[j][i] = bit;
                 let table_index: usize = bit.value().as_into();
-                let eq_bit = table.table[table_index];
+                let eq_bit = eq_table.table[table_index];
                 bit_eq[j][i] = eq_bit;
                 eq_result[i] *= eq_bit;
             }
@@ -208,7 +209,7 @@ impl<F: Field> From<EQTrace<F>> for EQTraceMLE<F> {
 }
 
 impl<F: DecomposableField> EQTraceMLE<F> {
-    pub fn from(input: &Rc<DenseMultilinearExtension<F>>, eq_tables: &EQTables<F>) -> Self {
+    pub fn from(input: &Rc<DenseMultilinearExtension<F>>, eq_tables: &EQTablesMLE<F>) -> Self {
         let num_vars = input.num_vars();
         let num_bits = eq_tables.decomp_len;
         let input_size = 1 << num_vars;
@@ -235,7 +236,7 @@ impl<F: DecomposableField> EQTraceMLE<F> {
                     );
                     bits[j][i] = bit;
                     let table_index: usize = bits[j][i].value().as_into();
-                    bit_eq[j][i] = table.table[table_index];
+                    bit_eq[j][i] = table.evaluations[table_index];
                 });
             });
 
@@ -312,8 +313,8 @@ mod tests {
 
     #[test]
     fn test_cmp_table_trace() {
-        let basis_bits = 7;
-        let eq_tables = EQTables::<FF>::new(-FF::one(), basis_bits);
+        let basis = Basis::<FF>::new(7);
+        let eq_tables = EQTables::<FF>::new(-FF::one(), &basis);
         println!("RHS constant: {:b}", (-FF::one()).value());
         eq_tables.tables.iter().for_each(|table| {
             println!(

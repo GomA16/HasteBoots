@@ -17,6 +17,8 @@
 //! by the PCS opening proofs.
 //! - If their coefficients are sparse (e.g. monomial), the queries can be answered
 //! by the sparse PCS opening proofs.
+
+use trace::modulus_switching_trace;
 pub mod acc_iteration;
 pub mod blind_rotation;
 pub mod blind_rotation_updated;
@@ -24,5 +26,6 @@ pub mod decomposition;
 pub mod external_product;
 pub mod hadamard;
 pub mod key_switching;
+pub mod modulus_switching;
 pub mod monomial_hadamard;
 pub mod row_permutation;

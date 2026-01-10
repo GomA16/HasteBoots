@@ -41,10 +41,9 @@ where
 pub struct ComputeEqualityParams<'a, F, S>
 where
     F: Field,
-    S: Clone,
 {
     pub eq_tables: &'a EQTablesMLE<F>,
-    pub code_spec: S,
+    pub code_spec: &'a S,
 }
 
 #[derive(Serialize)]
@@ -65,11 +64,10 @@ where
 impl<'a, F, S> ComputeEqualityParams<'a, F, S>
 where
     F: Field,
-    S: Clone,
 {
-    pub fn new(code_spec: S, eq_tables: &'a EQTablesMLE<F>) -> Self {
+    pub fn new(code_spec: &'a S, eq_tables: &'a EQTablesMLE<F>) -> Self {
         Self {
-            code_spec: code_spec.clone(),
+            code_spec,
             eq_tables,
         }
     }
@@ -179,7 +177,7 @@ mod test {
     use std::rc::Rc;
 
     use super::*;
-    use algebra::{BabyBear, BabyBearExetension};
+    use algebra::{BabyBear, BabyBearExetension, Basis};
     use helper::Transcript;
     use num_traits::One;
     use pcs::{
@@ -199,15 +197,15 @@ mod test {
         let num_vars = 2;
         let scale = FF::new(1 << 10);
         let eq_constant = (-FF::one()) / scale;
-        let basis_bits = 4;
+        let basis = Basis::<FF>::new(7);
 
-        let eq_tables = EQTables::<FF>::new(eq_constant, basis_bits);
+        let eq_tables = EQTables::<FF>::new(eq_constant, &basis);
         let eq_trace = EQTrace::<FF>::random(&mut rng, num_vars, &eq_tables);
         let eq_trace_mle = eq_trace.into();
         let eq_tables_mle = eq_tables.into();
 
         let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, 31, 10);
-        let params = ComputeEqualityParams::new(code_spec, &eq_tables_mle);
+        let params = ComputeEqualityParams::new(&code_spec, &eq_tables_mle);
         let snarks = ComputeEqualitySnarks::<
             FF,
             EF,
@@ -229,17 +227,17 @@ mod test {
         let num_vars = 2;
         let scale = FF::new(1 << 10);
         let eq_constant = (-FF::one()) / scale;
-        let basis_bits = 4;
+        let basis = Basis::<FF>::new(7);
 
         let input = Rc::new(DenseMultilinearExtension::<FF>::random(num_vars, &mut rng));
 
-        let eq_tables = EQTables::<FF>::new(eq_constant, basis_bits);
+        let eq_tables = EQTables::<FF>::new(eq_constant, &basis).into();
         let eq_trace = EQTraceMLE::<FF>::from(&input, &eq_tables);
         let eq_trace_mle = eq_trace.into();
         let eq_tables_mle = eq_tables.into();
 
         let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, 31, 10);
-        let params = ComputeEqualityParams::new(code_spec, &eq_tables_mle);
+        let params = ComputeEqualityParams::new(&code_spec, &eq_tables_mle);
         let snarks = ComputeEqualitySnarks::<
             FF,
             EF,

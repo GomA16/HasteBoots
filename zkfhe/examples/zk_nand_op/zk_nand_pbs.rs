@@ -1,5 +1,8 @@
 use algebra::transformation::AbstractNTT;
-use algebra::{AbstractExtensionField, AsInto, BabyBear, BabyBearExetension, Field, NTTField};
+use algebra::{
+    AbstractExtensionField, AsInto, BabyBear, BabyBearExetension, Field, Goldilocks,
+    GoldilocksExtension, NTTField,
+};
 use fhe_core::utils::*;
 use helper::Transcript;
 use pcs::PolynomialCommitmentScheme;
@@ -12,19 +15,21 @@ use snarks::fhe_op::blind_rotation_updated::{
 };
 use snarks::fhe_op::external_product::{ExternalProductParams, ExternalProductSnarks};
 use snarks::fhe_op::key_switching::{self, KeySwitchingParams, KeySwitchingSnarks};
+use snarks::fhe_op::modulus_switching::{self, ModulusSwitchingSnarks};
 use snarks::fhe_op::row_permutation::RowPermutationSignedSnarks;
 use trace::BlindRotationTraceMLE;
 use trace::pbs_trace::PBSTrace;
 // use trace::HadamardProdTraceMLE;
 use zkfhe::bfhe::{
     BABYBEAR_BINARY_128_BITS_PARAMETERS, CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator,
+    GOLDILOCKS_BINARY_128_BITS_PARAMETERS,
 };
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
-type FF = BabyBear;
-type EF = BabyBearExetension;
+type FF = Goldilocks;
+type EF = GoldilocksExtension;
 type Hash = sha2::Sha256;
-const BASE_FIELD_BITS: usize = 31;
+const BASE_FIELD_BITS: usize = 64;
 
 #[derive(Default)]
 pub struct PBSSnarks<F, EF, S, PCS>
@@ -34,6 +39,7 @@ where
     S: Clone,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
+    pub modulus_switching: ModulusSwitchingSnarks<F, EF, S, PCS>,
     pub blind_rotation: BlindRotationSnarksUpdated<F, EF, S, PCS>,
     pub key_switching: KeySwitchingSnarks<F, EF, S, PCS>,
     pub sample_extraction: RowPermutationSignedSnarks<F, EF, S, PCS>,
@@ -45,7 +51,7 @@ fn main() {
     let mut rng = rand::rng();
 
     // set parameter
-    let params = *BABYBEAR_BINARY_128_BITS_PARAMETERS;
+    let params = *GOLDILOCKS_BINARY_128_BITS_PARAMETERS;
     println!("Parameters: {params:#?}\n");
 
     let noise_max = (params.lwe_cipher_modulus_value() as f64 / 16.0).as_into();
@@ -94,6 +100,7 @@ fn main() {
 
     // Perepare parameters and traces
     let PBSTrace {
+        mut modulus_switching_trace,
         mut blind_rotation_trace,
         mut key_switching_trace,
         mut sample_extraction_trace,
@@ -129,6 +136,9 @@ fn main() {
         &key_switching_trace,
     );
 
+    let modulus_switching_trace = modulus_switching_trace.into();
+    let modulus_switching_params = modulus_switching::ModulusSwitchingParams::new(&code_spec);
+
     let snarks = PBSSnarks::<
         FF,
         EF,
@@ -138,6 +148,11 @@ fn main() {
 
     let mut prover_trans = Transcript::default();
     let time = std::time::Instant::now();
+    let modulus_switching_proof = snarks.modulus_switching.prove(
+        &mut prover_trans,
+        &modulus_switching_trace,
+        &modulus_switching_params,
+    );
     let blind_rotation_proof = snarks.blind_rotation.prove(
         &mut prover_trans,
         blind_rotation_trace,
@@ -157,6 +172,9 @@ fn main() {
     let mut verifier_trans = Transcript::default();
     let mut res = true;
     let time = std::time::Instant::now();
+    res &= snarks
+        .modulus_switching
+        .verify(&mut verifier_trans, &modulus_switching_proof);
     res &= snarks
         .blind_rotation
         .verify(&mut verifier_trans, &blind_rotation_proof);

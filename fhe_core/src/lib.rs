@@ -39,4 +39,5 @@ pub use key_switch::{KeySwitchingKeyEnum, KeySwitchingRLWEKey};
 
 pub use modulus_switch::{
     lwe_modulus_switch, lwe_modulus_switch_assign_between_modulus, lwe_modulus_switch_inplace,
+    lwe_modulus_switch_w_trace,
 };

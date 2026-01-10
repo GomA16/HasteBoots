@@ -56,6 +56,7 @@ where
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
     pub lookup_proof: BatchedIndexedLogUpSnarksProof<F, EF, S, PCS>,
+    #[serde(skip)]
     pub input: PCS::Polynomial,
     pub basis: F,
 }
@@ -190,7 +191,7 @@ mod test {
         let lt_constant = (-FF::one()) / scale;
         let basis = Basis::new(8);
 
-        let lt_tables = LTTables::<FF>::new(&basis, Some(lt_constant));
+        let lt_tables = LTTables::<FF>::new(&basis, Some(lt_constant)).into();
 
         let input = Rc::new(DenseMultilinearExtension::<FF>::random(num_vars, &mut rng));
         let lt_trace = LTTraceMLE::<FF>::from(&input, &lt_tables);

@@ -67,6 +67,10 @@ name = "zk_key_switching"
 path = "examples/zk_nand_op/zk_key_switching.rs"
 
 [[example]]
+name = "zk_modulus_switching"
+path = "examples/zk_nand_op/zk_modulus_switching.rs"
+
+[[example]]
 name = "zk_sample_extraction"
 path = "examples/zk_nand_op/zk_sample_extraction.rs"
 

@@ -1,5 +1,8 @@
+use std::iter::once;
+
 use algebra::{AsInto, DecomposableField, UnsignedInteger};
 use lattice::LWE;
+use trace::modulus_switching_trace::ModulusSwitchingTrace;
 
 use crate::LWECiphertext;
 
@@ -32,6 +35,54 @@ pub fn lwe_modulus_switch<T: UnsignedInteger, F: DecomposableField>(
     let b = switch(c.b());
 
     LWECiphertext::new(a, b)
+}
+
+/// Implementation of modulus switching with trace.
+pub fn lwe_modulus_switch_w_trace<T: UnsignedInteger, F: DecomposableField>(
+    c: &LWE<F>,
+    modulus_after: T,
+) -> (LWECiphertext<T>, ModulusSwitchingTrace<F>) {
+    let modulus_before_f64: f64 = F::MODULUS_VALUE.as_into();
+    let modulus_after_f64: f64 = modulus_after.as_into();
+
+    let reduce = |v: T| {
+        if v < modulus_after {
+            v
+        } else {
+            v - modulus_after
+        }
+    };
+
+    let switch = |v: F| {
+        let v: f64 = v.value().as_into();
+        reduce(T::as_from(
+            (v * modulus_after_f64 / modulus_before_f64).round(),
+        ))
+    };
+
+    let conver_to_field = |v: T| {
+        let v: usize = v.as_into();
+        F::new(v.as_into())
+    };
+
+    let log_num = (c.a().len() + 1).next_power_of_two().trailing_zeros() as usize;
+    let mut trace = ModulusSwitchingTrace::new(log_num, conver_to_field(modulus_after));
+    trace.append_input(c.a());
+    trace.input.push(c.b());
+
+    let a: Vec<T> = c.a().iter().copied().map(&switch).collect();
+    let b = switch(c.b());
+
+    let a_b_field = a
+        .iter()
+        .chain(once(&b))
+        .copied()
+        .map(&conver_to_field)
+        .collect::<Vec<F>>();
+    trace.append_output(&a_b_field);
+    trace.finalize(c.a().len() + 1);
+
+    (LWECiphertext::new(a, b), trace)
 }
 
 /// Implementation of modulus switching.

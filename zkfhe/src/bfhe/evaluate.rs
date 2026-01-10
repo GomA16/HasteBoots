@@ -1,7 +1,7 @@
 use algebra::{NTTField, Polynomial};
 use fhe_core::{
     KeySwitchingKeyEnum, KeySwitchingRLWEKey, LWECiphertext, Parameters, RLWEBlindRotationKey,
-    SecretKeyPack, lwe_modulus_switch,
+    SecretKeyPack, lwe_modulus_switch, lwe_modulus_switch_w_trace,
 };
 use trace::basic_ops::SumHadamardTrace;
 use trace::cmp_trace::lt_trace::{LTTable, LTTables};
@@ -52,7 +52,8 @@ impl<Q: NTTField> EvaluationKey<Q> {
         let parameters = self.parameters();
         let pre = parameters.process_before_blind_rotation();
 
-        let c_prime = lwe_modulus_switch(&c, pre.twice_ring_dimension_value());
+        let (c_prime, modulus_switching_trace) =
+            lwe_modulus_switch_w_trace(&c, pre.twice_ring_dimension_value());
 
         // -- Blind Rotation with Trace --
         let log_coeff_count = parameters.ring_dimension().trailing_zeros() as usize;
@@ -118,6 +119,7 @@ impl<Q: NTTField> EvaluationKey<Q> {
         // -- End --
 
         let pbs_trace = PBSTrace {
+            modulus_switching_trace,
             blind_rotation_trace,
             key_switching_trace,
             sample_extraction_trace,

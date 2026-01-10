@@ -174,11 +174,14 @@ where
             == proof.table_piop_proof.multiplicity_at_ry;
         res &= evaluate_table_at_r(&proof.helper_table_commitment)
             == proof.table_piop_proof.helper_table_at_ry;
-        assert!(proof.table_instance_info.table_point.is_some());
-        res &= eval_identity_function(
-            proof.table_instance_info.table_point.as_ref().unwrap(),
-            &piop_subclaim2.point_r,
-        ) == proof.table_piop_proof.table_at_ry;
+
+        if proof.table_instance_info.table_point.is_some() {
+            res &= eval_identity_function(
+                proof.table_instance_info.table_point.as_ref().unwrap(),
+                &piop_subclaim2.point_r,
+            ) == proof.table_piop_proof.table_at_ry;
+        }
+
         res
     }
 }
@@ -192,14 +195,14 @@ mod test {
         multilinear::BrakedownPCS,
         utils::code::{ExpanderCode, ExpanderCodeSpec},
     };
-    use trace::lookup_trace::indexed_table::IndexedLookupTrace;
+    use trace::{ConvertToEF, lookup_trace::indexed_table::IndexedLookupTrace};
 
     type FF = BabyBear;
     type EF = BabyBearExetension;
     type Hash = sha2::Sha256;
 
     #[test]
-    fn test_logup_snarks() {
+    fn test_logup_ef_snarks() {
         let mut rng = rand::rng();
         let num_input_vars = 5;
         let num_table_vars = 10;
@@ -216,6 +219,30 @@ mod test {
 
         let prover_trans = &mut Transcript::<EF>::default();
         let proof = snarks.prove(prover_trans, &lookup_mle);
+
+        let verifier_trans = &mut Transcript::<EF>::default();
+        let res = snarks.verify(verifier_trans, &proof);
+        assert!(res);
+    }
+
+    #[test]
+    fn test_logup_snarks() {
+        let mut rng = rand::rng();
+        let num_input_vars = 5;
+        let num_table_vars = 10;
+
+        let lookup_trace =
+            IndexedLookupTrace::<FF>::random(&mut rng, num_input_vars, num_table_vars);
+        let lookup_mle: IndexedLookupTraceMLE<FF> = lookup_trace.into();
+        let snarks = IndexedLogUpSnarks::<
+            FF,
+            EF,
+            ExpanderCodeSpec,
+            BrakedownPCS<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>,
+        >::default();
+
+        let prover_trans = &mut Transcript::<EF>::default();
+        let proof = snarks.prove(prover_trans, &lookup_mle.to_ef());
 
         let verifier_trans = &mut Transcript::<EF>::default();
         let res = snarks.verify(verifier_trans, &proof);

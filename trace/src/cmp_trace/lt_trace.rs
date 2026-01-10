@@ -43,7 +43,7 @@ pub struct LTTables<F: Field> {
 }
 
 pub struct LTTablesMLE<F: Field> {
-    // pub lt_constant: Option<F>,
+    pub lt_constant: Option<F>,
     pub basis_bits: usize,
     pub decomp_len: usize,
     pub tables: Vec<Rc<DenseMultilinearExtension<F>>>,
@@ -186,6 +186,7 @@ impl<F: Field> From<LTTables<F>> for LTTablesMLE<F> {
             .collect::<Vec<_>>();
 
         Self {
+            lt_constant: tables.lt_constant,
             basis_bits: tables.basis_bits,
             decomp_len: tables.decomp_len,
             tables: mle_tables,
@@ -203,6 +204,10 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for LTTablesMLE
             .collect::<Vec<_>>();
 
         LTTablesMLE {
+            lt_constant: match self.lt_constant {
+                Some(c) => Some(EF::from_base(c)),
+                None => None,
+            },
             basis_bits: self.basis_bits,
             decomp_len: self.decomp_len,
             tables: mle_tables,
@@ -248,7 +253,7 @@ impl<F: Field> From<LTTrace<F>> for LTTraceMLE<F> {
 }
 
 impl<F: DecomposableField> LTTraceMLE<F> {
-    pub fn from(input: &Rc<DenseMultilinearExtension<F>>, lt_tables: &LTTables<F>) -> Self {
+    pub fn from(input: &Rc<DenseMultilinearExtension<F>>, lt_tables: &LTTablesMLE<F>) -> Self {
         let num_vars = input.num_vars();
         let num_bits = lt_tables.decomp_len;
         let input_size = 1 << num_vars;
@@ -268,18 +273,19 @@ impl<F: DecomposableField> LTTraceMLE<F> {
             .for_each(|(i, (input, lt_result))| {
                 let mut x = *input;
                 *lt_result = if x < lt_constant { F::one() } else { F::zero() };
-                lt_tables.tables.iter().enumerate().for_each(|(j, table)| {
-                    let bit = (&mut x).decompose_lsb_bits(
-                        F::mask(lt_tables.basis_bits as u32),
-                        lt_tables.basis_bits as u32,
-                    );
-                    bits[j][i] = bit;
-                    bit_lt[j][i] = if bit < table.bit_constant {
-                        F::one()
-                    } else {
-                        F::zero()
-                    };
-                });
+                lt_tables
+                    .tables
+                    .iter()
+                    .enumerate()
+                    .for_each(|(j, lt_table)| {
+                        let bit = (&mut x).decompose_lsb_bits(
+                            F::mask(lt_tables.basis_bits as u32),
+                            lt_tables.basis_bits as u32,
+                        );
+                        bits[j][i] = bit;
+                        let table_index: usize = bit.value().as_into();
+                        bit_lt[j][i] = lt_table.evaluations[table_index];
+                    });
             });
         let lt_result = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
             num_vars, lt_result,
