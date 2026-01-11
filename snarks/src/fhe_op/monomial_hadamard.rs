@@ -1,7 +1,7 @@
 //! SNARKs proving FHE operation (X^{a_i} - 1) * ACC
 use std::rc::Rc;
 
-use algebra::{AbstractExtensionField, AsInto, DenseMultilinearExtension, Field};
+use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 use helper::utils::compute_oracle_evals;
 use helper::{FiatShamirTranscript, Transcript};
 use pcs::PolynomialCommitmentScheme;
@@ -12,7 +12,7 @@ use piop::ntt::{
 use piop::sparse_matrix_eval::sparse_row::SparseRowEvalInstance;
 use piop::{BatchedSumcheckPIOP, LagrangeKernel, SumcheckInstance};
 use serde::Serialize;
-use trace::{AccTraceMLE, BlindRotationTraceMLE, PackableEval, PackableTrace};
+use trace::{AccTraceMLE, PackableEval, PackableTrace};
 use trace::{ConvertToEF, EvaluableTraceEF};
 
 use crate::sparse_matrix_eval::SparseRowEvalSnarks;
@@ -255,6 +255,7 @@ where
         let sparse_eval_res = SparseRowEvalSnarks::<F, EF, S, PCS>::verify_as_subprotocol(
             trans,
             &proof.sparse_eval_proof,
+            &mut None,
         );
         res &= sparse_eval_res;
 

@@ -24,6 +24,6 @@ pub mod decomposition;
 pub mod external_product;
 pub mod hadmard_product;
 pub mod key_switching;
-pub mod modulus_switching;
+pub mod modulus_switch;
 pub mod monomial_hadamard;
 pub mod row_permutation;

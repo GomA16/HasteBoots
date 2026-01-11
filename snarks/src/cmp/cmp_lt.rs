@@ -20,8 +20,11 @@ use trace::{
     },
 };
 
-use crate::lookup::indexed_table::indexed_batch::{
-    BatchedIndexedLogUpParams, BatchedIndexedLogUpSnarks, BatchedIndexedLogUpSnarksProof,
+use crate::{
+    SnarkStatistics,
+    lookup::indexed_table::indexed_batch::{
+        BatchedIndexedLogUpParams, BatchedIndexedLogUpSnarks, BatchedIndexedLogUpSnarksProof,
+    },
 };
 
 // Note: It omits one lookup out of k + 1 lookup to check the less-than relation.
@@ -120,7 +123,7 @@ where
         trace: &LTTraceMLE<F>,
         params: &ComputeLessThanParams<F, S>,
     ) -> ComputeLessThanProof<F, EF, S, PCS> {
-        Self::prove_as_subprotocol(trans, trace, params)
+        Self::prove_as_subprotocol(trans, trace, params, &mut None)
     }
 
     pub fn verify(
@@ -128,13 +131,14 @@ where
         trans: &mut Transcript<EF>,
         proof: &ComputeLessThanProof<F, EF, S, PCS>,
     ) -> bool {
-        Self::verify_as_subprotocol(trans, proof)
+        Self::verify_as_subprotocol(trans, proof, &mut None)
     }
 
     pub fn prove_as_subprotocol(
         trans: &mut Transcript<EF>,
         trace: &LTTraceMLE<F>,
         params: &ComputeLessThanParams<F, S>,
+        statistic: &mut Option<&mut SnarkStatistics>,
     ) -> ComputeLessThanProof<F, EF, S, PCS> {
         trans.append_message(b"[Commit]", trace.input.as_ref());
         // Prove the decomposition consistency via batched indexed log-up proofs
@@ -144,8 +148,12 @@ where
         // refer: https://www.usenix.org/conference/usenixsecurity24/presentation/hao-meng-scalable
         let lookup_trace = trace.extract_lt_lookup_traces(params.lt_tables);
         let lookup_params = BatchedIndexedLogUpParams::new(params.code_spec.clone(), &lookup_trace);
-        let lookup_proof =
-            BatchedIndexedLogUpSnarks::prove_as_subprotocol(trans, &lookup_trace, &lookup_params);
+        let lookup_proof = BatchedIndexedLogUpSnarks::prove_as_subprotocol(
+            trans,
+            &lookup_trace,
+            &lookup_params,
+            statistic,
+        );
 
         let basis = 1 << params.lt_tables.basis_bits;
         ComputeLessThanProof {
@@ -158,6 +166,7 @@ where
     pub fn verify_as_subprotocol(
         trans: &mut Transcript<EF>,
         proof: &ComputeLessThanProof<F, EF, S, PCS>,
+        statistic: &mut Option<&mut SnarkStatistics>,
     ) -> bool {
         trans.append_message(b"[Commit]", &proof.input);
 
@@ -166,11 +175,16 @@ where
         // Each bit is in range [0, 2^k)
         let mut res = true;
         let lookup_res =
-            BatchedIndexedLogUpSnarks::verify_as_subprotocol(trans, &proof.lookup_proof);
+            BatchedIndexedLogUpSnarks::verify_as_subprotocol(trans, &proof.lookup_proof, statistic);
         res &= lookup_res;
         assert!(lookup_res, "Decomposition lookup proof verification failed");
 
+        let time = std::time::Instant::now();
         let input_eval = proof.input.evaluate_ext(&proof.lookup_proof.input_point_r);
+        if let Some(stats) = statistic {
+            stats.add_verifier_pcs_time(time.elapsed());
+        }
+
         let mut sum = EF::zero();
         let mut power = EF::one();
         for bit in proof.lookup_proof.lookup_evals.iter() {

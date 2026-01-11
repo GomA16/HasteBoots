@@ -87,13 +87,13 @@ fn main() {
 
     let mut prover_trans = Transcript::default();
     let time = std::time::Instant::now();
-    let proof = snarks.prove(&mut prover_trans, &trace_mle, &params);
+    let proof = snarks.prove(&mut prover_trans, &trace_mle, &params, &mut None);
     println!("Proofs generation done!\n");
     println!("Proof generation time: {:?}\n", time.elapsed());
 
     let mut verifier_trans = Transcript::default();
     let time = std::time::Instant::now();
-    let res = snarks.verify(&mut verifier_trans, &proof);
+    let res = snarks.verify(&mut verifier_trans, &proof, &mut None);
     println!("Proofs verification done!\n");
     println!("Proof verification time: {:?}\n", time.elapsed());
 

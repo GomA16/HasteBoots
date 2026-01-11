@@ -15,28 +15,20 @@ use helper::{FiatShamirTranscript, Transcript};
 use log::info;
 use pcs::PolynomialCommitmentScheme;
 use piop::hadamard::{BatchedSumHadamardProof, HadamardPIOP, SumHadamardInfo, SumHadamardInstance};
-use piop::lookup::small_table::{LogUpIOP, LogUpInstance, LogUpInstanceInfo, LogUpProof};
 use piop::ntt::{
     BatchedNTTMatrixEvalProof, NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance,
-    NTTMatrixEvalProof,
 };
 use piop::sparse_matrix_eval::sparse_row::SparseRowEvalInstance;
-use piop::{
-    BatchedSumcheckPIOP, LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance,
-    SumcheckPIOP,
-};
+use piop::{BatchedSumcheckPIOP, LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance};
 use serde::Serialize;
 use sumcheck::{MLSumcheck, Proof};
-use trace::basic_ops::{SumHadamardTraceEval, SumHadamardTraceMLE};
+use trace::PackableEval;
 use trace::blind_rotation_trace::BlindRotationTraceEval;
-use trace::lookup_trace::small_table::LookupWitnessHelperEval;
 use trace::{
     BlindRotationTrace, BlindRotationTraceMLE, ConvertToEF, EvaluableTraceEF, PackableTrace,
-    acc_trace, blind_rotation_trace,
 };
-use trace::{EvaluableTrace, PackableEval};
 
-use crate::fhe_op::acc_iteration::{self, AccIterationSnarks, AccIterationSnarksProof};
+use crate::fhe_op::acc_iteration::{AccIterationSnarks, AccIterationSnarksProof};
 use crate::fhe_op::decomposition::{
     DecompositionParams, DecompositionSnarks, DecompositionSnarksProof,
 };
@@ -202,12 +194,13 @@ where
         trans: &mut Transcript<EF>,
         blind_rotation_trace: BlindRotationTrace<F>,
         params: &BlindRotationParams<F, EF, S, PCS>,
+        statistics: &mut Option<&mut crate::SnarkStatistics>,
     ) -> BlindRotationProof<F, EF, S, PCS> {
         info!("[P] Start Blind Rotation Proof Generation...");
-        let pcs_commit_time = std::time::Instant::now();
         // [Commit Phase] commit to the trace polynomial
         let bit_poly = blind_rotation_trace.generate_oracle();
         let blind_rotation_trace_mle = BlindRotationTraceMLE::from(blind_rotation_trace);
+        let pcs_commit_time = std::time::Instant::now();
         let (commitment, commitment_state) = PCS::commit(&params.pcs_params, &bit_poly);
         trans.append_message(b"[Commit Phase]", &commitment);
         info!(
@@ -215,6 +208,9 @@ where
             bit_poly.num_vars(),
             pcs_commit_time.elapsed()
         );
+        if let Some(stats) = statistics {
+            stats.add_prover_pcs_time(pcs_commit_time.elapsed());
+        }
 
         // [PIOP Phase] extract all the Hadamard instances and prove them via one single sumcheck
         let piop_hadamard_time = std::time::Instant::now();
@@ -336,6 +332,9 @@ where
             open_point.len(),
             pcs_poly_open_time.elapsed()
         );
+        if let Some(stats) = statistics {
+            stats.add_prover_pcs_time(pcs_poly_open_time.elapsed());
+        }
 
         // [PIOP Phase] Open the sparse coefficient matrix evaluation `ntt_proof.coeff_eval_at_r_v[0]` at point_r_v
         // the pcs part is skipped in this since the polynomial to be committed is too small
@@ -389,6 +388,7 @@ where
             trans,
             &decomposition_trace,
             &decomp_params,
+            statistics,
         );
 
         BlindRotationProof {
@@ -415,6 +415,7 @@ where
         &self,
         trans: &mut Transcript<EF>,
         proof: &BlindRotationProof<F, EF, S, PCS>,
+        statistics: &mut Option<&mut crate::SnarkStatistics>,
     ) -> bool {
         let mut res = true;
         info!("[V] Start Blind Rotation Proof Verification...");
@@ -498,6 +499,9 @@ where
             open_point.len(),
             pcs_poly_open_time.elapsed()
         );
+        if let Some(stats) = statistics {
+            stats.add_verifier_pcs_time(pcs_poly_open_time.elapsed());
+        }
 
         // [PIOP Phase] Verify the opening proof for the sparse coefficient matrix
         // evaluation `ntt_proof.coeff_eval_at_r_v[0]` at point_r_v
@@ -505,6 +509,7 @@ where
         let sparse_eval_res = SparseRowEvalSnarks::<F, EF, S, PCS>::verify_as_subprotocol(
             trans,
             &proof.sparse_eval_proof,
+            statistics,
         );
         res &= sparse_eval_res;
         assert!(res, "Sparse Matrix Evaluation verification failed.");
@@ -518,6 +523,7 @@ where
         let acc_iteration_res = AccIterationSnarks::<F, EF, S, PCS>::verify_as_subprotocol(
             trans,
             &proof.acc_iteration_proof,
+            statistics,
         );
         res &= acc_iteration_res;
         assert!(res, "Acc Iteration verification failed.");
@@ -527,8 +533,11 @@ where
         );
 
         // [Verifier] Verify decomposition relation via lookup PIOP
-        let decomp_res =
-            DecompositionSnarks::<F, EF, S, PCS>::verify_as_subprotocol(trans, &proof.decomp_proof);
+        let decomp_res = DecompositionSnarks::<F, EF, S, PCS>::verify_as_subprotocol(
+            trans,
+            &proof.decomp_proof,
+            statistics,
+        );
         res &= decomp_res;
         assert!(res, "Decomposition verification failed.");
 

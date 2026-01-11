@@ -9,6 +9,8 @@
 pub mod indexed_batch;
 // pub mod indexed_table_pcs;
 
+use std::os::macos::raw::stat;
+
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 use bincode::config::standard;
 use helper::{FiatShamirTranscript, Transcript, utils::eval_identity_function};
@@ -118,7 +120,7 @@ where
         trans: &mut Transcript<EF>,
         proof: &IndexedLogUpSnarksProof<F, EF, S, PCS>,
     ) -> bool {
-        IndexedLogUpSnarks::<F, EF, S, PCS>::verify_as_subprotocol(trans, proof)
+        IndexedLogUpSnarks::<F, EF, S, PCS>::verify_as_subprotocol(trans, proof, &mut None)
     }
 
     pub fn prove_as_subprotocol(
@@ -165,6 +167,7 @@ where
     pub fn verify_as_subprotocol(
         trans: &mut Transcript<EF>,
         proof: &IndexedLogUpSnarksProof<F, EF, S, PCS>,
+        statistics: &mut Option<&mut crate::SnarkStatistics>,
     ) -> bool {
         let mut res = true;
         trans.append_message(b"[Commit Phase]", &proof.input_commitment);
@@ -194,6 +197,7 @@ where
         trans.append_message(b"[PIOP Phase]", &proof.input_piop_proof);
         trans.append_message(b"[PIOP Phase]", &proof.table_piop_proof);
 
+        let time = std::time::Instant::now();
         let evaluate_input_at_r = |poly: &PCS::EFPolynomial| poly.evaluate(&piop_subclaim1.point_r);
         res &= evaluate_input_at_r(&proof.input_commitment) == proof.input_piop_proof.input_at_rx;
         res &= evaluate_input_at_r(&proof.index_commitment) == proof.input_piop_proof.index_at_rx;
@@ -205,6 +209,9 @@ where
             == proof.table_piop_proof.multiplicity_at_ry;
         res &= evaluate_table_at_r(&proof.helper_table_commitment)
             == proof.table_piop_proof.helper_table_at_ry;
+        if let Some(stats) = statistics {
+            stats.add_verifier_pcs_time(time.elapsed());
+        }
 
         if proof.table_instance_info.table_point.is_some() {
             res &= eval_identity_function(

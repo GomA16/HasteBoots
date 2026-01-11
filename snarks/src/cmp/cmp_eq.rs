@@ -20,8 +20,11 @@ use trace::{
     },
 };
 
-use crate::lookup::indexed_table::indexed_batch::{
-    BatchedIndexedLogUpParams, BatchedIndexedLogUpSnarks, BatchedIndexedLogUpSnarksProof,
+use crate::{
+    SnarkStatistics,
+    lookup::indexed_table::indexed_batch::{
+        BatchedIndexedLogUpParams, BatchedIndexedLogUpSnarks, BatchedIndexedLogUpSnarksProof,
+    },
 };
 
 #[derive(Default)]
@@ -125,7 +128,7 @@ where
         trace: &EQTraceMLE<F>,
         params: &ComputeEqualityParams<F, S>,
     ) -> ComputeEqualityProof<F, EF, S, PCS> {
-        Self::prove_as_subprotocol(trans, trace, params)
+        Self::prove_as_subprotocol(trans, trace, params, &mut None)
     }
 
     pub fn verify(
@@ -133,13 +136,14 @@ where
         trans: &mut Transcript<EF>,
         proof: &ComputeEqualityProof<F, EF, S, PCS>,
     ) -> bool {
-        Self::verify_as_subprotocol(trans, proof)
+        Self::verify_as_subprotocol(trans, proof, &mut None)
     }
 
     pub fn prove_as_subprotocol(
         trans: &mut Transcript<EF>,
         trace: &EQTraceMLE<F>,
         params: &ComputeEqualityParams<F, S>,
+        statitsics: &mut Option<&mut SnarkStatistics>,
     ) -> ComputeEqualityProof<F, EF, S, PCS> {
         trans.append_message(b"[Commit]", trace.input.as_ref());
         // Prove the decomposition consistency via batched indexed log-up proofs
@@ -149,8 +153,12 @@ where
         // refer: https://www.usenix.org/conference/usenixsecurity24/presentation/hao-meng-scalable
         let lookup_trace = trace.extract_eq_lookup_traces(params.eq_tables);
         let lookup_params = BatchedIndexedLogUpParams::new(params.code_spec.clone(), &lookup_trace);
-        let lookup_proof =
-            BatchedIndexedLogUpSnarks::prove_as_subprotocol(trans, &lookup_trace, &lookup_params);
+        let lookup_proof = BatchedIndexedLogUpSnarks::prove_as_subprotocol(
+            trans,
+            &lookup_trace,
+            &lookup_params,
+            statitsics,
+        );
 
         let trace_ef: EQTraceMLE<EF> = trace.to_ef();
         let equality_instance = GrandProdInstance::from_eq_trace(&trace_ef);
@@ -169,6 +177,7 @@ where
     pub fn verify_as_subprotocol(
         trans: &mut Transcript<EF>,
         proof: &ComputeEqualityProof<F, EF, S, PCS>,
+        statitsics: &mut Option<&mut SnarkStatistics>,
     ) -> bool {
         trans.append_message(b"[Commit]", &proof.input);
 
@@ -176,12 +185,20 @@ where
         // It ensures that the decomposition is in range of [0, p)
         // Each bit is in range [0, 2^k)
         let mut res = true;
-        let lookup_res =
-            BatchedIndexedLogUpSnarks::verify_as_subprotocol(trans, &proof.lookup_proof);
+        let lookup_res = BatchedIndexedLogUpSnarks::verify_as_subprotocol(
+            trans,
+            &proof.lookup_proof,
+            statitsics,
+        );
         res &= lookup_res;
         assert!(lookup_res, "Decomposition lookup proof verification failed");
 
+        let time = std::time::Instant::now();
         let input_eval = proof.input.evaluate_ext(&proof.lookup_proof.input_point_r);
+        if let Some(stats) = statitsics {
+            stats.add_verifier_pcs_time(time.elapsed());
+        }
+
         let mut sum = EF::zero();
         let mut power = EF::one();
         for bit in proof.lookup_proof.lookup_evals.iter() {

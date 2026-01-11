@@ -9,9 +9,10 @@ use pcs::PolynomialCommitmentScheme;
 use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
+use snarks::SnarkStatistics;
 use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks};
 use snarks::fhe_op::key_switching::{KeySwitchingParams, KeySwitchingSnarks};
-use snarks::fhe_op::modulus_switching::{self, ModulusSwitchingSnarks};
+use snarks::fhe_op::modulus_switch::{self, ModulusSwitchingSnarks};
 use snarks::fhe_op::row_permutation::RowPermutationSignedSnarks;
 use trace::pbs_trace::PBSTrace;
 // use trace::HadamardProdTraceMLE;
@@ -94,7 +95,7 @@ fn main() {
 
     // Generate SNARKs for nand
     println!("");
-    println!("Starting verification of nand.\n");
+    println!("--- Starting verification of nand ---\n");
 
     // Perepare parameters and traces
     let time = std::time::Instant::now();
@@ -133,7 +134,7 @@ fn main() {
     );
 
     let modulus_switching_trace = modulus_switching_trace.into();
-    let modulus_switching_params = modulus_switching::ModulusSwitchingParams::new(&code_spec);
+    let modulus_switching_params = modulus_switch::ModulusSwitchingParams::new(&code_spec);
 
     let snarks = PBSSnarks::<
         FF,
@@ -142,6 +143,8 @@ fn main() {
         BrakedownPCS<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>,
     >::default();
     println!("Preparing parameters time: {:?}\n", time.elapsed());
+
+    let pcs_statistics = &mut Some(&mut SnarkStatistics::default());
 
     let mut prover_trans = Transcript::default();
     let prover_total_time = std::time::Instant::now();
@@ -152,6 +155,7 @@ fn main() {
         &mut prover_trans,
         &modulus_switching_trace,
         &modulus_switching_params,
+        pcs_statistics,
     );
     println!(
         "[Prover] Modulus switching proof generation time: {:?}\n",
@@ -164,6 +168,7 @@ fn main() {
         &mut prover_trans,
         blind_rotation_trace,
         &blind_rotation_params,
+        pcs_statistics,
     );
     println!(
         "[Prover] Blind rotation proof generation time: {:?}\n",
@@ -176,6 +181,7 @@ fn main() {
         &mut prover_trans,
         &key_switching_trace,
         &key_switching_params,
+        pcs_statistics,
     );
     println!(
         "[Prover] Key switching proof generation time: {:?}\n",
@@ -192,20 +198,21 @@ fn main() {
         time.elapsed()
     );
 
-    println!("Proofs generation done!\n");
-    println!("Proof generation time: {:?}\n", prover_total_time.elapsed());
+    println!("--- Proofs generation done! ---\n");
+    let prover_total_time = prover_total_time.elapsed();
+    println!("Proof generation time: {:?}\n", prover_total_time);
 
     let mut verifier_trans = Transcript::default();
     let mut res = true;
     let verifier_total_time = std::time::Instant::now();
 
-    let mut verifier_pcs_time = 0;
-    let mut verifier_piop_time = 0;
     println!("[Verifier] Starting to check modulus switching.");
     let time = std::time::Instant::now();
-    res &= snarks
-        .modulus_switching
-        .verify(&mut verifier_trans, &modulus_switching_proof);
+    res &= snarks.modulus_switching.verify(
+        &mut verifier_trans,
+        &modulus_switching_proof,
+        pcs_statistics,
+    );
     println!(
         "[Verifier] Modulus switching verification time: {:?}\n",
         time.elapsed()
@@ -215,7 +222,7 @@ fn main() {
     let time = std::time::Instant::now();
     res &= snarks
         .blind_rotation
-        .verify(&mut verifier_trans, &blind_rotation_proof);
+        .verify(&mut verifier_trans, &blind_rotation_proof, pcs_statistics);
     println!(
         "[Verifier] Blind rotation verification time: {:?}\n",
         time.elapsed()
@@ -225,7 +232,7 @@ fn main() {
     let time = std::time::Instant::now();
     res &= snarks
         .key_switching
-        .verify(&mut verifier_trans, &key_switching_proof);
+        .verify(&mut verifier_trans, &key_switching_proof, pcs_statistics);
     println!(
         "[Verifier] Key switching verification time: {:?}\n",
         time.elapsed()
@@ -233,22 +240,42 @@ fn main() {
 
     println!("[Verifier] Starting to check sample extraction.");
     let time = std::time::Instant::now();
-    res &= snarks
-        .sample_extraction
-        .verify(&mut verifier_trans, &sample_extraction_proof);
+    res &= snarks.sample_extraction.verify(
+        &mut verifier_trans,
+        &sample_extraction_proof,
+        pcs_statistics,
+    );
     println!(
         "[Verifier] Sample extraction verification time: {:?}\n",
         time.elapsed()
     );
+    assert!(res);
 
-    println!("Proofs verification done!\n");
-
-    println!(
-        "Proof verification time: {:?}\n",
-        verifier_total_time.elapsed()
-    );
+    println!("--- Proofs verification done! ---\n");
+    let verifier_total_time = verifier_total_time.elapsed();
+    println!("Proof verification total time: {:?}\n", verifier_total_time);
 
     // ------------ Statistics --------------------
+    println!("--- SNARK Statistics Summary ---\n");
+    println!("Prover Total Time: {:?}", prover_total_time);
+    if let Some(stats) = pcs_statistics {
+        let pcs_ratio =
+            stats.prover_pcs_time.as_secs_f64() / prover_total_time.as_secs_f64() * 100.0;
+        println!(
+            "Prover PCS Time (including commit and open): {:?}, accounts for {:.2}%",
+            stats.prover_pcs_time, pcs_ratio
+        );
+    }
+    println!("Verifier Total Time: {:?}", verifier_total_time);
+    if let Some(stats) = pcs_statistics {
+        let pcs_ratio =
+            stats.verifier_pcs_time.as_secs_f64() / verifier_total_time.as_secs_f64() * 100.0;
+        println!(
+            "Verifier PCS Time (including commit and open): {:?}, accounts for {:.2}%",
+            stats.verifier_pcs_time, pcs_ratio
+        );
+    }
+
     let piop_size = modulus_switching_proof.piop_proof_len()
         + blind_rotation_proof.piop_proof_len()
         + key_switching_proof.piop_proof_len()
@@ -258,14 +285,14 @@ fn main() {
         + key_switching_proof.pcs_proof_len()
         + sample_extraction_proof.pcs_proof_len();
     println!(
-        "PIOP Proof Size: {} MB",
-        piop_size as f64 / (1000 * 1000) as f64
+        "Proof Sizes: {} MB total",
+        (piop_size + pcs_size) as f64 / (1000 * 1000) as f64
     );
     println!(
-        "PCS Proof Size: {} MB",
-        pcs_size as f64 / (1000 * 1000) as f64
+        "PCS Proof Sizes: {} MB, accounts for {:.2}%",
+        (piop_size + pcs_size) as f64 / (1000 * 1000) as f64,
+        pcs_size as f64 / (piop_size + pcs_size) as f64 * 100.0
     );
-    assert!(res);
 }
 
 // fn main() {}

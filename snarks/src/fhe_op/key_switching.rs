@@ -1,28 +1,14 @@
 //! External Product SNARKs proving FHE operation Mid * RGSW(s_i)
 //!     where Mid = (X^{a_i} - 1) * ACC_Input
 use core::time;
-use std::rc::Rc;
 
-use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field, PolynomialInfo};
+use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 use bincode::config::standard;
-use helper::utils::{compute_oracle_evals, eval_identity_function};
-use helper::{FiatShamirTranscript, Transcript};
+use helper::Transcript;
 use log::info;
 use pcs::PolynomialCommitmentScheme;
-use piop::hadamard::{BatchedSumHadamardProof, HadamardPIOP, SumHadamardInfo, SumHadamardInstance};
-use piop::lookup::small_table::{LogUpIOP, LogUpInstance, LogUpInstanceInfo, LogUpProof};
-use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance, NTTMatrixEvalProof};
-use piop::{
-    BatchedSumcheckPIOP, LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance,
-    SumcheckPIOP,
-};
 use serde::Serialize;
-use sumcheck::{MLSumcheck, Proof};
-use trace::basic_ops::{SumHadamardTraceEval, SumHadamardTraceMLE};
-use trace::key_switching_trace::{KeySwitchingTrace, KeySwitchingTraceMLE};
-use trace::lookup_trace::small_table::LookupWitnessHelperEval;
-use trace::{ConvertToEF, EvaluableTraceEF, PackableTrace};
-use trace::{EvaluableTrace, PackableEval};
+use trace::key_switching_trace::KeySwitchingTraceMLE;
 
 use crate::fhe_op::decomposition::{
     DecompositionParams, DecompositionSnarks, DecompositionSnarksProof,
@@ -149,28 +135,32 @@ where
         trans: &mut Transcript<EF>,
         trace_mle: &KeySwitchingTraceMLE<F>,
         params: &KeySwitchingParams<F, EF, S, PCS>,
+        statistics: &mut Option<&mut crate::SnarkStatistics>,
     ) -> KeySwitchingProof<F, EF, S, PCS> {
-        KeySwitchingSnarks::prove_as_subprotocol(trans, trace_mle, params)
+        KeySwitchingSnarks::prove_as_subprotocol(trans, trace_mle, params, statistics)
     }
 
     pub fn verify(
         &self,
         trans: &mut Transcript<EF>,
         proof: &KeySwitchingProof<F, EF, S, PCS>,
+        statistics: &mut Option<&mut crate::SnarkStatistics>,
     ) -> bool {
-        KeySwitchingSnarks::verify_as_subprotocol(trans, proof)
+        KeySwitchingSnarks::verify_as_subprotocol(trans, proof, statistics)
     }
 
     pub fn prove_as_subprotocol(
         trans: &mut Transcript<EF>,
         trace_mle: &KeySwitchingTraceMLE<F>,
         params: &KeySwitchingParams<F, EF, S, PCS>,
+        statistics: &mut Option<&mut crate::SnarkStatistics>,
     ) -> KeySwitchingProof<F, EF, S, PCS> {
         info!("[P] Start Key Switching Proof Generation...");
         let hadamard_proof = HadamardProductSnarks::prove_as_subprotocol(
             trans,
             &trace_mle.hadamard_trace,
             &params.hadamard_product_params,
+            statistics,
         );
 
         let decomp_instances = trace_mle.extract_decomposition_traces();
@@ -180,6 +170,7 @@ where
             trans,
             &decomp_instances,
             &decomp_params,
+            statistics,
         );
 
         let mut permutation_proof: Option<RowPermutationSignedProof<F, EF, S, PCS>> = None;
@@ -202,13 +193,18 @@ where
     pub fn verify_as_subprotocol(
         trans: &mut Transcript<EF>,
         proof: &KeySwitchingProof<F, EF, S, PCS>,
+        statistics: &mut Option<&mut crate::SnarkStatistics>,
     ) -> bool {
         let mut res = true;
-        res &= HadamardProductSnarks::verify_as_subprotocol(trans, &proof.hadamard_proof);
+        res &=
+            HadamardProductSnarks::verify_as_subprotocol(trans, &proof.hadamard_proof, statistics);
         assert!(res, "Hadamard Product verification failed.");
 
-        let decomp_res =
-            DecompositionSnarks::<F, EF, S, PCS>::verify_as_subprotocol(trans, &proof.decomp_proof);
+        let decomp_res = DecompositionSnarks::<F, EF, S, PCS>::verify_as_subprotocol(
+            trans,
+            &proof.decomp_proof,
+            statistics,
+        );
         res &= decomp_res;
         assert!(res, "Decomposition verification failed.");
 
@@ -216,6 +212,7 @@ where
             res &= RowPermutationSignedSnarks::verify_as_subprotocol(
                 trans,
                 proof.permutation_proof.as_ref().unwrap(),
+                statistics,
             );
             assert!(res, "Row Permutation verification failed.");
         }

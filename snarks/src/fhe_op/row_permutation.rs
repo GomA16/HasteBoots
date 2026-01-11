@@ -6,21 +6,20 @@
 //! We use SparseRowEvalSnarks to prove the evaluation on the permutation matrix.
 //! The input and output matrices are committed in the main snarks protocol, so their
 //! evaluations can be directly verified.
-use std::rc::Rc;
+use std::{os::macos::raw::stat, rc::Rc};
 
-use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field, MultilinearExtension};
+use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 use bincode::config::standard;
 use helper::{FiatShamirTranscript, Transcript};
+use log::info;
 use pcs::PolynomialCommitmentScheme;
 use piop::{
-    BatchedSumcheckPIOP, LagrangeKernel, SumcheckInstance, SumcheckPIOP,
-    permutation::row_perm::{
-        BatchedRowPermProof, RowPermInfo, RowPermInstance, RowPermPIOP, RowPermProof,
-    },
+    LagrangeKernel, SumcheckInstance, SumcheckPIOP,
+    permutation::row_perm::{RowPermInfo, RowPermInstance, RowPermPIOP, RowPermProof},
     sparse_matrix_eval::sparse_row::SparseRowEvalInstance,
 };
 use serde::Serialize;
-use trace::{BlindRotationTraceMLE, ConvertToEF, EvaluableTraceEF, basic_ops::RowPermTraceMLE};
+use trace::{ConvertToEF, basic_ops::RowPermTraceMLE};
 
 use crate::sparse_matrix_eval::{SparseRowEvalSnarks, sparse_row::SparseRowEvalSnarksProof};
 
@@ -118,8 +117,9 @@ where
         &self,
         trans: &mut Transcript<EF>,
         proof: &RowPermutationSignedProof<F, EF, S, PCS>,
+        statistics: &mut Option<&mut crate::SnarkStatistics>,
     ) -> bool {
-        RowPermutationSignedSnarks::<F, EF, S, PCS>::verify_as_subprotocol(trans, proof)
+        RowPermutationSignedSnarks::<F, EF, S, PCS>::verify_as_subprotocol(trans, proof, statistics)
     }
 
     pub fn prove_as_subprotocol(
@@ -172,6 +172,7 @@ where
     pub fn verify_as_subprotocol(
         trans: &mut Transcript<EF>,
         proof: &RowPermutationSignedProof<F, EF, S, PCS>,
+        statistics: &mut Option<&mut crate::SnarkStatistics>,
     ) -> bool {
         trans.append_message(b"Commit Phase", &proof.input_commitment);
         trans.append_message(b"Commit Phase", &proof.output_commitment);
@@ -179,17 +180,24 @@ where
         let point_rx = LagrangeKernel::random_point(trans, proof.log_num_rows);
         let point_ry = LagrangeKernel::random_point(trans, proof.log_num_cols);
 
+        let time = std::time::Instant::now();
         let mut res = true;
         let (permutation_res, permutation_subclaim) =
             RowPermPIOP::verifier(trans, &proof.permutation_info, &proof.permutation_proof);
         res &= permutation_res;
+        info!(
+            "[V]-[PIOP] Row permutation proof verification in {:?}",
+            time.elapsed()
+        );
 
         let sparse_res = SparseRowEvalSnarks::<F, EF, S, PCS>::verify_as_subprotocol(
             trans,
             &proof.permutation_eval_proof,
+            statistics,
         );
         res &= sparse_res;
 
+        let time = std::time::Instant::now();
         let point_ry_rx = point_ry
             .iter()
             .cloned()
@@ -202,6 +210,9 @@ where
             .chain(permutation_subclaim.randomness.iter().cloned())
             .collect::<Vec<EF>>();
         res &= proof.input_ry_r == proof.input_commitment.evaluate_ext(&point_ry_r);
+        if let Some(stats) = statistics {
+            stats.add_verifier_pcs_time(time.elapsed());
+        }
 
         res
     }
@@ -253,7 +264,7 @@ mod test {
         let prover_trans = &mut Transcript::<EF>::default();
         let proof = snarks.prove(prover_trans, &trace_mle);
         let verifier_trans = &mut Transcript::<EF>::default();
-        let res = snarks.verify(verifier_trans, &proof);
+        let res = snarks.verify(verifier_trans, &proof, &mut None);
         assert!(res);
     }
 }

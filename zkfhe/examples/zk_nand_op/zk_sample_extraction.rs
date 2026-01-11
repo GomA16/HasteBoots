@@ -89,7 +89,7 @@ fn main() {
 
     let mut verifier_trans = Transcript::default();
     let time = std::time::Instant::now();
-    let res = snarks.verify(&mut verifier_trans, &proof);
+    let res = snarks.verify(&mut verifier_trans, &proof, &mut None);
     println!("Proofs verification done!\n");
     println!("Proof verification time: {:?}\n", time.elapsed());
 

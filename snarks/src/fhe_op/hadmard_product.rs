@@ -156,7 +156,7 @@ where
         trace_mle: &SumHadamardTraceMLE<F>,
         params: &HadamardProductParams<F, EF, S, PCS>,
     ) -> HadamardProductProof<F, EF, S, PCS> {
-        Self::prove_as_subprotocol(trans, trace_mle, params)
+        Self::prove_as_subprotocol(trans, trace_mle, params, &mut None)
     }
 
     pub fn verify(
@@ -164,18 +164,19 @@ where
         trans: &mut Transcript<EF>,
         proof: &HadamardProductProof<F, EF, S, PCS>,
     ) -> bool {
-        Self::verify_as_subprotocol(trans, proof)
+        Self::verify_as_subprotocol(trans, proof, &mut None)
     }
 
     pub fn prove_as_subprotocol(
         trans: &mut Transcript<EF>,
         trace_mle: &SumHadamardTraceMLE<F>,
         params: &HadamardProductParams<F, EF, S, PCS>,
+        statistics: &mut Option<&mut crate::SnarkStatistics>,
     ) -> HadamardProductProof<F, EF, S, PCS> {
         info!("[P] Start Blind Rotation Proof Generation...");
-        let pcs_commit_time = std::time::Instant::now();
         // [Commit Phase] commit to the trace polynomial
         let bit_poly = trace_mle.generate_oracle();
+        let pcs_commit_time = std::time::Instant::now();
         let (commitment, commitment_state) = PCS::commit(&params.pcs_params, &bit_poly);
         trans.append_message(b"[Commit Phase]", &commitment);
         info!(
@@ -183,6 +184,9 @@ where
             bit_poly.num_vars(),
             pcs_commit_time.elapsed()
         );
+        if let Some(stats) = statistics {
+            stats.add_prover_pcs_time(pcs_commit_time.elapsed());
+        }
 
         // [PIOP Phase] extract all the Hadamard instances and prove them via one single sumcheck
         let piop_hadamard_time = std::time::Instant::now();
@@ -280,6 +284,9 @@ where
             open_point.len(),
             pcs_poly_open_time.elapsed()
         );
+        if let Some(stats) = statistics {
+            stats.add_prover_pcs_time(pcs_poly_open_time.elapsed());
+        }
 
         HadamardProductProof {
             log_coeff_count: trace_mle.log_coeff_count,
@@ -300,6 +307,7 @@ where
     pub fn verify_as_subprotocol(
         trans: &mut Transcript<EF>,
         proof: &HadamardProductProof<F, EF, S, PCS>,
+        statistics: &mut Option<&mut crate::SnarkStatistics>,
     ) -> bool {
         let mut res = true;
         info!("[V] Start Blind Rotation Proof Verification...");
@@ -383,6 +391,9 @@ where
             open_point.len(),
             pcs_poly_open_time.elapsed()
         );
+        if let Some(stats) = statistics {
+            stats.add_verifier_pcs_time(pcs_poly_open_time.elapsed());
+        }
 
         res
     }

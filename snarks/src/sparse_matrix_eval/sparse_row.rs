@@ -10,6 +10,7 @@
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 use bincode::config::standard;
 use helper::{FiatShamirTranscript, Transcript};
+use log::info;
 use pcs::PolynomialCommitmentScheme;
 use piop::{
     SumcheckInstance, SumcheckPIOP,
@@ -110,7 +111,7 @@ where
         trans: &mut Transcript<EF>,
         proof: &SparseRowEvalSnarksProof<F, EF, S, PCS>,
     ) -> bool {
-        SparseRowEvalSnarks::verify_as_subprotocol(trans, proof)
+        SparseRowEvalSnarks::verify_as_subprotocol(trans, proof, &mut None)
     }
 
     pub fn prove_as_subprotocol(
@@ -146,30 +147,50 @@ where
     pub fn verify_as_subprotocol(
         trans: &mut Transcript<EF>,
         proof: &SparseRowEvalSnarksProof<F, EF, S, PCS>,
+        statistics: &mut Option<&mut crate::SnarkStatistics>,
     ) -> bool {
         let mut res = true;
         trans.append_message(b"[Commit Phase]", &proof.val_commitment);
         // trans.append_message(b"[Commit Phase]", &proof.col_commitment);
         // trans.append_message(b"[Commit Phase]", &proof.eval_mle_ry_commitment);
 
+        let time = std::time::Instant::now();
         let res_lookup = IndexedLogUpSnarks::<F, EF, S, PCS>::verify_as_subprotocol(
             trans,
             &proof.indexed_lookup_proof,
+            statistics,
         );
         trans.append_message(
             b"[PIOP Phase] Proving E_ry is well formed",
             &proof.indexed_lookup_proof,
         );
         res &= res_lookup;
+        info!(
+            "[V]-[PIOP] Indexed lookup proof verification in {:?}",
+            time.elapsed()
+        );
 
+        let time = std::time::Instant::now();
         let (piop_res, piop_subclaim) =
             SparseRowEvalPIOP::verifier(trans, &proof.sparse_row_instance_info, &proof.piop_proof);
         trans.append_message(b"[PIOP Phase]", &proof.piop_proof);
         res &= piop_res;
+        info!(
+            "[V]-[PIOP] Sparse row evaluation proof verification in {:?}",
+            time.elapsed()
+        );
 
+        let time = std::time::Instant::now();
         let evaluate_at_r = |poly: &PCS::EFPolynomial| poly.evaluate(&piop_subclaim.randomness);
         res &= evaluate_at_r(&proof.eval_mle_ry_commitment) == proof.piop_proof.eval_mle_at_r;
         res &= evaluate_at_r(&proof.val_commitment) == proof.piop_proof.val_at_r;
+        info!(
+            "[V]-[PCS] Sparse row evaluation consistency check in {:?}",
+            time.elapsed()
+        );
+        if let Some(stats) = statistics {
+            stats.add_verifier_pcs_time(time.elapsed());
+        }
 
         res
     }

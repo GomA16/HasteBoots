@@ -8,6 +8,22 @@ pub mod lookup;
 pub mod ntt;
 pub mod sparse_matrix_eval;
 
+#[derive(Default, Debug)]
+pub struct SnarkStatistics {
+    pub prover_pcs_time: std::time::Duration,
+    pub verifier_pcs_time: std::time::Duration,
+}
+
+impl SnarkStatistics {
+    pub fn add_prover_pcs_time(&mut self, dur: std::time::Duration) {
+        self.prover_pcs_time += dur;
+    }
+
+    pub fn add_verifier_pcs_time(&mut self, dur: std::time::Duration) {
+        self.verifier_pcs_time += dur;
+    }
+}
+
 /// Oracle used in the NTT matrix evaluation PIOP
 pub struct EvalOracle<F, EF, S, PCS>
 where

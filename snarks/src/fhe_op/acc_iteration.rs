@@ -13,14 +13,13 @@
 //! => Z(ry, rx) = eq(rx, 1...1) * row(ry) = eq(rx, 1...1) * (a(ry) - d(ry))
 //! input_acc_permuted = permutation_matrix * input_acc
 //! => A'(rx, ry) = sum_{k} P(rx, k) * A(k, ry)
-use std::rc::Rc;
 
-use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field, MultilinearExtension};
+use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 use bincode::config::standard;
-use helper::{FiatShamirTranscript, Transcript};
+use helper::Transcript;
 use pcs::PolynomialCommitmentScheme;
 use piop::{
-    BatchedSumcheckPIOP, LagrangeKernel, SumcheckInstance, SumcheckPIOP,
+    BatchedSumcheckPIOP, LagrangeKernel, SumcheckInstance,
     permutation::row_perm::{BatchedRowPermProof, RowPermInfo, RowPermInstance, RowPermPIOP},
 };
 use serde::Serialize;
@@ -139,7 +138,7 @@ where
         let point_rx = LagrangeKernel::random_point(trans, proof.log_num_rows);
         let point_ry = LagrangeKernel::random_point(trans, proof.log_num_cols);
 
-        AccIterationSnarks::<F, EF, S, PCS>::verify_as_subprotocol(trans, proof)
+        AccIterationSnarks::<F, EF, S, PCS>::verify_as_subprotocol(trans, proof, &mut None)
     }
 
     pub fn prove_as_subprotocol(
@@ -193,11 +192,15 @@ where
     pub fn verify_as_subprotocol(
         trans: &mut Transcript<EF>,
         proof: &AccIterationSnarksProof<F, EF, S, PCS>,
+        statistics: &mut Option<&mut crate::SnarkStatistics>,
     ) -> bool {
         let mut res = true;
 
-        let res_lookup =
-            IndexedLogUpSnarks::<F, EF, S, PCS>::verify_as_subprotocol(trans, &proof.lookup_proof);
+        let res_lookup = IndexedLogUpSnarks::<F, EF, S, PCS>::verify_as_subprotocol(
+            trans,
+            &proof.lookup_proof,
+            statistics,
+        );
         res &= res_lookup;
 
         let (piop_res, _piop_subclaim) =

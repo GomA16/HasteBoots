@@ -23,6 +23,8 @@ use trace::{
     lookup_trace::indexed_table::{IndexedLookupEval, IndexedLookupTraceMLE},
 };
 
+use crate::SnarkStatistics;
+
 #[derive(Default)]
 pub struct BatchedIndexedLogUpSnarks<F, EF, S, PCS>
 where
@@ -156,7 +158,7 @@ where
         trace_mle: &Vec<IndexedLookupTraceMLE<F>>,
         params: &BatchedIndexedLogUpParams<F, EF, S, PCS>,
     ) -> BatchedIndexedLogUpSnarksProof<F, EF, S, PCS> {
-        BatchedIndexedLogUpSnarks::prove_as_subprotocol(trans, trace_mle, params)
+        BatchedIndexedLogUpSnarks::prove_as_subprotocol(trans, trace_mle, params, &mut None)
     }
 
     pub fn verify(
@@ -164,21 +166,27 @@ where
         trans: &mut Transcript<EF>,
         proof: &BatchedIndexedLogUpSnarksProof<F, EF, S, PCS>,
     ) -> bool {
-        BatchedIndexedLogUpSnarks::verify_as_subprotocol(trans, proof)
+        BatchedIndexedLogUpSnarks::verify_as_subprotocol(trans, proof, &mut None)
     }
 
     pub fn prove_as_subprotocol(
         trans: &mut Transcript<EF>,
         trace_mle: &Vec<IndexedLookupTraceMLE<F>>,
         params: &BatchedIndexedLogUpParams<F, EF, S, PCS>,
+        stats: &mut Option<&mut SnarkStatistics>,
     ) -> BatchedIndexedLogUpSnarksProof<F, EF, S, PCS> {
         // [Commit Phase] Commit to the trace polynomials
-        let commit_time = std::time::Instant::now();
+        let time = std::time::Instant::now();
         let witness = trace_mle
             .iter()
             .map(|trace| trace.compute_witness())
             .collect::<Vec<_>>();
         let poly = trace_mle.generate_oracle();
+        info!(
+            "[P]-[PIOP] Generating witness polynomials in {:?}",
+            time.elapsed()
+        );
+        let commit_time = std::time::Instant::now();
         let (trace_commitment, commitment_state) = PCS::commit(&params.pcs_params, &poly);
         trans.append_message(b"[Commit Phase]", &trace_commitment);
         info!(
@@ -186,6 +194,9 @@ where
             poly.num_vars(),
             commit_time.elapsed()
         );
+        if let Some(stats) = stats {
+            stats.add_prover_pcs_time(commit_time.elapsed());
+        }
 
         // compute the helper polynomials
         let time = std::time::Instant::now();
@@ -210,6 +221,7 @@ where
 
         // [Commit Phase] Commit to the helper polynomials
         let helper_poly = helper.generate_oracle();
+        let commit_time = std::time::Instant::now();
         let (helper_commitment, helper_commitment_state) =
             PCS::commit_ef(&params.pcs_params_ef, &helper_poly);
         trans.append_message(b"[Commit Phase]", &helper_commitment);
@@ -218,6 +230,9 @@ where
             helper_poly.num_vars(),
             commit_time.elapsed()
         );
+        if let Some(stats) = stats {
+            stats.add_prover_pcs_time(commit_time.elapsed());
+        }
 
         // [PIOP Phase] Prove all indexed lookup instance in one sumcheck protocol
         let piop_logup_time = std::time::Instant::now();
@@ -267,8 +282,12 @@ where
             point.len(),
             pcs_open_time.elapsed()
         );
+        if let Some(stats) = stats {
+            stats.add_prover_pcs_time(pcs_open_time.elapsed());
+        }
 
         // [PCS Phase] Generate evaluation proof for the helper oracles
+        let pcs_open_time = std::time::Instant::now();
         let eval_helper_proof = PCS::open_ef(
             &params.pcs_params_ef,
             &helper_commitment,
@@ -281,6 +300,9 @@ where
             point_helper.len(),
             pcs_open_time.elapsed()
         );
+        if let Some(stats) = stats {
+            stats.add_prover_pcs_time(pcs_open_time.elapsed());
+        }
 
         BatchedIndexedLogUpSnarksProof {
             trace_log_num_oracles: trace_mle.log_num_oracles(),
@@ -304,6 +326,7 @@ where
     pub fn verify_as_subprotocol(
         trans: &mut Transcript<EF>,
         proof: &BatchedIndexedLogUpSnarksProof<F, EF, S, PCS>,
+        stats: &mut Option<&mut SnarkStatistics>,
     ) -> bool {
         let mut res = true;
 
@@ -352,7 +375,7 @@ where
         );
 
         // [PCS Phase] Verify evaluation proof for the committed oracles
-        let time = std::time::Instant::now();
+        let time: std::time::Instant = std::time::Instant::now();
         let eval_res = PCS::verify(
             &proof.pcs_params,
             &proof.commitment,
@@ -368,6 +391,9 @@ where
             point.len(),
             time.elapsed()
         );
+        if let Some(stats) = stats {
+            stats.add_verifier_pcs_time(time.elapsed());
+        }
 
         // [PCS Phase] Verify evaluation proof for the helper oracles
         let time = std::time::Instant::now();
@@ -390,6 +416,9 @@ where
             point_helper.len(),
             time.elapsed()
         );
+        if let Some(stats) = stats {
+            stats.add_verifier_pcs_time(time.elapsed());
+        }
 
         res
     }

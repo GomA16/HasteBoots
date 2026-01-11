@@ -10,8 +10,11 @@ use trace::{
     PackableTrace, basic_ops::decomp_trace::DecompTraceMLE, cmp_trace::lt_trace::LTTablesMLE,
 };
 
-use crate::lookup::indexed_table::indexed_batch::{
-    BatchedIndexedLogUpParams, BatchedIndexedLogUpSnarks, BatchedIndexedLogUpSnarksProof,
+use crate::{
+    SnarkStatistics,
+    lookup::indexed_table::indexed_batch::{
+        BatchedIndexedLogUpParams, BatchedIndexedLogUpSnarks, BatchedIndexedLogUpSnarksProof,
+    },
 };
 
 #[derive(Default)]
@@ -120,7 +123,7 @@ where
         traces: &Vec<DecompTraceMLE<F>>,
         params: &DecompositionParams<F, S>,
     ) -> DecompositionSnarksProof<F, EF, S, PCS> {
-        Self::prove_as_subprotocol(trans, traces, params)
+        Self::prove_as_subprotocol(trans, traces, params, &mut None)
     }
 
     pub fn verify(
@@ -128,17 +131,18 @@ where
         trans: &mut Transcript<EF>,
         proof: &DecompositionSnarksProof<F, EF, S, PCS>,
     ) -> bool {
-        Self::verify_as_subprotocol(trans, proof)
+        Self::verify_as_subprotocol(trans, proof, &mut None)
     }
 
     pub fn prove_as_subprotocol(
         trans: &mut Transcript<EF>,
         traces: &Vec<DecompTraceMLE<F>>,
         params: &DecompositionParams<F, S>,
+        statistics: &mut Option<&mut SnarkStatistics>,
     ) -> DecompositionSnarksProof<F, EF, S, PCS> {
-        let commit_time = std::time::Instant::now();
         // [PCS Phase] Commit to the input oracles
         let poly = traces.generate_oracle();
+        let commit_time = std::time::Instant::now();
         let input_params = PCS::setup(poly.num_vars(), Some(&params.code_spec));
         let (input_commitment, input_comm_state) = PCS::commit(&input_params, &poly);
         trans.append_message(b"[Commit Phase]", &input_commitment);
@@ -147,6 +151,9 @@ where
             poly.num_vars(),
             commit_time.elapsed()
         );
+        if let Some(stats) = statistics {
+            stats.add_prover_pcs_time(commit_time.elapsed());
+        }
 
         // [PIOP Phase] Prove the decomposition consistency via batched indexed log-up proofs
         // 1. each bit x_i is in range [0, 2^k)
@@ -168,8 +175,12 @@ where
 
         // prove it via batched indexed log-up proofs
         let lookup_params = BatchedIndexedLogUpParams::new(params.code_spec.clone(), &lookup_trace);
-        let lookup_proof =
-            BatchedIndexedLogUpSnarks::prove_as_subprotocol(trans, &lookup_trace, &lookup_params);
+        let lookup_proof = BatchedIndexedLogUpSnarks::prove_as_subprotocol(
+            trans,
+            &lookup_trace,
+            &lookup_params,
+            statistics,
+        );
 
         let point_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
@@ -185,6 +196,7 @@ where
         point.extend_from_slice(&lookup_proof.input_point_r);
         point.extend_from_slice(&point_oracle);
 
+        let pcs_open_time = std::time::Instant::now();
         let eval_proof = PCS::open(
             &input_params,
             &input_commitment,
@@ -192,6 +204,14 @@ where
             &point,
             trans,
         );
+        info!(
+            "[P]-[PCS] Generating evaluation proof for decomposition oracles at point of length {} in {:?}",
+            point.len(),
+            pcs_open_time.elapsed()
+        );
+        if let Some(stats) = statistics {
+            stats.add_prover_pcs_time(pcs_open_time.elapsed());
+        }
 
         let basis = 1 << params.lt_tables.basis_bits;
         DecompositionSnarksProof {
@@ -209,6 +229,7 @@ where
     pub fn verify_as_subprotocol(
         trans: &mut Transcript<EF>,
         proof: &DecompositionSnarksProof<F, EF, S, PCS>,
+        statistics: &mut Option<&mut SnarkStatistics>,
     ) -> bool {
         trans.append_message(b"[Commit Phase]", &proof.input_commitment);
 
@@ -216,12 +237,16 @@ where
         // It ensures that the decomposition is in range of [0, p)
         // Each bit is in range [0, 2^k)
         let mut res = true;
-        let lookup_res =
-            BatchedIndexedLogUpSnarks::verify_as_subprotocol(trans, &proof.lookup_proof);
+        let lookup_res = BatchedIndexedLogUpSnarks::verify_as_subprotocol(
+            trans,
+            &proof.lookup_proof,
+            statistics,
+        );
         res &= lookup_res;
         assert!(lookup_res, "Decomposition lookup proof verification failed");
 
         // Verify the decomposition relation
+        let time = std::time::Instant::now();
         let res_decomp = proof
             .inputs_eval
             .iter()
@@ -242,7 +267,12 @@ where
             });
         res &= res_decomp;
         assert!(res_decomp, "Decomposition relation verification failed");
+        info!(
+            "[V]-[PIOP] Decomposition relation verification in {:?}",
+            time.elapsed()
+        );
 
+        let time = std::time::Instant::now();
         let point_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
             proof.log_num_oracles,
@@ -269,6 +299,13 @@ where
             eval_res,
             "Decomposition evaluation proof verification failed"
         );
+        info!(
+            "[V]-[PCS] Decomposition evaluation proof verification in {:?}",
+            time.elapsed()
+        );
+        if let Some(stats) = statistics {
+            stats.add_verifier_pcs_time(time.elapsed());
+        }
         res
     }
 }
