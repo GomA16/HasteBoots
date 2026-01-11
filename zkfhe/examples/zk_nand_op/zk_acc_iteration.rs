@@ -6,7 +6,6 @@ use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
 use snarks::fhe_op::acc_iteration::AccIterationSnarks;
-use snarks::fhe_op::external_product::{ExternalProductParams, ExternalProductSnarks};
 use trace::BlindRotationTraceMLE;
 // use trace::HadamardProdTraceMLE;
 use zkfhe::bfhe::{

@@ -3,7 +3,7 @@ use core::time;
 use algebra::{
     AbstractExtensionField, AsInto, DecomposableField, DenseMultilinearExtension, Field,
 };
-use bincode::de;
+use bincode::{config::standard, de};
 use helper::{FiatShamirTranscript, Transcript, utils::compute_oracle_evals};
 use pcs::{PolynomialCommitmentScheme, utils::code};
 use piop::{
@@ -24,6 +24,7 @@ use crate::lookup::indexed_table::indexed_batch::{
     BatchedIndexedLogUpParams, BatchedIndexedLogUpSnarks, BatchedIndexedLogUpSnarksProof,
 };
 
+// Note: It omits one lookup out of k + 1 lookup to check the less-than relation.
 #[derive(Default)]
 pub struct ComputeLessThanSnarks<F, EF, S, PCS>
 where
@@ -52,13 +53,38 @@ pub struct ComputeLessThanProof<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F>,
-    S: Clone,
+    S: Clone + Serialize,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
     pub lookup_proof: BatchedIndexedLogUpSnarksProof<F, EF, S, PCS>,
-    #[serde(skip)]
     pub input: PCS::Polynomial,
     pub basis: F,
+}
+
+impl<F, EF, S, PCS> ComputeLessThanProof<F, EF, S, PCS>
+where
+    F: Field + Serialize,
+    EF: AbstractExtensionField<F> + Serialize,
+    S: Clone + Serialize,
+    PCS: PolynomialCommitmentScheme<
+            F,
+            EF,
+            S,
+            Polynomial = DenseMultilinearExtension<F>,
+            EFPolynomial = DenseMultilinearExtension<EF>,
+            Point = EF,
+        > + Serialize,
+{
+    pub fn piop_proof_len(&self) -> usize {
+        self.lookup_proof.piop_proof_len()
+    }
+
+    pub fn pcs_proof_len(&self) -> usize {
+        self.lookup_proof.pcs_proof_len()
+            + bincode::serde::encode_to_vec(&self.input, standard())
+                .unwrap()
+                .len()
+    }
 }
 
 impl<'a, F, S> ComputeLessThanParams<'a, F, S>
@@ -78,7 +104,7 @@ impl<F, EF, S, PCS> ComputeLessThanSnarks<F, EF, S, PCS>
 where
     F: Field + DecomposableField + Serialize,
     EF: AbstractExtensionField<F> + Serialize,
-    S: Clone,
+    S: Clone + Serialize,
     PCS: PolynomialCommitmentScheme<
             F,
             EF,

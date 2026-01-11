@@ -102,14 +102,7 @@ where
     F: Field,
     EF: AbstractExtensionField<F> + Serialize,
     S: Clone,
-    PCS: PolynomialCommitmentScheme<
-            F,
-            EF,
-            S,
-            Polynomial = DenseMultilinearExtension<F>,
-            EFPolynomial = DenseMultilinearExtension<EF>,
-            Point = EF,
-        >,
+    PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
     pub fn piop_proof_len(&self) -> usize {
         bincode::serde::encode_to_vec(self.sumcheck_poly_info, standard())
@@ -128,9 +121,6 @@ where
                 .unwrap()
                 .len()
             + bincode::serde::encode_to_vec(&self.ntt_proof, standard())
-                .unwrap()
-                .len()
-            + bincode::serde::encode_to_vec(&self.trace_evals, standard())
                 .unwrap()
                 .len()
     }

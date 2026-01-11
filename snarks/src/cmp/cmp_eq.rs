@@ -3,7 +3,7 @@ use core::time;
 use algebra::{
     AbstractExtensionField, AsInto, DecomposableField, DenseMultilinearExtension, Field,
 };
-use bincode::de;
+use bincode::{config::standard, de};
 use helper::{FiatShamirTranscript, Transcript, utils::compute_oracle_evals};
 use pcs::{PolynomialCommitmentScheme, utils::code};
 use piop::{
@@ -51,7 +51,7 @@ pub struct ComputeEqualityProof<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F>,
-    S: Clone,
+    S: Clone + Serialize,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
     pub lookup_proof: BatchedIndexedLogUpSnarksProof<F, EF, S, PCS>,
@@ -59,6 +59,38 @@ where
     pub equality_proof: GrandProdProof<EF>,
     pub input: PCS::Polynomial,
     pub basis: F,
+}
+
+impl<F, EF, S, PCS> ComputeEqualityProof<F, EF, S, PCS>
+where
+    F: Field + Serialize,
+    EF: AbstractExtensionField<F> + Serialize,
+    S: Clone + Serialize,
+    PCS: PolynomialCommitmentScheme<
+            F,
+            EF,
+            S,
+            Polynomial = DenseMultilinearExtension<F>,
+            EFPolynomial = DenseMultilinearExtension<EF>,
+            Point = EF,
+        > + Serialize,
+{
+    pub fn piop_proof_len(&self) -> usize {
+        self.lookup_proof.piop_proof_len()
+            + bincode::serde::encode_to_vec(&self.equality_info, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&self.equality_proof, standard())
+                .unwrap()
+                .len()
+    }
+
+    pub fn pcs_proof_len(&self) -> usize {
+        self.lookup_proof.pcs_proof_len()
+            + bincode::serde::encode_to_vec(&self.input, standard())
+                .unwrap()
+                .len()
+    }
 }
 
 impl<'a, F, S> ComputeEqualityParams<'a, F, S>
@@ -77,7 +109,7 @@ impl<F, EF, S, PCS> ComputeEqualitySnarks<F, EF, S, PCS>
 where
     F: Field + DecomposableField + Serialize,
     EF: AbstractExtensionField<F> + Serialize,
-    S: Clone,
+    S: Clone + Serialize,
     PCS: PolynomialCommitmentScheme<
             F,
             EF,

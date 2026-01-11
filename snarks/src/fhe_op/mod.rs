@@ -19,11 +19,9 @@
 //! by the sparse PCS opening proofs.
 
 pub mod acc_iteration;
-// pub mod blind_rotation_old;
 pub mod blind_rotation;
 pub mod decomposition;
 pub mod external_product;
-// pub mod hadamard_old;
 pub mod hadmard_product;
 pub mod key_switching;
 pub mod modulus_switching;

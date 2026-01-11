@@ -9,6 +9,7 @@
 use std::rc::Rc;
 
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field, MultilinearExtension};
+use bincode::config::standard;
 use helper::{FiatShamirTranscript, Transcript};
 use pcs::PolynomialCommitmentScheme;
 use piop::{
@@ -49,13 +50,46 @@ where
     pub log_num_cols: usize,
     pub permutation_info: RowPermInfo<EF>,
     pub permutation_proof: RowPermProof<EF>,
-    #[serde(skip)]
     pub input_commitment: PCS::Polynomial,
-    #[serde(skip)]
     pub output_commitment: PCS::Polynomial,
     pub permutation_eval_proof: SparseRowEvalSnarksProof<F, EF, S, PCS>,
     pub output_ry_rx: EF,
     pub input_ry_r: EF,
+}
+
+impl<F, EF, S, PCS> RowPermutationSignedProof<F, EF, S, PCS>
+where
+    F: Field + Serialize,
+    EF: AbstractExtensionField<F> + Serialize,
+    S: Clone + Serialize,
+    PCS: PolynomialCommitmentScheme<
+            F,
+            EF,
+            S,
+            Polynomial = DenseMultilinearExtension<F>,
+            EFPolynomial = DenseMultilinearExtension<EF>,
+            Point = EF,
+        > + Serialize,
+{
+    pub fn piop_proof_len(&self) -> usize {
+        bincode::serde::encode_to_vec(&self.permutation_proof, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&self.permutation_info, standard())
+                .unwrap()
+                .len()
+            + self.permutation_eval_proof.piop_proof_len()
+    }
+
+    pub fn pcs_proof_len(&self) -> usize {
+        bincode::serde::encode_to_vec(&self.input_commitment, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&self.output_commitment, standard())
+                .unwrap()
+                .len()
+            + self.permutation_eval_proof.pcs_proof_len()
+    }
 }
 
 impl<F, EF, S, PCS> RowPermutationSignedSnarks<F, EF, S, PCS>

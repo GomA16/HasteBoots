@@ -5,7 +5,6 @@ use helper::Transcript;
 use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
-use snarks::fhe_op::external_product::{ExternalProductParams, ExternalProductSnarks};
 use snarks::fhe_op::key_switching::{KeySwitchingParams, KeySwitchingSnarks};
 use snarks::fhe_op::modulus_switching::{ModulusSwitchingParams, ModulusSwitchingSnarks};
 use trace::basic_ops::SumHadamardTraceMLE;

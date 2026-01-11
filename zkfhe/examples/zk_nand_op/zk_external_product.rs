@@ -80,8 +80,10 @@ fn main() {
         .unwrap()
         .root_powers();
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
-    let params = HadamardProductParams::new(code_spec, ntt_table, &trace_mle);
-    let snarks = HadamardProductSnarks::<
+    let blk_size = 3;
+    let basis = params.blind_rotation_basis().basis() as usize;
+    let params = ExternalProductParams::new(code_spec, ntt_table, blk_size, basis, &trace_mle);
+    let snarks = ExternalProductSnarks::<
         FF,
         EF,
         ExpanderCodeSpec,

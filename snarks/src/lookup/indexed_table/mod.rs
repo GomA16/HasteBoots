@@ -10,6 +10,7 @@ pub mod indexed_batch;
 // pub mod indexed_table_pcs;
 
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
+use bincode::config::standard;
 use helper::{FiatShamirTranscript, Transcript, utils::eval_identity_function};
 use pcs::PolynomialCommitmentScheme;
 use piop::{
@@ -44,20 +45,50 @@ where
     S: Clone,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
-    #[serde(skip)]
     pub input_commitment: PCS::EFPolynomial,
-    #[serde(skip)]
     pub index_commitment: PCS::EFPolynomial,
-    #[serde(skip)]
     pub helper_input_commitment: PCS::EFPolynomial,
-    #[serde(skip)]
     pub multiplicity_commitment: PCS::EFPolynomial,
-    #[serde(skip)]
     pub helper_table_commitment: PCS::EFPolynomial,
     pub input_instance_info: IndexedLogUpInputInstanceInfo<EF>,
     pub input_piop_proof: IndexedLogUpInputProof<EF>,
     pub table_instance_info: IndexedLogUpTableInstanceInfo<EF>,
     pub table_piop_proof: IndexedLogUpTableProof<EF>,
+}
+
+impl<F, EF, S, PCS> IndexedLogUpSnarksProof<F, EF, S, PCS>
+where
+    F: Field + Serialize,
+    EF: AbstractExtensionField<F> + Serialize,
+    S: Clone + Serialize,
+    PCS: PolynomialCommitmentScheme<F, EF, S> + Serialize,
+{
+    pub fn piop_proof_len(&self) -> usize {
+        bincode::serde::encode_to_vec(&self.input_instance_info, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&self.input_piop_proof, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&self.table_instance_info, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&self.table_piop_proof, standard())
+                .unwrap()
+                .len()
+    }
+
+    pub fn pcs_proof_len(&self) -> usize {
+        bincode::serde::encode_to_vec(&self.input_commitment, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&self.index_commitment, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&self.helper_input_commitment, standard())
+                .unwrap()
+                .len()
+    }
 }
 
 impl<F, EF, S, PCS> IndexedLogUpSnarks<F, EF, S, PCS>
@@ -79,7 +110,7 @@ where
         trans: &mut Transcript<EF>,
         trace_mle: &IndexedLookupTraceMLE<EF>,
     ) -> IndexedLogUpSnarksProof<F, EF, S, PCS> {
-        IndexedLogUpSnarks::prove_as_subprotocol(trans, trace_mle)
+        IndexedLogUpSnarks::<F, EF, S, PCS>::prove_as_subprotocol(trans, trace_mle)
     }
 
     pub fn verify(
@@ -87,7 +118,7 @@ where
         trans: &mut Transcript<EF>,
         proof: &IndexedLogUpSnarksProof<F, EF, S, PCS>,
     ) -> bool {
-        IndexedLogUpSnarks::verify_as_subprotocol(trans, proof)
+        IndexedLogUpSnarks::<F, EF, S, PCS>::verify_as_subprotocol(trans, proof)
     }
 
     pub fn prove_as_subprotocol(

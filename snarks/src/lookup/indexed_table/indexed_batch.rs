@@ -1,6 +1,8 @@
 use core::time;
+use std::ops::Add;
 
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
+use bincode::config::standard;
 use helper::{
     FiatShamirTranscript, Transcript,
     utils::{compute_oracle_evals, eval_identity_function},
@@ -75,7 +77,7 @@ pub struct BatchedIndexedLogUpSnarksProof<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F>,
-    S: Clone,
+    S: Clone + Serialize,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
     pub trace_log_num_oracles: usize,
@@ -83,7 +85,6 @@ where
     pub pcs_params: PCS::Parameters,
     pub commitment: PCS::Commitment,
     pub pcs_params_ef: PCS::Parameters,
-    #[serde(skip)]
     pub helper_commitment: PCS::Commitment,
     pub input_instance_info: Vec<IndexedLogUpInputInstanceInfo<EF>>,
     pub input_piop_proof: BatchedIndexLogUpInputProof<EF>,
@@ -93,11 +94,53 @@ where
     pub eval_helper_proof: PCS::ProofEF,
 }
 
+impl<F, EF, S, PCS> BatchedIndexedLogUpSnarksProof<F, EF, S, PCS>
+where
+    F: Field + Serialize,
+    EF: AbstractExtensionField<F> + Serialize,
+    S: Clone + Serialize,
+    PCS: PolynomialCommitmentScheme<
+            F,
+            EF,
+            S,
+            Polynomial = DenseMultilinearExtension<F>,
+            EFPolynomial = DenseMultilinearExtension<EF>,
+            Point = EF,
+        > + Serialize,
+{
+    pub fn piop_proof_len(&self) -> usize {
+        bincode::serde::encode_to_vec(&self.commitment, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&self.helper_commitment, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&self.input_piop_proof, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&self.input_instance_info, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&self.lookup_evals, standard())
+                .unwrap()
+                .len()
+    }
+
+    pub fn pcs_proof_len(&self) -> usize {
+        bincode::serde::encode_to_vec(&self.eval_proof, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&self.eval_helper_proof, standard())
+                .unwrap()
+                .len()
+    }
+}
+
 impl<F, EF, S, PCS> BatchedIndexedLogUpSnarks<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F> + Serialize,
-    S: Clone,
+    S: Clone + Serialize,
     PCS: PolynomialCommitmentScheme<
             F,
             EF,
@@ -265,6 +308,10 @@ where
         let mut res = true;
 
         trans.append_message(b"[Commit Phase]", &proof.commitment);
+
+        // [PIOP Phase]
+        let time = std::time::Instant::now();
+
         // Some simple value equality checks are omitted here for brevity.
         let _random_value =
             trans.get_challenge(b"[Challenge] random value used in the rational identity");
@@ -298,6 +345,14 @@ where
 
         let evals = proof.lookup_evals.pack_to_vec();
         let eval = compute_oracle_evals(&evals, &point_oracle);
+
+        info!(
+            "[V]-[PIOP] Verifying indexed lookup proof in {:?}",
+            time.elapsed()
+        );
+
+        // [PCS Phase] Verify evaluation proof for the committed oracles
+        let time = std::time::Instant::now();
         let eval_res = PCS::verify(
             &proof.pcs_params,
             &proof.commitment,
@@ -308,7 +363,14 @@ where
         );
         res &= eval_res;
         assert!(res);
+        info!(
+            "[V]-[PCS] Verifying evaluation proof for a oracle of {} variables in {:?}",
+            point.len(),
+            time.elapsed()
+        );
 
+        // [PCS Phase] Verify evaluation proof for the helper oracles
+        let time = std::time::Instant::now();
         let eval_helper = compute_oracle_evals(
             &proof.input_piop_proof.helper_input_at_rx,
             &point_helper_oracle,
@@ -323,6 +385,11 @@ where
         );
         res &= eval_helper_res;
         assert!(res);
+        info!(
+            "[V]-[PCS] Verifying evaluation proof for a oracle (in Extension Field) of {} variables in {:?}",
+            point_helper.len(),
+            time.elapsed()
+        );
 
         res
     }

@@ -55,7 +55,7 @@ pub struct ModulusSwitchingProof<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F>,
-    S: Clone,
+    S: Clone + Serialize,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
     pub log_num: usize,
@@ -65,6 +65,35 @@ where
     pub e_eq_2k_proof: ComputeEqualityProof<F, EF, S, PCS>,
     pub a_eq_k_result: PCS::Polynomial,
     pub e_eq_2k_result: PCS::Polynomial,
+}
+
+impl<F, EF, S, PCS> ModulusSwitchingProof<F, EF, S, PCS>
+where
+    F: Field + Serialize,
+    EF: AbstractExtensionField<F> + Serialize,
+    S: Clone + Serialize,
+    PCS: PolynomialCommitmentScheme<
+            F,
+            EF,
+            S,
+            Polynomial = DenseMultilinearExtension<F>,
+            EFPolynomial = DenseMultilinearExtension<EF>,
+            Point = EF,
+        > + Serialize,
+{
+    pub fn piop_proof_len(&self) -> usize {
+        self.b_eq_b_prime_proof.piop_proof_len()
+            + self.a_eq_k_proof.piop_proof_len()
+            + self.e_lt_2k_plus_1_proof.piop_proof_len()
+            + self.e_eq_2k_proof.piop_proof_len()
+    }
+
+    pub fn pcs_proof_len(&self) -> usize {
+        self.b_eq_b_prime_proof.pcs_proof_len()
+            + self.a_eq_k_proof.pcs_proof_len()
+            + self.e_lt_2k_plus_1_proof.pcs_proof_len()
+            + self.e_eq_2k_proof.pcs_proof_len()
+    }
 }
 
 impl<'a, S> ModulusSwitchingParams<'a, S>
@@ -80,7 +109,7 @@ impl<F, EF, S, PCS> ModulusSwitchingSnarks<F, EF, S, PCS>
 where
     F: Field + DecomposableField + Serialize,
     EF: AbstractExtensionField<F> + Serialize,
-    S: Clone,
+    S: Clone + Serialize,
     PCS: PolynomialCommitmentScheme<
             F,
             EF,
@@ -114,7 +143,8 @@ where
     ) -> ModulusSwitchingProof<F, EF, S, PCS> {
         // Prove b = b' mod q via batched indexed log-up proofs
         let b_eq_b_prime = trace.extract_output_eq_output_witness_trace().to_ef();
-        let b_eq_b_prime_proof = IndexedLogUpSnarks::prove_as_subprotocol(trans, &b_eq_b_prime);
+        let b_eq_b_prime_proof =
+            IndexedLogUpSnarks::<F, EF, S, PCS>::prove_as_subprotocol(trans, &b_eq_b_prime);
 
         // Prove e < 2k + 1 via less-than proof
         let e_lt_2k_plus_1_trace = trace.extract_helper_lt_2k_plus_1();
@@ -161,8 +191,10 @@ where
         proof: &ModulusSwitchingProof<F, EF, S, PCS>,
     ) -> bool {
         let mut res = true;
-        let b_eq_b_prime_res =
-            IndexedLogUpSnarks::verify_as_subprotocol(trans, &proof.b_eq_b_prime_proof);
+        let b_eq_b_prime_res = IndexedLogUpSnarks::<F, EF, S, PCS>::verify_as_subprotocol(
+            trans,
+            &proof.b_eq_b_prime_proof,
+        );
         res &= b_eq_b_prime_res;
         assert!(b_eq_b_prime_res, "b = b' mod q proof failed");
 

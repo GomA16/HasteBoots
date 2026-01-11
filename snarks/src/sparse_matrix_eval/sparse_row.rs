@@ -8,6 +8,7 @@
 //! PCS to boost efficiency of the evaluation.
 //!
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
+use bincode::config::standard;
 use helper::{FiatShamirTranscript, Transcript};
 use pcs::PolynomialCommitmentScheme;
 use piop::{
@@ -42,15 +43,44 @@ where
     S: Clone,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
-    #[serde(skip)]
     pub val_commitment: PCS::EFPolynomial,
-    #[serde(skip)]
     pub col_commitment: PCS::EFPolynomial,
-    #[serde(skip)]
     pub eval_mle_ry_commitment: PCS::EFPolynomial,
     pub indexed_lookup_proof: IndexedLogUpSnarksProof<F, EF, S, PCS>,
     pub sparse_row_instance_info: SparseRowEvalInfo<EF>,
     pub piop_proof: SparseRowEvalProof<EF>,
+}
+
+impl<F, EF, S, PCS> SparseRowEvalSnarksProof<F, EF, S, PCS>
+where
+    F: Field + Serialize,
+    EF: AbstractExtensionField<F> + Serialize,
+    S: Clone + Serialize,
+    PCS: PolynomialCommitmentScheme<F, EF, S> + Serialize,
+{
+    pub fn piop_proof_len(&self) -> usize {
+        bincode::serde::encode_to_vec(&self.indexed_lookup_proof, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&self.sparse_row_instance_info, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&self.piop_proof, standard())
+                .unwrap()
+                .len()
+    }
+
+    pub fn pcs_proof_len(&self) -> usize {
+        bincode::serde::encode_to_vec(&self.val_commitment, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&self.col_commitment, standard())
+                .unwrap()
+                .len()
+            + bincode::serde::encode_to_vec(&self.eval_mle_ry_commitment, standard())
+                .unwrap()
+                .len()
+    }
 }
 
 impl<F, EF, S, PCS> SparseRowEvalSnarks<F, EF, S, PCS>
@@ -93,7 +123,7 @@ where
         // Prove the eval_mle_ry = eq(to-bits(col), ry) using IndexedLogUpSnarks
         let indexed_lookup_trace = instance.extract_indexed_lookup_trace();
         let indexed_lookup_proof =
-            IndexedLogUpSnarks::prove_as_subprotocol(trans, &indexed_lookup_trace);
+            IndexedLogUpSnarks::<F, EF, S, PCS>::prove_as_subprotocol(trans, &indexed_lookup_trace);
         trans.append_message(
             b"[PIOP Phase] Proving E_ry is well formed",
             &indexed_lookup_proof,
@@ -122,8 +152,10 @@ where
         // trans.append_message(b"[Commit Phase]", &proof.col_commitment);
         // trans.append_message(b"[Commit Phase]", &proof.eval_mle_ry_commitment);
 
-        let res_lookup =
-            IndexedLogUpSnarks::verify_as_subprotocol(trans, &proof.indexed_lookup_proof);
+        let res_lookup = IndexedLogUpSnarks::<F, EF, S, PCS>::verify_as_subprotocol(
+            trans,
+            &proof.indexed_lookup_proof,
+        );
         trans.append_message(
             b"[PIOP Phase] Proving E_ry is well formed",
             &proof.indexed_lookup_proof,

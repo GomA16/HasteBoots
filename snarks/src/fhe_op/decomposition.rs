@@ -1,7 +1,7 @@
 use core::time;
 
 use algebra::{AbstractExtensionField, AsInto, DenseMultilinearExtension, Field};
-use bincode::de;
+use bincode::{config::standard, de};
 use helper::{FiatShamirTranscript, Transcript, utils::compute_oracle_evals};
 use log::info;
 use pcs::{PolynomialCommitmentScheme, utils::code};
@@ -42,19 +42,49 @@ pub struct DecompositionSnarksProof<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F>,
-    S: Clone,
+    S: Clone + Serialize,
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
     pub log_num_oracles: usize,
     pub basis: F,
     pub decomp_len: usize,
-    #[serde(skip)]
     pub input_params: PCS::Parameters,
-    #[serde(skip)]
     pub input_commitment: PCS::Commitment,
     pub lookup_proof: BatchedIndexedLogUpSnarksProof<F, EF, S, PCS>,
     pub inputs_eval: Vec<EF>,
     pub eval_proof: PCS::Proof,
+}
+
+impl<F, EF, S, PCS> DecompositionSnarksProof<F, EF, S, PCS>
+where
+    F: Field + Serialize,
+    EF: AbstractExtensionField<F> + Serialize,
+    S: Clone + Serialize,
+    PCS: PolynomialCommitmentScheme<
+            F,
+            EF,
+            S,
+            Polynomial = DenseMultilinearExtension<F>,
+            EFPolynomial = DenseMultilinearExtension<EF>,
+            Point = EF,
+        > + Serialize,
+{
+    pub fn piop_proof_len(&self) -> usize {
+        bincode::serde::encode_to_vec(&self.inputs_eval, standard())
+            .unwrap()
+            .len()
+            + self.lookup_proof.piop_proof_len()
+    }
+
+    pub fn pcs_proof_len(&self) -> usize {
+        bincode::serde::encode_to_vec(&self.eval_proof, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&self.input_commitment, standard())
+                .unwrap()
+                .len()
+            + self.lookup_proof.pcs_proof_len()
+    }
 }
 
 impl<'a, F, S> DecompositionParams<'a, F, S>
@@ -74,7 +104,7 @@ impl<F, EF, S, PCS> DecompositionSnarks<F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F> + Serialize,
-    S: Clone,
+    S: Clone + Serialize,
     PCS: PolynomialCommitmentScheme<
             F,
             EF,

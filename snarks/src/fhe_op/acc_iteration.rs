@@ -16,6 +16,7 @@
 use std::rc::Rc;
 
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field, MultilinearExtension};
+use bincode::config::standard;
 use helper::{FiatShamirTranscript, Transcript};
 use pcs::PolynomialCommitmentScheme;
 use piop::{
@@ -60,9 +61,31 @@ where
     pub permutation_infos: Vec<RowPermInfo<EF>>,
 }
 
+impl<F, EF, S, PCS> AccIterationSnarksProof<F, EF, S, PCS>
+where
+    F: Field + Serialize,
+    EF: AbstractExtensionField<F> + Serialize,
+    S: Clone + Serialize,
+    PCS: PolynomialCommitmentScheme<F, EF, S> + Serialize,
+{
+    pub fn piop_proof_len(&self) -> usize {
+        bincode::serde::encode_to_vec(&self.permutation_infos, standard())
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&self.permutation_proof, standard())
+                .unwrap()
+                .len()
+            + self.lookup_proof.piop_proof_len()
+    }
+
+    pub fn pcs_proof_len(&self) -> usize {
+        self.lookup_proof.pcs_proof_len()
+    }
+}
+
 impl<F, EF, S, PCS> AccIterationSnarks<F, EF, S, PCS>
 where
-    F: Field,
+    F: Field + Serialize,
     EF: AbstractExtensionField<F> + Serialize,
     S: Clone,
     PCS: PolynomialCommitmentScheme<
@@ -98,7 +121,7 @@ where
             .permutation_info
             .extract_indexed_lookup_trace(&kernel_rx.point);
 
-        AccIterationSnarks::prove_as_subprotocol(
+        AccIterationSnarks::<F, EF, S, PCS>::prove_as_subprotocol(
             trans,
             &trace_ef,
             &trace_eval,
@@ -116,7 +139,7 @@ where
         let point_rx = LagrangeKernel::random_point(trans, proof.log_num_rows);
         let point_ry = LagrangeKernel::random_point(trans, proof.log_num_cols);
 
-        AccIterationSnarks::verify_as_subprotocol(trans, proof)
+        AccIterationSnarks::<F, EF, S, PCS>::verify_as_subprotocol(trans, proof)
     }
 
     pub fn prove_as_subprotocol(
@@ -142,7 +165,8 @@ where
         // => A'(rx, ry) = sum_{k} P(rx, k) * A(k, ry)
 
         // Prove P(rx, k) = eq(rx, perm_inver(k))
-        let lookup_proof = IndexedLogUpSnarks::prove_as_subprotocol(trans, indexed_lookup_mle);
+        let lookup_proof =
+            IndexedLogUpSnarks::<F, EF, S, PCS>::prove_as_subprotocol(trans, indexed_lookup_mle);
 
         // Prove the permutation;
         let permutation_instances = RowPermInstance::from_subclaim(
@@ -172,7 +196,8 @@ where
     ) -> bool {
         let mut res = true;
 
-        let res_lookup = IndexedLogUpSnarks::verify_as_subprotocol(trans, &proof.lookup_proof);
+        let res_lookup =
+            IndexedLogUpSnarks::<F, EF, S, PCS>::verify_as_subprotocol(trans, &proof.lookup_proof);
         res &= res_lookup;
 
         let (piop_res, _piop_subclaim) =

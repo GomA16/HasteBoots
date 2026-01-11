@@ -106,14 +106,13 @@ where
 #[derive(Serialize)]
 pub struct BlindRotationProof<F, EF, S, PCS>
 where
-    F: Field,
+    F: Field + Serialize,
     EF: AbstractExtensionField<F>,
-    S: Clone,
-    PCS: PolynomialCommitmentScheme<F, EF, S>,
+    S: Clone + Serialize,
+    PCS: PolynomialCommitmentScheme<F, EF, S> + Serialize,
 {
     pub log_coeff_count: usize,
     pub log_num_oracle: usize,
-    // pub log_num_helper_poly: usize,
     pub pcs_params: PCS::Parameters,
     pub commitment: PCS::Commitment,
     pub sumcheck_poly_info: PolynomialInfo,
@@ -125,7 +124,6 @@ where
     pub acc_iteration_proof: AccIterationSnarksProof<F, EF, S, PCS>,
     pub decomp_proof: DecompositionSnarksProof<F, EF, S, PCS>,
 
-    #[serde(skip)]
     pub eval_proof: PCS::Proof,
     pub sparse_eval_proof: SparseRowEvalSnarksProof<F, EF, S, PCS>,
 
@@ -136,9 +134,9 @@ where
 
 impl<F, EF, S, PCS> BlindRotationProof<F, EF, S, PCS>
 where
-    F: Field,
+    F: Field + Serialize,
     EF: AbstractExtensionField<F> + Serialize,
-    S: Clone,
+    S: Clone + Serialize,
     PCS: PolynomialCommitmentScheme<
             F,
             EF,
@@ -146,10 +144,10 @@ where
             Polynomial = DenseMultilinearExtension<F>,
             EFPolynomial = DenseMultilinearExtension<EF>,
             Point = EF,
-        >,
+        > + Serialize,
 {
     pub fn piop_proof_len(&self) -> usize {
-        bincode::serde::encode_to_vec(self.sumcheck_poly_info, standard())
+        bincode::serde::encode_to_vec(&self.sumcheck_poly_info, standard())
             .unwrap()
             .len()
             + bincode::serde::encode_to_vec(&self.sumcheck_proof, standard())
@@ -167,27 +165,29 @@ where
             + bincode::serde::encode_to_vec(&self.ntt_proof, standard())
                 .unwrap()
                 .len()
-            + bincode::serde::encode_to_vec(&self.trace_evals, standard())
-                .unwrap()
-                .len()
+            + self.acc_iteration_proof.piop_proof_len()
+            + self.decomp_proof.piop_proof_len()
+            + self.sparse_eval_proof.piop_proof_len()
     }
 
     pub fn pcs_proof_len(&self) -> usize {
-        let mut len = 0;
-        len += bincode::serde::encode_to_vec(&self.eval_proof, standard())
-            .unwrap()
-            .len();
-        len + bincode::serde::encode_to_vec(&self.commitment, standard())
+        bincode::serde::encode_to_vec(&self.eval_proof, standard())
             .unwrap()
             .len()
+            + bincode::serde::encode_to_vec(&self.commitment, standard())
+                .unwrap()
+                .len()
+            + self.acc_iteration_proof.pcs_proof_len()
+            + self.decomp_proof.pcs_proof_len()
+            + self.sparse_eval_proof.pcs_proof_len()
     }
 }
 
 impl<F, EF, S, PCS> BlindRotationSnarks<F, EF, S, PCS>
 where
-    F: Field,
+    F: Field + Serialize,
     EF: AbstractExtensionField<F> + Serialize,
-    S: Clone,
+    S: Clone + Serialize,
     PCS: PolynomialCommitmentScheme<
             F,
             EF,
@@ -195,7 +195,7 @@ where
             Polynomial = DenseMultilinearExtension<F>,
             EFPolynomial = DenseMultilinearExtension<EF>,
             Point = EF,
-        >,
+        > + Serialize,
 {
     pub fn prove(
         &self,
@@ -364,7 +364,7 @@ where
             .acc_trace
             .permutation_info
             .extract_indexed_lookup_trace(&point_v);
-        let acc_iteration_proof = AccIterationSnarks::prove_as_subprotocol(
+        let acc_iteration_proof = AccIterationSnarks::<F, EF, S, PCS>::prove_as_subprotocol(
             trans,
             &blind_rotation_trace_ef,
             &trace_evals,
@@ -515,8 +515,10 @@ where
 
         // [PIOP Phase] Verify the correctness of Accumulator Iteration Structure
         let piop_acc_iteration_time = std::time::Instant::now();
-        let acc_iteration_res =
-            AccIterationSnarks::verify_as_subprotocol(trans, &proof.acc_iteration_proof);
+        let acc_iteration_res = AccIterationSnarks::<F, EF, S, PCS>::verify_as_subprotocol(
+            trans,
+            &proof.acc_iteration_proof,
+        );
         res &= acc_iteration_res;
         assert!(res, "Acc Iteration verification failed.");
         info!(

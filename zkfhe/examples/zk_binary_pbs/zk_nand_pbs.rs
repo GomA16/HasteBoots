@@ -10,11 +10,9 @@ use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
 use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks};
-use snarks::fhe_op::external_product::{ExternalProductParams, ExternalProductSnarks};
-use snarks::fhe_op::key_switching::{self, KeySwitchingParams, KeySwitchingSnarks};
+use snarks::fhe_op::key_switching::{KeySwitchingParams, KeySwitchingSnarks};
 use snarks::fhe_op::modulus_switching::{self, ModulusSwitchingSnarks};
 use snarks::fhe_op::row_permutation::RowPermutationSignedSnarks;
-use trace::BlindRotationTraceMLE;
 use trace::pbs_trace::PBSTrace;
 // use trace::HadamardProdTraceMLE;
 use zkfhe::bfhe::{
@@ -128,7 +126,6 @@ fn main() {
     );
 
     let key_switching_trace = key_switching_trace.into();
-    let key_switching_basis = 1 << params.key_switching_basis_bits() as usize;
     let key_switching_params = KeySwitchingParams::new(
         code_spec.clone(),
         key_switching_ntt_table,
@@ -200,29 +197,73 @@ fn main() {
 
     let mut verifier_trans = Transcript::default();
     let mut res = true;
+    let verifier_total_time = std::time::Instant::now();
+
+    let mut verifier_pcs_time = 0;
+    let mut verifier_piop_time = 0;
+    println!("[Verifier] Starting to check modulus switching.");
     let time = std::time::Instant::now();
     res &= snarks
         .modulus_switching
         .verify(&mut verifier_trans, &modulus_switching_proof);
+    println!(
+        "[Verifier] Modulus switching verification time: {:?}\n",
+        time.elapsed()
+    );
+
+    println!("[Verifier] Starting to check blind rotation.");
+    let time = std::time::Instant::now();
     res &= snarks
         .blind_rotation
         .verify(&mut verifier_trans, &blind_rotation_proof);
+    println!(
+        "[Verifier] Blind rotation verification time: {:?}\n",
+        time.elapsed()
+    );
+
+    println!("[Verifier] Starting to check key switching.");
+    let time = std::time::Instant::now();
     res &= snarks
         .key_switching
         .verify(&mut verifier_trans, &key_switching_proof);
+    println!(
+        "[Verifier] Key switching verification time: {:?}\n",
+        time.elapsed()
+    );
+
+    println!("[Verifier] Starting to check sample extraction.");
+    let time = std::time::Instant::now();
     res &= snarks
         .sample_extraction
         .verify(&mut verifier_trans, &sample_extraction_proof);
+    println!(
+        "[Verifier] Sample extraction verification time: {:?}\n",
+        time.elapsed()
+    );
+
     println!("Proofs verification done!\n");
 
-    println!("Proof verification time: {:?}\n", time.elapsed());
+    println!(
+        "Proof verification time: {:?}\n",
+        verifier_total_time.elapsed()
+    );
+
+    // ------------ Statistics --------------------
+    let piop_size = modulus_switching_proof.piop_proof_len()
+        + blind_rotation_proof.piop_proof_len()
+        + key_switching_proof.piop_proof_len()
+        + sample_extraction_proof.piop_proof_len();
+    let pcs_size = modulus_switching_proof.pcs_proof_len()
+        + blind_rotation_proof.pcs_proof_len()
+        + key_switching_proof.pcs_proof_len()
+        + sample_extraction_proof.pcs_proof_len();
     println!(
         "PIOP Proof Size: {} MB",
-        blind_rotation_proof.piop_proof_len() as f64 / (1000 * 1000) as f64
+        piop_size as f64 / (1000 * 1000) as f64
     );
     println!(
         "PCS Proof Size: {} MB",
-        blind_rotation_proof.pcs_proof_len() as f64 / (1000 * 1000) as f64
+        pcs_size as f64 / (1000 * 1000) as f64
     );
     assert!(res);
 }
