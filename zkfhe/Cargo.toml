@@ -59,6 +59,10 @@ name = "zk_nand_pbs"
 path = "examples/zk_binary_pbs/zk_nand_pbs.rs"
 
 [[example]]
+name = "zk_nand_pbs_64"
+path = "examples/zk_binary_pbs/zk_nand_pbs_64.rs"
+
+[[example]]
 name = "zk_blind_rotation"
 path = "examples/zk_nand_op/zk_blind_rotation.rs"
 

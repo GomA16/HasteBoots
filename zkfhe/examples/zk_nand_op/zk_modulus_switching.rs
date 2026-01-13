@@ -5,6 +5,7 @@ use helper::Transcript;
 use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
+use snarks::SnarkStatistics;
 use snarks::fhe_op::key_switching::{KeySwitchingParams, KeySwitchingSnarks};
 use snarks::fhe_op::modulus_switch::{ModulusSwitchingParams, ModulusSwitchingSnarks};
 use trace::basic_ops::SumHadamardTraceMLE;
@@ -82,15 +83,16 @@ fn main() {
         BrakedownPCS<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>,
     >::default();
 
+    let pcs_statistics = &mut Some(&mut SnarkStatistics::default());
     let mut prover_trans = Transcript::default();
     let time = std::time::Instant::now();
-    let proof = snarks.prove(&mut prover_trans, &trace, &params, &mut None);
+    let proof = snarks.prove(&mut prover_trans, &trace, &params, pcs_statistics);
     println!("Proofs generation done!\n");
     println!("Proof generation time: {:?}\n", time.elapsed());
 
     let mut verifier_trans = Transcript::default();
     let time = std::time::Instant::now();
-    let res = snarks.verify(&mut verifier_trans, &proof, &mut None);
+    let res = snarks.verify(&mut verifier_trans, &proof, pcs_statistics);
     println!("Proofs verification done!\n");
     println!("Proof verification time: {:?}\n", time.elapsed());
 

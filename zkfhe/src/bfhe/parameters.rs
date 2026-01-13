@@ -62,7 +62,7 @@ pub static BABYBEAR_BINARY_128_BITS_PARAMETERS: Lazy<Parameters<BabyBear>> = Laz
 /// Default 128-bits security Parameters
 pub static GOLDILOCKS_BINARY_128_BITS_PARAMETERS: Lazy<Parameters<Goldilocks>> = Lazy::new(|| {
     Parameters::<Goldilocks>::new(ConstParameters {
-        lwe_dimension: 512,
+        lwe_dimension: 1024,
         lwe_plain_modulus: 4,
         lwe_noise_standard_deviation: 3.20,
         lwe_secret_key_type: LWESecretKeyType::Binary,

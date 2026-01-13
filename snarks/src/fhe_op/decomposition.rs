@@ -300,7 +300,8 @@ where
             "Decomposition evaluation proof verification failed"
         );
         info!(
-            "[V]-[PCS] Decomposition evaluation proof verification in {:?}",
+            "[V]-[PCS] Verifying evaluation proof for a oracle of {} variables in {:?}",
+            point.len(),
             time.elapsed()
         );
         if let Some(stats) = statistics {

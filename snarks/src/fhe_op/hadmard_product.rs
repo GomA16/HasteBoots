@@ -173,7 +173,6 @@ where
         params: &HadamardProductParams<F, EF, S, PCS>,
         statistics: &mut Option<&mut crate::SnarkStatistics>,
     ) -> HadamardProductProof<F, EF, S, PCS> {
-        info!("[P] Start Blind Rotation Proof Generation...");
         // [Commit Phase] commit to the trace polynomial
         let bit_poly = trace_mle.generate_oracle();
         let pcs_commit_time = std::time::Instant::now();

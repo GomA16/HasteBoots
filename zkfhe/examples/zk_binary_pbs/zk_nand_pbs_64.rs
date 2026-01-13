@@ -22,8 +22,8 @@ use zkfhe::bfhe::{
 };
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
-type FF = BabyBear;
-type EF = BabyBearExetension;
+type FF = Goldilocks;
+type EF = GoldilocksExtension;
 type Hash = sha2::Sha256;
 const BASE_FIELD_BITS: usize = 64;
 
@@ -48,7 +48,7 @@ fn main() {
     let mut rng = rand::rng();
 
     // set parameter
-    let params = *BABYBEAR_BINARY_128_BITS_PARAMETERS;
+    let params = *GOLDILOCKS_BINARY_128_BITS_PARAMETERS;
     println!("Parameters: {params:#?}\n");
 
     let noise_max = (params.lwe_cipher_modulus_value() as f64 / 16.0).as_into();
@@ -298,7 +298,7 @@ fn main() {
     );
     println!(
         "PCS Proof Sizes: {} MB, accounts for {:.2}%",
-        (pcs_size) as f64 / (1000 * 1000) as f64,
+        (piop_size + pcs_size) as f64 / (1000 * 1000) as f64,
         pcs_size as f64 / (piop_size + pcs_size) as f64 * 100.0
     );
     println!(
