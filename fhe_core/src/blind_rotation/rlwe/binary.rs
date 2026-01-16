@@ -129,7 +129,6 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
 
             let lut = lut.as_mut_slice();
 
-            // TODO: Remove follow line
             polynomial_space.copy_from(&*lut);
             if neg_b < rlwe_dimension {
                 ntt_polynomial_space[neg_b] = F::one();
@@ -141,27 +140,6 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
             ntt_table.transform_slice(lut);
             ntt_mul_assign_fast(lut, ntt_polynomial_space);
             ntt_table.inverse_transform_slice(lut);
-
-            // TODO: Remove follow codes
-            #[cfg(test)]
-            {
-                if neg_b <= rlwe_dimension {
-                    polynomial_space.as_mut_slice().rotate_right(neg_b);
-                    polynomial_space[..neg_b]
-                        .iter_mut()
-                        .for_each(|v| *v = v.neg());
-                } else {
-                    let r = neg_b - rlwe_dimension;
-                    polynomial_space.as_mut_slice().rotate_right(r);
-                    polynomial_space[r..].iter_mut().for_each(|v| *v = v.neg());
-                }
-                assert_eq!(
-                    polynomial_space.as_slice(),
-                    &*lut,
-                    "111111111111111111111111"
-                );
-                println!("Sanity check for lut * X^-b passed.");
-            }
         }
 
         let acc = RLWE::new(Polynomial::zero(rlwe_dimension), lut);
@@ -202,20 +180,6 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
                 external_product.sub_assign_element_wise(&acc);
                 acc_trace.append_external_product_input(external_product.a_b_slice());
 
-                #[cfg(test)]
-                {
-                    let external_product2 = &mut RLWESpace::new(rlwe_dimension);
-                    acc.mul_monic_monomial_sub_one_inplace(
-                        rlwe_dimension,
-                        a_i.as_into(),
-                        external_product2,
-                    );
-                    assert_eq!(
-                        &**external_product, &**external_product2,
-                        "22222222222222222222"
-                    );
-                    println!("Sanity check for (X^a - 1) * ACC passed.");
-                }
 
                 // external_product = (X^{a_i} - 1) * ACC * RGSW(s_i)
                 external_product.mul_assign_ntt_rgsw_w_trace(

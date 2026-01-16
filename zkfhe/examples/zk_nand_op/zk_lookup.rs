@@ -1,16 +1,13 @@
-use core::time;
-
-use algebra::{AsInto, Field, FieldUniformSampler};
+use algebra::{AsInto, BabyBear, Field, FieldUniformSampler};
 use fhe_core::{DefaultFieldU32, utils::*};
 use helper::Transcript;
 use piop::lookup::normal_table::{LogUpIOP, LogUpInstance};
-use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInstance};
 use piop::{SumcheckInstance, SumcheckPIOP};
 use rand::Rng;
 use trace::basic_ops::SumHadamardTraceMLE;
 use trace::lookup_trace::normal_table::LookupWitness;
 // use trace::HadamardProdTraceMLE;
-use zkfhe::bfhe::{CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator};
+use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
 fn main() {
@@ -19,7 +16,7 @@ fn main() {
     let mut rng = rand::rng();
 
     // set parameter
-    let params = *CUSTOM_TERNARY_128_BITS_PARAMETERS;
+    let params = *BABYBEAR_BINARY_128_BITS_PARAMETERS;
     println!("Parameters: {params:?}\n");
 
     let noise_max = (params.lwe_cipher_modulus_value() as f64 / 16.0).as_into();
@@ -64,7 +61,7 @@ fn main() {
     // Generate SNARKs for nand
     println!("Starting verification of nand.\n");
     let blk_size = 1;
-    let randomness = DefaultFieldU32::random(&mut rng);
+    let randomness = BabyBear::random(&mut rng);
 
     let mut trace = trace.blind_rotation_trace;
     let trace = trace.hadamard_trace;

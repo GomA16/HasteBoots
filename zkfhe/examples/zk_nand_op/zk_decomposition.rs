@@ -17,7 +17,7 @@ use trace::BlindRotationTraceMLE;
 use trace::basic_ops::SumHadamardTraceMLE;
 use trace::lookup_trace::normal_table::LookupWitness;
 // use trace::HadamardProdTraceMLE;
-use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, BABYBEAR_CODE_SPEC, Evaluator};
+use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
 type FF = BabyBear;

@@ -6,11 +6,10 @@ use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
 use snarks::fhe_op::external_product::{ExternalProductParams, ExternalProductSnarks};
-use snarks::fhe_op::hadmard_product::{HadamardProductParams, HadamardProductSnarks};
 // use trace::HadamardProdTraceMLE;
 use trace::basic_ops::SumHadamardTraceMLE;
 use zkfhe::bfhe::{
-    BABYBEAR_BINARY_128_BITS_PARAMETERS, CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator,
+    BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator,
 };
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 

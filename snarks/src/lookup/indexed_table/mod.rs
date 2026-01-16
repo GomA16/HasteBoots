@@ -9,8 +9,6 @@
 pub mod indexed_batch;
 // pub mod indexed_table_pcs;
 
-use std::os::macos::raw::stat;
-
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 use bincode::config::standard;
 use helper::{FiatShamirTranscript, Transcript, utils::eval_identity_function};

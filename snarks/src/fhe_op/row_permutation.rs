@@ -6,7 +6,6 @@
 //! We use SparseRowEvalSnarks to prove the evaluation on the permutation matrix.
 //! The input and output matrices are committed in the main snarks protocol, so their
 //! evaluations can be directly verified.
-use std::{os::macos::raw::stat, rc::Rc};
 
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 use bincode::config::standard;

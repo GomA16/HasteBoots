@@ -98,6 +98,15 @@ impl<F: Field> MonomialTrace<F> {
         self.degree.push(degree);
         self.coefficient.push(coefficient);
     }
+
+    pub fn finalize(&mut self, num_poly: usize) {
+        if !num_poly.is_power_of_two() {
+            let num_zeros = (1 << self.log_num_poly) - num_poly;
+            self.degree.extend(vec![F::zero(); num_zeros]);
+            self.coefficient.extend(vec![F::zero(); num_zeros]);
+        }
+
+    }
 }
 
 impl<F: Field> PolynomialTrace<F> {

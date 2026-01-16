@@ -1,11 +1,11 @@
 use crate::basic_ops::decomp_trace::DecompTraceMLE;
-use crate::basic_ops::{RLWEEval, SumHadamardTrace, SumHadamardTraceEval, SumHadamardTraceMLE};
+use crate::basic_ops::{RLWEEval, RLWETrace, RLWETraceMLE, SumHadamardTrace, SumHadamardTraceEval, SumHadamardTraceMLE};
 use crate::cmp_trace::lt_trace::{LTTables, LTTablesMLE};
 use crate::{
-    AccTrace, AccTraceEval, AccTraceMLE, ConvertToEF, EvaluableTrace, EvaluableTraceEF,
-    PackableEval, PackableTrace,
+    AccTrace, AccTraceEval, AccTraceMLE, ConvertToEF, EvaluableTrace, EvaluableTraceEF, PackableEval, PackableTrace, SeparatelyPackableEval, SeparatelyPackableTrace
 };
 use algebra::{AbstractExtensionField, AsInto, Basis, DenseMultilinearExtension, Field};
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator};
 use serde::Serialize;
 
 pub struct BlindRotationParams {
@@ -29,8 +29,6 @@ pub struct BlindRotationTrace<F: Field> {
     pub acc_trace: AccTrace<F>,
     pub hadamard_trace: SumHadamardTrace<F>,
     pub tables: LTTables<F>,
-    // pub ks_hadamard_trace: SumHadamardTrace<F>,
-    // pub params: PBSParameters,
 }
 
 pub struct BlindRotationTraceMLE<F: Field> {
@@ -39,7 +37,6 @@ pub struct BlindRotationTraceMLE<F: Field> {
     pub acc_trace: AccTraceMLE<F>,
     pub hadamard_trace: SumHadamardTraceMLE<F>,
     pub lt_tables: LTTablesMLE<F>,
-    // pub params: PBSParameters,
 }
 
 #[derive(Serialize, Default)]
@@ -77,7 +74,6 @@ impl<F: Field> From<BlindRotationTrace<F>> for BlindRotationTraceMLE<F> {
             acc_trace: AccTraceMLE::from(trace.acc_trace),
             hadamard_trace: SumHadamardTraceMLE::from(trace.hadamard_trace),
             lt_tables: LTTablesMLE::from(trace.tables),
-            // params: trace.params,
         }
     }
 }
@@ -131,6 +127,33 @@ impl<F: Field> PackableTrace<F> for BlindRotationTrace<F> {
     }
 }
 
+impl<F: Field> SeparatelyPackableTrace<F> for BlindRotationTrace<F> {
+
+    #[inline]
+    fn num_bit_oracles(&self) -> usize {
+        self.hadamard_trace.num_bit_oracles() + self.acc_trace.num_oracles()
+    }
+
+    #[inline]
+    fn num_key_oracles(&self) -> usize {
+        self.hadamard_trace.num_key_oracles()
+    }
+
+    #[inline]
+    fn pack_bit_to_vec(&self) -> Vec<F> {
+        self.hadamard_trace
+            .pack_bit_to_vec()
+            .into_iter()
+            .chain(self.acc_trace.pack_to_vec().into_iter())
+            .collect()
+    }
+
+    #[inline]
+    fn pack_key_to_vec(&self) -> Vec<F> {
+        self.hadamard_trace.pack_key_to_vec()
+    }
+}
+
 impl<F: Field> PackableEval<F> for BlindRotationTraceEval<F> {
     #[inline]
     fn num_evals(&self) -> usize {
@@ -158,6 +181,32 @@ impl<F: Field> PackableEval<F> for BlindRotationTraceEval<F> {
     #[inline]
     fn pack_to_vec(&self) -> Vec<F> {
         unimplemented!()
+    }
+}
+
+impl<F: Field> SeparatelyPackableEval<F> for BlindRotationTraceEval<F> {
+    #[inline]
+    fn num_bit_evals(&self) -> usize {
+        self.hadamard_trace.num_bit_evals() + self.acc_trace.num_evals()
+    }
+
+    #[inline]
+    fn num_key_evals(&self) -> usize {
+        self.hadamard_trace.num_key_evals()
+    }
+
+    #[inline]
+    fn pack_bit_ntt_to_vec(&self) -> Vec<F> {
+        self.hadamard_trace
+            .pack_bit_ntt_to_vec()
+            .into_iter()
+            .chain(self.acc_trace.pack_ntt_to_vec().into_iter())
+            .collect()
+    }
+
+    #[inline]
+    fn pack_key_ntt_to_vec(&self) -> Vec<F> {
+        self.hadamard_trace.pack_key_ntt_to_vec()
     }
 }
 

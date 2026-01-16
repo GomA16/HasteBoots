@@ -220,6 +220,8 @@ where
         );
 
         // [Commit Phase] Commit to the helper polynomials
+        // TODO: optimize it. 
+        // We can batch multiple lookups into one helper function, which is implemented in undexed lookup right now.
         let helper_poly = helper.generate_oracle();
         let commit_time = std::time::Instant::now();
         let (helper_commitment, helper_commitment_state) =

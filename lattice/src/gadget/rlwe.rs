@@ -432,7 +432,7 @@ impl<F: NTTField> NTTGadgetRLWE<F> {
         // Output destination
         destination: &mut NTTRLWE<F>,
         // Trace
-        trace: &mut SumHadamardTrace<F>,
+        sum_trace: &mut SumHadamardTrace<F>,
     ) {
         let coeff_count = polynomial.coeff_count();
         debug_assert!(coeff_count.is_power_of_two());
@@ -442,10 +442,11 @@ impl<F: NTTField> NTTGadgetRLWE<F> {
 
         destination.set_zero();
 
+        let mut approximate_cnt = 0;
         self.iter().enumerate().for_each(|(i, g_rlwe)| {
             polynomial_space.decompose_lsb_bits_inplace(self.basis, decompose_space.as_mut_slice());
 
-            let trace = trace.get_trace_mul(i);
+            let trace = sum_trace.get_trace_mul(i);
             trace.append_bit_poly(decompose_space.as_slice());
 
             ntt_table.transform_slice(decompose_space.as_mut_slice());

@@ -1,3 +1,4 @@
+use std::iter::Sum;
 use std::rc::Rc;
 
 use algebra::AsInto;
@@ -15,7 +16,7 @@ use crate::cmp_trace::lt_trace::{LTTables, LTTablesMLE};
 use crate::lookup_trace::indexed_table::IndexedLookupTraceMLE;
 use crate::lookup_trace::normal_table::LookupTraceMLE as LookupTraceMLENormalTable;
 use crate::lookup_trace::small_table::LookupTraceMLE as LookupTraceMLESmallTable;
-use crate::{ConvertToEF, EvaluableTrace, EvaluableTraceEF, PackableEval, PackableTrace};
+use crate::{ConvertToEF, EvaluableTrace, EvaluableTraceEF, PackableEval, PackableTrace, SeparatelyPackableEval, SeparatelyPackableTrace};
 
 /// Store the traces of the multiplication between a bit polynomial and an RLWE ciphertext
 #[derive(Clone)]
@@ -39,6 +40,7 @@ pub struct SumHadamardTrace<F: Field> {
     pub sum_prod: RLWETrace<F>,
 }
 
+#[derive(Clone)]
 pub struct HadamardTraceMLE<F: Field> {
     pub log_coeff_count: usize,
     pub log_num_poly: usize,
@@ -394,18 +396,6 @@ impl<F: Field> SumHadamardTrace<F> {
         }
         self.sum_prod.finalize(num_round);
     }
-
-    #[inline]
-    pub fn num_bit_poly(&self) -> usize {
-        self.num_hadamard
-    }
-
-    #[inline]
-    pub fn log_num_helper_poly(&self, blk_size: usize) -> usize {
-        let num_lookup = self.num_bit_poly();
-        let num_helper = (num_lookup + blk_size - 1) / blk_size;
-        num_helper.next_power_of_two().trailing_zeros() as usize
-    }
 }
 
 impl<F: Field> SumHadamardTraceMLE<F> {
@@ -524,6 +514,25 @@ impl<F: Field> PackableTrace<F> for HadamardTrace<F> {
     }
 }
 
+impl<F: Field> SeparatelyPackableTrace<F> for HadamardTrace<F> {
+
+    fn num_bit_oracles(&self) -> usize {
+        1
+    }
+
+    fn num_key_oracles(&self) -> usize {
+        2
+    }
+
+    fn pack_bit_to_vec(&self) -> Vec<F> {
+        self.bit.pack_to_vec()
+    }
+
+    fn pack_key_to_vec(&self) -> Vec<F> {
+        self.rlwe.pack_to_vec()
+    }
+}
+
 impl<F: Field> PackableEval<F> for HadamardTraceEval<F> {
     #[inline]
     fn num_evals(&self) -> usize {
@@ -547,10 +556,27 @@ impl<F: Field> PackableEval<F> for HadamardTraceEval<F> {
             .chain(self.rlwe.pack_poly_to_vec().into_iter())
             .collect()
     }
+}
+
+impl<F: Field> SeparatelyPackableEval<F> for HadamardTraceEval<F> {
+    #[inline]
+    fn num_bit_evals(&self) -> usize {
+        1
+    }
 
     #[inline]
-    fn pack_to_vec(&self) -> Vec<F> {
-        unimplemented!()
+    fn num_key_evals(&self) -> usize {
+        2
+    }
+
+    #[inline]
+    fn pack_bit_ntt_to_vec(&self) -> Vec<F> {
+        self.bit.pack_ntt_to_vec()
+    }
+
+    #[inline]
+    fn pack_key_ntt_to_vec(&self) -> Vec<F> {
+        self.rlwe.pack_ntt_to_vec()
     }
 }
 
@@ -592,6 +618,32 @@ impl<F: Field> PackableTrace<F> for SumHadamardTrace<F> {
     }
 }
 
+impl<F: Field> SeparatelyPackableTrace<F> for SumHadamardTrace<F> {
+
+    fn num_bit_oracles(&self) -> usize {
+        self.num_hadamard * self.vec_hadamard[0].num_bit_oracles() + self.sum_prod.num_oracles()
+    }
+
+    fn num_key_oracles(&self) -> usize {
+        self.num_hadamard * self.vec_hadamard[0].num_key_oracles()
+    }
+
+    fn pack_bit_to_vec(&self) -> Vec<F> {
+        self.vec_hadamard
+            .iter()
+            .flat_map(|trace| trace.pack_bit_to_vec().into_iter())
+            .chain(self.sum_prod.pack_to_vec().into_iter())
+            .collect()
+    }
+
+    fn pack_key_to_vec(&self) -> Vec<F> {
+        self.vec_hadamard
+            .iter()
+            .flat_map(|trace| trace.pack_key_to_vec().into_iter())
+            .collect()
+    }
+}
+
 impl<F: Field> PackableEval<F> for SumHadamardTraceEval<F> {
     #[inline]
     fn num_evals(&self) -> usize {
@@ -615,9 +667,33 @@ impl<F: Field> PackableEval<F> for SumHadamardTraceEval<F> {
             .chain(self.sum_prod.pack_poly_to_vec().into_iter())
             .collect()
     }
+}
+
+impl<F: Field> SeparatelyPackableEval<F> for SumHadamardTraceEval<F> {
+    #[inline]
+    fn num_bit_evals(&self) -> usize {
+        self.vec_hadamard[0].num_bit_evals() * self.vec_hadamard.len() + self.sum_prod.num_evals()
+    }
 
     #[inline]
-    fn pack_to_vec(&self) -> Vec<F> {
-        unimplemented!()
+    fn num_key_evals(&self) -> usize {
+        self.vec_hadamard[0].num_key_evals() * self.vec_hadamard.len()
+    }
+
+    #[inline]
+    fn pack_bit_ntt_to_vec(&self) -> Vec<F> {
+        self.vec_hadamard
+            .iter()
+            .flat_map(|trace| trace.pack_bit_ntt_to_vec().into_iter())
+            .chain(self.sum_prod.pack_ntt_to_vec().into_iter())
+            .collect()
+    }
+
+    #[inline]
+    fn pack_key_ntt_to_vec(&self) -> Vec<F> {
+        self.vec_hadamard
+            .iter()
+            .flat_map(|trace| trace.pack_key_ntt_to_vec().into_iter())
+            .collect()
     }
 }

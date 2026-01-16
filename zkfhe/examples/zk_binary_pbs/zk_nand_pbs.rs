@@ -9,17 +9,15 @@ use pcs::PolynomialCommitmentScheme;
 use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
+use sha2::digest::crypto_common::Key;
 use snarks::SnarkStatistics;
-use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks};
+use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks, KeyCommitment};
 use snarks::fhe_op::key_switching::{KeySwitchingParams, KeySwitchingSnarks};
 use snarks::fhe_op::modulus_switch::{self, ModulusSwitchingSnarks};
 use snarks::fhe_op::row_permutation::RowPermutationSignedSnarks;
 use trace::pbs_trace::PBSTrace;
 // use trace::HadamardProdTraceMLE;
-use zkfhe::bfhe::{
-    BABYBEAR_BINARY_128_BITS_PARAMETERS, CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator,
-    GOLDILOCKS_BINARY_128_BITS_PARAMETERS,
-};
+use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator, ZAMA_GOLDILOCKS_PARAMETERS};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
 type FF = BabyBear;
@@ -106,7 +104,6 @@ fn main() {
         sample_extraction_trace,
     } = trace;
 
-    blind_rotation_trace.finalize(params.lwe_dimension());
     let blind_rotation_ntt_table = FF::get_ntt_table(blind_rotation_trace.log_coeff_count as u32)
         .unwrap()
         .root_powers();
@@ -116,14 +113,12 @@ fn main() {
 
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
 
-    let blk_size = 3;
-    let blind_rotation_basis = params.blind_rotation_basis().basis() as usize;
+    let bs_key_commitment = KeyCommitment::new(&code_spec, &blind_rotation_trace);
     let blind_rotation_params = BlindRotationParams::new(
         code_spec.clone(),
         blind_rotation_ntt_table,
-        blk_size,
-        blind_rotation_basis,
         &blind_rotation_trace,
+        &bs_key_commitment,
     );
 
     let key_switching_trace = key_switching_trace.into();
@@ -294,16 +289,16 @@ fn main() {
         + sample_extraction_proof.pcs_proof_len();
     println!(
         "Proof Sizes: {} MB total",
-        (piop_size + pcs_size) as f64 / (1000 * 1000) as f64
+        (piop_size + pcs_size) as f64 / (1024 * 1024) as f64
     );
     println!(
         "PCS Proof Sizes: {} MB, accounts for {:.2}%",
-        (pcs_size) as f64 / (1000 * 1000) as f64,
+        (pcs_size) as f64 / (1024 * 1024) as f64,
         pcs_size as f64 / (piop_size + pcs_size) as f64 * 100.0
     );
     println!(
         "PIOP Proof Sizes: {} MB",
-        piop_size as f64 / (1000 * 1000) as f64,
+        piop_size as f64 / (1024 * 1024) as f64,
     );
 }
 

@@ -5,11 +5,11 @@ use helper::Transcript;
 use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
-use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks};
+use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks, KeyCommitment};
 use trace::BlindRotationTraceMLE;
 // use trace::HadamardProdTraceMLE;
 use zkfhe::bfhe::{
-    BABYBEAR_BINARY_128_BITS_PARAMETERS, CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator,
+    BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator,
 };
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
@@ -66,20 +66,20 @@ fn main() {
     assert_eq!(m, nand(a, b), "Noise: {noise}");
     check_noise(noise, "nand");
 
+
     // Generate SNARKs for nand
     println!("");
     println!("Starting verification of nand.\n");
 
     let mut trace = trace.blind_rotation_trace;
-    trace.finalize(params.lwe_dimension());
     // let trace_mle: PBSTraceMLE<_> = trace.into();
     let ntt_table = FF::get_ntt_table(trace.log_coeff_count as u32)
         .unwrap()
         .root_powers();
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
-    let blk_size = 3;
-    let basis = params.blind_rotation_basis().basis() as usize;
-    let params = BlindRotationParams::new(code_spec, ntt_table, blk_size, basis, &trace);
+
+    let key_commitment = KeyCommitment::new(&code_spec, &trace);
+    let params = BlindRotationParams::new(code_spec, ntt_table, &trace, &key_commitment);
     let snarks = BlindRotationSnarks::<
         FF,
         EF,

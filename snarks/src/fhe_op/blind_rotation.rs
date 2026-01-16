@@ -22,13 +22,14 @@ use piop::sparse_matrix_eval::sparse_row::SparseRowEvalInstance;
 use piop::{BatchedSumcheckPIOP, LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance};
 use serde::Serialize;
 use sumcheck::{MLSumcheck, Proof};
-use trace::PackableEval;
 use trace::blind_rotation_trace::BlindRotationTraceEval;
 use trace::{
     BlindRotationTrace, BlindRotationTraceMLE, ConvertToEF, EvaluableTraceEF, PackableTrace,
 };
+use trace::{PackableEval, SeparatelyPackableEval, SeparatelyPackableTrace, blind_rotation_trace};
 
 use crate::fhe_op::acc_iteration::{AccIterationSnarks, AccIterationSnarksProof};
+use crate::fhe_op::blind_rotation;
 use crate::fhe_op::decomposition::{
     DecompositionParams, DecompositionSnarks, DecompositionSnarksProof,
 };
@@ -49,7 +50,7 @@ where
     _marker_pcs: std::marker::PhantomData<PCS>,
 }
 
-pub struct BlindRotationParams<F, EF, S, PCS>
+pub struct BlindRotationParams<'a, F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F>,
@@ -57,15 +58,56 @@ where
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
     pub code_spec: S,
-    pub blk_size: usize,
-    // basis is the range size of the lookup table
-    pub basis: usize,
     pub pcs_params: PCS::Parameters,
-    pub pcs_params_ef: PCS::Parameters,
+    pub key_commit: &'a KeyCommitment<F, EF, S, PCS>,
     pub ntt_table: Rc<Vec<EF>>,
 }
 
-impl<F, EF, S, PCS> BlindRotationParams<F, EF, S, PCS>
+pub struct KeyCommitment<F, EF, S, PCS>
+where
+    F: Field,
+    EF: AbstractExtensionField<F>,
+    S: Clone,
+    PCS: PolynomialCommitmentScheme<F, EF, S>,
+{
+    pub commitment: PCS::Commitment,
+    pub commitment_state: PCS::CommitmentState,
+    pub params: PCS::Parameters,
+    pub poly: Rc<DenseMultilinearExtension<EF>>,
+}
+
+impl<F, EF, S, PCS> KeyCommitment<F, EF, S, PCS>
+where
+    F: Field,
+    EF: AbstractExtensionField<F>,
+    S: Clone,
+    PCS: PolynomialCommitmentScheme<F, EF, S, Polynomial = DenseMultilinearExtension<F>>,
+{
+    pub fn new(code_spec: &S, trace: &BlindRotationTrace<F>) -> Self {
+        let num_vars = trace.num_vars() + trace.log_num_key_oracles();
+        info!(
+            "[Preprocessing] Commit to a key oracle of {} variables",
+            num_vars
+        );
+        let time = std::time::Instant::now();
+        let params = PCS::setup(num_vars, Some(code_spec));
+        let poly = trace.generate_key_oracle();
+        let (commitment, commitment_state) = PCS::commit(&params, &poly);
+        let poly = Rc::new(poly.to_ef());
+        info!(
+            "[Preprocessing] Key Commitment done in {:?}",
+            time.elapsed()
+        );
+        KeyCommitment {
+            commitment,
+            commitment_state,
+            params,
+            poly,
+        }
+    }
+}
+
+impl<'a, F, EF, S, PCS> BlindRotationParams<'a, F, EF, S, PCS>
 where
     F: Field,
     EF: AbstractExtensionField<F>,
@@ -75,21 +117,16 @@ where
     pub fn new(
         code_spec: S,
         ntt_table: Vec<F>,
-        blk_size: usize,
-        basis: usize,
         trace: &BlindRotationTrace<F>,
+        key_commit: &'a KeyCommitment<F, EF, S, PCS>,
     ) -> Self {
-        let oracle_num_vars = trace.num_vars() + trace.log_num_oracles();
+        let oracle_num_vars = trace.num_vars() + trace.log_num_bit_oracles();
         let pcs_params = PCS::setup(oracle_num_vars, Some(&code_spec));
-        let helper_num_vars = trace.num_vars() + trace.hadamard_trace.log_num_helper_poly(blk_size);
-        let pcs_params_ef = PCS::setup(helper_num_vars, Some(&code_spec));
 
         BlindRotationParams {
             code_spec,
-            blk_size,
-            basis,
             pcs_params,
-            pcs_params_ef,
+            key_commit,
             ntt_table: Rc::new(ntt_table.to_ef()),
         }
     }
@@ -104,7 +141,8 @@ where
     PCS: PolynomialCommitmentScheme<F, EF, S> + Serialize,
 {
     pub log_coeff_count: usize,
-    pub log_num_oracle: usize,
+    pub log_num_bit_oracle: usize,
+    pub log_num_key_oracle: usize,
     pub pcs_params: PCS::Parameters,
     pub commitment: PCS::Commitment,
     pub sumcheck_poly_info: PolynomialInfo,
@@ -117,11 +155,14 @@ where
     pub decomp_proof: DecompositionSnarksProof<F, EF, S, PCS>,
 
     pub eval_proof: PCS::Proof,
+    pub eval_proof_key: PCS::Proof,
     pub sparse_eval_proof: SparseRowEvalSnarksProof<F, EF, S, PCS>,
 
     // Redudant fields for ease of implementation
     #[serde(skip)]
     pub trace_evals: BlindRotationTraceEval<EF>,
+    pub key_pcs_params: PCS::Parameters,
+    pub key_commitment: PCS::Commitment,
 }
 
 impl<F, EF, S, PCS> BlindRotationProof<F, EF, S, PCS>
@@ -198,13 +239,14 @@ where
     ) -> BlindRotationProof<F, EF, S, PCS> {
         info!("[P] Start Blind Rotation Proof Generation...");
         // [Commit Phase] commit to the trace polynomial
-        let bit_poly = blind_rotation_trace.generate_oracle();
+        let bit_poly = blind_rotation_trace.generate_bit_oracle();
         let blind_rotation_trace_mle = BlindRotationTraceMLE::from(blind_rotation_trace);
         let pcs_commit_time = std::time::Instant::now();
         let (commitment, commitment_state) = PCS::commit(&params.pcs_params, &bit_poly);
         trans.append_message(b"[Commit Phase]", &commitment);
         info!(
-            "[P]-[PCS] Committing to a polynomial of {} variables in {:?}",
+            // These elements are doubly committed in snarks proving decompositon (batched indexed log-up)
+            "[P]-[PCS] (duplicated) Committing to a polynomial of {} variables in {:?}",
             bit_poly.num_vars(),
             pcs_commit_time.elapsed()
         );
@@ -289,10 +331,10 @@ where
         // parepare the NTT equality instance for normal polynomials used in Hadamard, where the coefficient matrix is dense
         let point_bit_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
-            blind_rotation_trace_mle.log_num_oracles(),
+            trace_evals.log_num_bit_evals(),
         );
         let bit_poly = Rc::new(bit_poly.to_ef());
-        let bit_ntt_evals = trace_evals.pack_ntt_to_vec();
+        let bit_ntt_evals = trace_evals.pack_bit_ntt_to_vec();
         let eval = compute_oracle_evals(&bit_ntt_evals, &point_bit_oracle);
 
         let mut point_v_prime = Vec::with_capacity(point_v.len() + point_bit_oracle.len());
@@ -305,9 +347,37 @@ where
             &point_v_prime,
             eval,
         );
+        // parepare the NTT equality instance for normal [key] polynomials used in Hadamard
+        let point_key_oracle = trans.get_vec_challenge(
+            b"[Challenge] random point used to verify evaluations",
+            trace_evals.log_num_key_evals(),
+        );
+        let key_poly = params.key_commit.poly.clone();
+        let key_ntt_evals = trace_evals.pack_key_ntt_to_vec();
+        let eval = compute_oracle_evals(&key_ntt_evals, &point_key_oracle);
+
+        let mut point_v_prime_key = Vec::with_capacity(point_v.len() + point_key_oracle.len());
+        point_v_prime_key.extend_from_slice(&point_v);
+        point_v_prime_key.extend_from_slice(&point_key_oracle);
+        let ntt_dense_instance_key = NTTMatrixEvalInstance::from_subclaim(
+            &key_poly,
+            &params.ntt_table,
+            &point_u,
+            &point_v_prime_key,
+            eval,
+        );
+
         // prove both NTT instances in one sumcheck protocol
-        let ntt_infos = vec![ntt_sparse_instance.info(), ntt_dense_instance.info()];
-        let ntt_instances = vec![ntt_sparse_instance, ntt_dense_instance];
+        let ntt_infos = vec![
+            ntt_sparse_instance.info(),
+            ntt_dense_instance.info(),
+            ntt_dense_instance_key.info(),
+        ];
+        let ntt_instances = vec![
+            ntt_sparse_instance,
+            ntt_dense_instance,
+            ntt_dense_instance_key,
+        ];
         let (ntt_proof, ntt_state) = NTTMatrixEvalIOP::prover_batch(trans, &ntt_instances);
         info!(
             "[P]-[PIOP] Proving NTT Equality in {:?}",
@@ -330,6 +400,27 @@ where
         info!(
             "[P]-[PCS] Generating evaluation proof for one point of {} variables in {:?}",
             open_point.len(),
+            pcs_poly_open_time.elapsed()
+        );
+        if let Some(stats) = statistics {
+            stats.add_prover_pcs_time(pcs_poly_open_time.elapsed());
+        }
+
+        let pcs_poly_open_time = std::time::Instant::now();
+        let mut open_point_key =
+            Vec::with_capacity(ntt_state.randomness.len() + point_v_prime_key.len());
+        open_point_key.extend_from_slice(&ntt_state.randomness);
+        open_point_key.extend_from_slice(&point_v_prime_key);
+        let eval_proof_key = PCS::open(
+            &params.key_commit.params,
+            &params.key_commit.commitment,
+            &params.key_commit.commitment_state,
+            &open_point_key,
+            trans,
+        );
+        info!(
+            "[P]-[PCS] Generating evaluation proof for one point of {} variables in {:?}",
+            open_point_key.len(),
             pcs_poly_open_time.elapsed()
         );
         if let Some(stats) = statistics {
@@ -393,7 +484,8 @@ where
 
         BlindRotationProof {
             log_coeff_count: blind_rotation_trace_mle.log_coeff_count,
-            log_num_oracle: blind_rotation_trace_mle.log_num_oracles(),
+            log_num_bit_oracle: trace_evals.log_num_bit_evals(),
+            log_num_key_oracle: trace_evals.log_num_key_evals(),
             pcs_params: params.pcs_params.clone(),
             commitment,
             sumcheck_poly_info: sumcheck_claim.poly.info(),
@@ -404,10 +496,13 @@ where
             ntt_proof,
             acc_iteration_proof,
             eval_proof,
+            eval_proof_key,
             sparse_eval_proof,
             decomp_proof,
 
             trace_evals,
+            key_pcs_params: params.key_commit.params.clone(),
+            key_commitment: params.key_commit.commitment.clone(),
         }
     }
 
@@ -464,10 +559,14 @@ where
         let mut point_v = sumcheck_subclaim.point[proof.log_coeff_count..].to_vec();
         let point_bit_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
-            proof.log_num_oracle,
+            proof.log_num_bit_oracle,
+        );
+        let point_key_oracle = trans.get_vec_challenge(
+            b"[Challenge] random point used to verify evaluations",
+            proof.log_num_key_oracle,
         );
 
-        point_v.extend_from_slice(&point_bit_oracle);
+        // point_v.extend_from_slice(&point_bit_oracle);
         let (ntt_res, ntt_subclaim) =
             NTTMatrixEvalIOP::verifier_batch(trans, &proof.ntt_infos, &proof.ntt_proof);
         let open_evals = &proof.ntt_proof.coeff_eval_at_r_v;
@@ -481,15 +580,44 @@ where
         // [PCS Phase] Verify the opening proof for the dense coeffcient matrix
         // evaluation `ntt_proof.coeff_eval_at_r_v[1]` at point_r_v_prime
         let pcs_poly_open_time = std::time::Instant::now();
-        let mut open_point = Vec::with_capacity(ntt_subclaim.randomness.len() + point_v.len());
+        let mut open_point = Vec::with_capacity(
+            ntt_subclaim.randomness.len() + point_v.len() + point_bit_oracle.len(),
+        );
         open_point.extend_from_slice(&ntt_subclaim.randomness);
         open_point.extend_from_slice(&point_v);
+        open_point.extend_from_slice(&point_bit_oracle);
         let eval_res = PCS::verify(
             &proof.pcs_params,
             &proof.commitment,
             &open_point,
             open_evals[1],
             &proof.eval_proof,
+            trans,
+        );
+        res &= eval_res;
+        assert!(res, "PCS Opening verification failed.");
+        info!(
+            "[V]-[PCS] Verifying evaluation proof for one point of {} variables in {:?}",
+            open_point.len(),
+            pcs_poly_open_time.elapsed()
+        );
+        if let Some(stats) = statistics {
+            stats.add_verifier_pcs_time(pcs_poly_open_time.elapsed());
+        }
+
+        let pcs_poly_open_time = std::time::Instant::now();
+        let mut open_point = Vec::with_capacity(
+            ntt_subclaim.randomness.len() + point_v.len() + point_key_oracle.len(),
+        );
+        open_point.extend_from_slice(&ntt_subclaim.randomness);
+        open_point.extend_from_slice(&point_v);
+        open_point.extend_from_slice(&point_key_oracle);
+        let eval_res = PCS::verify(
+            &proof.key_pcs_params,
+            &proof.key_commitment,
+            &open_point,
+            open_evals[2],
+            &proof.eval_proof_key,
             trans,
         );
         res &= eval_res;

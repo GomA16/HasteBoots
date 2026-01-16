@@ -11,7 +11,7 @@ use snarks::fhe_op::monomial_hadamard::{MonomialHadamardParams, MonomialHadamard
 use trace::{AccTraceMLE, ConvertToEF};
 // use trace::HadamardProdTraceMLE;
 use zkfhe::bfhe::{
-    BABYBEAR_BINARY_128_BITS_PARAMETERS, CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator,
+    BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator,
 };
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 

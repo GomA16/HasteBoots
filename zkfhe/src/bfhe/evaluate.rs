@@ -1,4 +1,4 @@
-use algebra::{NTTField, Polynomial};
+use algebra::{Basis, NTTField, Polynomial};
 use fhe_core::{
     KeySwitchingKeyEnum, KeySwitchingRLWEKey, LWECiphertext, Parameters, RLWEBlindRotationKey,
     SecretKeyPack, lwe_modulus_switch, lwe_modulus_switch_w_trace,
@@ -78,13 +78,14 @@ impl<Q: NTTField> EvaluationKey<Q> {
 
         let lt_general_tables = LTTables::<Q>::new(&parameters.blind_rotation_basis(), None);
 
-        let blind_rotation_trace = BlindRotationTrace {
+        let mut blind_rotation_trace = BlindRotationTrace {
             log_coeff_count,
             log_num_round,
             acc_trace,
             hadamard_trace,
             tables: lt_general_tables,
         };
+        blind_rotation_trace.finalize(parameters.lwe_dimension());
         // -- End --
 
         acc.b_mut()[0] += Q::new(Q::MODULUS_VALUE >> 3u32);
@@ -113,6 +114,8 @@ impl<Q: NTTField> EvaluationKey<Q> {
             &mut permutation_trace,
         );
 
+        let ks_basis = Basis::new(parameters.key_switching_basis_bits());
+        let ks_lt_tables = LTTables::<Q>::new(&ks_basis, None);
         let key_switching_trace = KeySwitchingTrace {
             log_lwe_dim: ks_log_coeff_count,
             log_rlwe_dim: log_coeff_count,
@@ -120,7 +123,7 @@ impl<Q: NTTField> EvaluationKey<Q> {
             hadamard_trace: ks_hadamard_trace,
             permutation_trace,
             decomposed_polys,
-            lt_tables: blind_rotation_trace.tables.clone(),
+            lt_tables: ks_lt_tables,
         };
         // -- End --
 

@@ -10,7 +10,7 @@ use snarks::fhe_op::row_permutation::RowPermutationSignedSnarks;
 use trace::basic_ops::{RowPermTraceMLE, SumHadamardTraceMLE};
 use trace::key_switching_trace::KeySwitchingTraceMLE;
 use zkfhe::bfhe::{
-    BABYBEAR_BINARY_128_BITS_PARAMETERS, CUSTOM_TERNARY_128_BITS_PARAMETERS, Evaluator,
+    BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator,
 };
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 

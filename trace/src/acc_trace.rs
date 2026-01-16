@@ -181,6 +181,7 @@ impl<F: Field> AccTrace<F> {
         self.input_acc_permuted.finalize(num_round);
         self.monomial_times_acc.finalize(num_round);
         self.external_product_input.finalize(num_round);
+        self.monomial_representation.finalize(num_round);
         self.permutation_info =
             PermutationInfo::new_rotation_left(self.log_num_round, num_round, 1);
     }

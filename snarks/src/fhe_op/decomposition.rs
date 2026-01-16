@@ -147,7 +147,7 @@ where
         let (input_commitment, input_comm_state) = PCS::commit(&input_params, &poly);
         trans.append_message(b"[Commit Phase]", &input_commitment);
         info!(
-            "[P]-[PCS] Committing to a polynomial of {} variables in {:?}",
+            "[P]-[PCS] (duplicated) Committing to a polynomial of {} variables in {:?}",
             poly.num_vars(),
             commit_time.elapsed()
         );
