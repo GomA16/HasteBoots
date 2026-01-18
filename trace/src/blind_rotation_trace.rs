@@ -4,7 +4,7 @@ use crate::cmp_trace::lt_trace::{LTTables, LTTablesMLE};
 use crate::{
     AccTrace, AccTraceEval, AccTraceMLE, ConvertToEF, EvaluableTrace, EvaluableTraceEF, PackableEval, PackableTrace, SeparatelyPackableEval, SeparatelyPackableTrace
 };
-use algebra::{AbstractExtensionField, AsInto, Basis, DenseMultilinearExtension, Field};
+use algebra::{AbstractExtensionField, AsInto, Basis, DenseMultilinearExtension, Field, NTTField};
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator};
 use serde::Serialize;
 
@@ -23,6 +23,7 @@ pub struct BlindRotationParams {
     pub basis: usize,
 }
 
+#[derive(Clone)]
 pub struct BlindRotationTrace<F: Field> {
     pub log_coeff_count: usize,
     pub log_num_round: usize,
@@ -78,10 +79,31 @@ impl<F: Field> From<BlindRotationTrace<F>> for BlindRotationTraceMLE<F> {
     }
 }
 
-impl<F: Field> BlindRotationTrace<F> {
+impl<F: NTTField> BlindRotationTrace<F> {
     pub fn finalize(&mut self, num_round: usize) {
         self.acc_trace.finalize(num_round);
         self.hadamard_trace.finalize(num_round);
+    }
+
+    // Aggregate multiple traces into one trace
+    pub fn from_batch_trace(traces: &Vec<BlindRotationTrace<F>>, num_each_poly: usize) -> Self {
+        let log_coeff_count = traces[0].log_coeff_count;
+        let num_polys = num_each_poly * traces.len();
+        let log_num_poly = num_polys.next_power_of_two().trailing_zeros() as usize;
+
+        let mut new_trace = Self {
+            log_coeff_count,
+            log_num_round: log_num_poly,
+            acc_trace: AccTrace::new(log_coeff_count, log_num_poly),
+            hadamard_trace: SumHadamardTrace::new(traces[0].hadamard_trace.num_hadamard, log_coeff_count, log_num_poly),
+            tables: traces[0].tables.clone(),
+        };
+
+        for trace in traces.iter() {
+            new_trace.acc_trace.append_trace(&trace.acc_trace);
+            new_trace.hadamard_trace.append_trace(&trace.hadamard_trace);
+        }
+        new_trace
     }
 }
 
@@ -154,6 +176,28 @@ impl<F: Field> SeparatelyPackableTrace<F> for BlindRotationTrace<F> {
     }
 }
 
+impl<F: Field> PackableTrace<F> for Vec<BlindRotationTrace<F>> {
+    #[inline]
+    fn num_vars(&self) -> usize {
+        self[0].num_vars()
+    }
+
+}
+
+impl<F: Field> SeparatelyPackableTrace<F> for Vec<BlindRotationTrace<F>> {
+    #[inline]
+    fn num_bit_oracles(&self) -> usize {
+        self.iter().map(|trace| trace.num_bit_oracles()).sum()
+    }
+
+    #[inline]
+    fn pack_bit_to_vec(&self) -> Vec<F> {
+        self.iter()
+            .flat_map(|trace| trace.pack_bit_to_vec().into_iter())
+            .collect()
+    }
+}
+
 impl<F: Field> PackableEval<F> for BlindRotationTraceEval<F> {
     #[inline]
     fn num_evals(&self) -> usize {
@@ -207,6 +251,20 @@ impl<F: Field> SeparatelyPackableEval<F> for BlindRotationTraceEval<F> {
     #[inline]
     fn pack_key_ntt_to_vec(&self) -> Vec<F> {
         self.hadamard_trace.pack_key_ntt_to_vec()
+    }
+}
+
+impl<F: Field> PackableEval<F> for Vec<BlindRotationTraceEval<F>> {
+    #[inline]
+    fn num_evals(&self) -> usize {
+        self.iter().map(|eval| eval.num_evals()).sum()
+    }
+}
+
+impl<F: Field> SeparatelyPackableEval<F> for Vec<BlindRotationTraceEval<F>> {
+    #[inline]
+    fn num_bit_evals(&self) -> usize {
+        self.iter().map(|eval| eval.num_bit_evals()).sum()
     }
 }
 

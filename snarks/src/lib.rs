@@ -7,6 +7,7 @@ pub mod fhe_op;
 pub mod lookup;
 pub mod ntt;
 pub mod sparse_matrix_eval;
+pub mod fhe_batch_op;
 
 #[derive(Default, Debug)]
 pub struct SnarkStatistics {

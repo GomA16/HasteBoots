@@ -59,14 +59,14 @@ where
 {
     pub fn new(code_spec: S, trace: &Vec<IndexedLookupTraceMLE<F>>) -> Self {
         let num_oracle_vars = trace.num_vars() + trace.log_num_oracles();
-        let pcs_params = PCS::setup(num_oracle_vars, Some(&code_spec));
+        let pcs_params = PCS::setup(num_oracle_vars, &code_spec);
         let helper_log_num_oracles = if trace.len() == 1 {
             0
         } else {
             trace.len().next_power_of_two().trailing_zeros() as usize
         };
         let helper_num_oracle_vars = trace.num_vars() + helper_log_num_oracles;
-        let pcs_params_ef = PCS::setup(helper_num_oracle_vars, Some(&code_spec));
+        let pcs_params_ef = PCS::setup(helper_num_oracle_vars, &code_spec);
         BatchedIndexedLogUpParams {
             pcs_params,
             pcs_params_ef,

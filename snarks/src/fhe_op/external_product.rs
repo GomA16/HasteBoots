@@ -69,9 +69,9 @@ where
         trace: &SumHadamardTraceMLE<F>,
     ) -> Self {
         let oracle_num_vars = trace.num_vars() + trace.log_num_oracles();
-        let pcs_params = PCS::setup(oracle_num_vars, Some(&code_spec));
+        let pcs_params = PCS::setup(oracle_num_vars, &code_spec);
         let helper_num_vars = trace.num_vars() + trace.log_num_helper_poly(blk_size);
-        let pcs_params_ef = PCS::setup(helper_num_vars, Some(&code_spec));
+        let pcs_params_ef = PCS::setup(helper_num_vars, &code_spec);
 
         ExternalProductParams {
             blk_size,

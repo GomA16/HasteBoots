@@ -31,6 +31,7 @@ pub struct HadamardTrace<F: Field> {
 
 /// Store the traces of the multiplications between multiple bit polynomials and RLWE ciphertexts
 /// sum_prod = \sum bit * rlwe
+#[derive(Clone)]
 pub struct SumHadamardTrace<F: Field> {
     pub log_coeff_count: usize,
     pub log_num_poly: usize,
@@ -343,6 +344,12 @@ impl<F: Field> HadamardTrace<F> {
         self.bit.finalize(num_round);
         self.rlwe.finalize(num_round);
     }
+
+    #[inline]
+    pub fn append_trace(&mut self, trace: &HadamardTrace<F>) {
+        self.bit.append_trace(&trace.bit);
+        self.rlwe.append_trace(&trace.rlwe);
+    }
 }
 
 impl<F: NTTField> HadamardTrace<F> {
@@ -395,6 +402,19 @@ impl<F: Field> SumHadamardTrace<F> {
             trace.finalize(num_round);
         }
         self.sum_prod.finalize(num_round);
+    }
+
+    #[inline]
+    pub fn append_trace(&mut self, trace: &SumHadamardTrace<F>) {
+        assert_eq!(self.num_hadamard, trace.num_hadamard);
+        for (self_trace, other_trace) in self
+            .vec_hadamard
+            .iter_mut()
+            .zip(trace.vec_hadamard.iter())
+        {
+            self_trace.append_trace(other_trace);
+        }
+        self.sum_prod.append_trace(&trace.sum_prod);
     }
 }
 

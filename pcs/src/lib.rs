@@ -37,7 +37,7 @@ pub trait PolynomialCommitmentScheme<F: Field, EF: AbstractExtensionField<F>, S>
     type Point;
 
     /// The Setup phase.
-    fn setup(num_vars: usize, code_spec: Option<&S>) -> Self::Parameters;
+    fn setup(num_vars: usize, code_spec: &S) -> Self::Parameters;
 
     /// The Commit phase.
     fn commit(

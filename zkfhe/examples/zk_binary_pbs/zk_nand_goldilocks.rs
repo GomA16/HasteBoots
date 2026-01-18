@@ -9,19 +9,21 @@ use pcs::PolynomialCommitmentScheme;
 use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
-use sha2::digest::crypto_common::Key;
 use snarks::SnarkStatistics;
 use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks, KeyCommitment};
 use snarks::fhe_op::key_switching::{KeySwitchingParams, KeySwitchingSnarks};
 use snarks::fhe_op::modulus_switch::{self, ModulusSwitchingSnarks};
 use snarks::fhe_op::row_permutation::RowPermutationSignedSnarks;
+use std::fs::{File, OpenOptions};
+use std::io::Write;
+use std::path::Path;
 use trace::pbs_trace::PBSTrace;
 // use trace::HadamardProdTraceMLE;
-use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator, ZAMA_GOLDILOCKS_PARAMETERS};
+use zkfhe::bfhe::{Evaluator, GOLDILOCKS_BINARY_128_BITS_PARAMETERS};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
-type FF = BabyBear;
-type EF = BabyBearExetension;
+type FF = Goldilocks;
+type EF = GoldilocksExtension;
 type Hash = sha2::Sha256;
 const BASE_FIELD_BITS: usize = 64;
 
@@ -46,7 +48,7 @@ fn main() {
     let mut rng = rand::rng();
 
     // set parameter
-    let params = *BABYBEAR_BINARY_128_BITS_PARAMETERS;
+    let params = *GOLDILOCKS_BINARY_128_BITS_PARAMETERS;
     println!("Parameters: {params:#?}\n");
 
     let noise_max = (params.lwe_cipher_modulus_value() as f64 / 16.0).as_into();
@@ -103,6 +105,7 @@ fn main() {
         key_switching_trace,
         sample_extraction_trace,
     } = trace;
+    blind_rotation_trace.finalize(params.lwe_dimension());
 
     let blind_rotation_ntt_table = FF::get_ntt_table(blind_rotation_trace.log_coeff_count as u32)
         .unwrap()
@@ -113,12 +116,12 @@ fn main() {
 
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
 
-    let bs_key_commitment = KeyCommitment::new(&code_spec, &blind_rotation_trace);
+    let bs_keys_commitment = KeyCommitment::new(&code_spec, &blind_rotation_trace);
     let blind_rotation_params = BlindRotationParams::new(
         code_spec.clone(),
         blind_rotation_ntt_table,
         &blind_rotation_trace,
-        &bs_key_commitment,
+        &bs_keys_commitment,
     );
 
     let key_switching_trace = key_switching_trace.into();
@@ -193,8 +196,8 @@ fn main() {
         time.elapsed()
     );
 
+    let mut prover_total_time = prover_total_time.elapsed();
     println!("--- Proofs generation done! ---\n");
-    let prover_total_time = prover_total_time.elapsed();
     println!("Proof generation time: {:?}\n", prover_total_time);
 
     let mut verifier_trans = Transcript::default();
@@ -300,6 +303,75 @@ fn main() {
         "PIOP Proof Sizes: {} MB",
         piop_size as f64 / (1024 * 1024) as f64,
     );
-}
 
-// fn main() {}
+    // ------------ Output to CSV --------------------
+    let csv_path = "snark_statistics.csv";
+    let file_exists = Path::new(csv_path).exists();
+
+    let mut csv_file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(csv_path)
+        .expect("Failed to open CSV file");
+
+    // Write header only if file is new
+    if !file_exists {
+        writeln!(csv_file, "Run,Prover Total (ms),Prover PCS (ms),Prover PCS Ratio (%),Prover PIOP (ms),Verifier Total (ms),Verifier PCS (ms),Verifier PCS Ratio (%),Verifier PIOP (ms),Total Size (MB),PCS Size (MB),PCS Size Ratio (%),PIOP Size (MB)")
+            .expect("Failed to write header");
+    }
+
+    // Calculate all metrics
+    let total_size_mb = (piop_size + pcs_size) as f64 / (1024 * 1024) as f64;
+    let pcs_size_mb = pcs_size as f64 / (1024 * 1024) as f64;
+    let piop_size_mb = piop_size as f64 / (1024 * 1024) as f64;
+    let pcs_size_ratio = pcs_size as f64 / (piop_size + pcs_size) as f64 * 100.0;
+
+    let prover_total_s = prover_total_time.as_secs_f64();
+    let verifier_total_ms = verifier_total_time.as_secs_f64() * 1000.0;
+
+    // Get run number from file line count
+    let run_number = if file_exists {
+        std::fs::read_to_string(csv_path)
+            .map(|content| content.lines().count())
+            .unwrap_or(1)
+    } else {
+        1
+    };
+
+    if let Some(stats) = pcs_statistics {
+        let prover_pcs_s = stats.prover_pcs_time.as_secs_f64();
+        let prover_pcs_ratio =
+            stats.prover_pcs_time.as_secs_f64() / prover_total_time.as_secs_f64() * 100.0;
+        let prover_piop_s = (prover_total_time - stats.prover_pcs_time).as_secs_f64();
+
+        let verifier_pcs_ms = stats.verifier_pcs_time.as_secs_f64() * 1000.0;
+        let verifier_pcs_ratio =
+            stats.verifier_pcs_time.as_secs_f64() / verifier_total_time.as_secs_f64() * 100.0;
+        let verifier_piop_ms =
+            (verifier_total_time - stats.verifier_pcs_time).as_secs_f64() * 1000.0;
+
+        writeln!(
+            csv_file,
+            "{},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.4},{:.4},{:.2},{:.4}",
+            run_number,
+            prover_total_s,
+            prover_pcs_s,
+            prover_pcs_ratio,
+            prover_piop_s,
+            verifier_total_ms,
+            verifier_pcs_ms,
+            verifier_pcs_ratio,
+            verifier_piop_ms,
+            total_size_mb,
+            pcs_size_mb,
+            pcs_size_ratio,
+            piop_size_mb
+        )
+        .expect("Failed to write data");
+    }
+
+    println!(
+        "\n✓ Statistics appended to: {} (Run #{})",
+        csv_path, run_number
+    );
+}

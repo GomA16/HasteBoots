@@ -50,10 +50,10 @@ where
         Self {
             // code_spec,
             blk_size,
-            pcs_params: PCS::setup(trace.num_vars() + trace.log_num_oracles(), Some(&code_spec)),
+            pcs_params: PCS::setup(trace.num_vars() + trace.log_num_oracles(), &code_spec),
             pcs_params_ef: PCS::setup(
                 trace.num_vars() + trace.log_num_helper_oracles(blk_size),
-                Some(&code_spec),
+                &code_spec,
             ),
         }
     }

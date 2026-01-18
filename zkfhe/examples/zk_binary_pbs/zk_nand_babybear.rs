@@ -1,3 +1,6 @@
+use std::fs::OpenOptions;
+use std::path::Path;
+
 use algebra::transformation::AbstractNTT;
 use algebra::{
     AbstractExtensionField, AsInto, BabyBear, BabyBearExetension, Field, Goldilocks,
@@ -14,18 +17,16 @@ use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks, K
 use snarks::fhe_op::key_switching::{KeySwitchingParams, KeySwitchingSnarks};
 use snarks::fhe_op::modulus_switch::{self, ModulusSwitchingSnarks};
 use snarks::fhe_op::row_permutation::RowPermutationSignedSnarks;
-use std::fs::{File, OpenOptions};
-use std::io::Write;
-use std::path::Path;
 use trace::pbs_trace::PBSTrace;
+use std::io::Write;
 // use trace::HadamardProdTraceMLE;
-use zkfhe::bfhe::{Evaluator, ZAMA_GOLDILOCKS_PARAMETERS};
+use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
-type FF = Goldilocks;
-type EF = GoldilocksExtension;
+type FF = BabyBear;
+type EF = BabyBearExetension;
 type Hash = sha2::Sha256;
-const BASE_FIELD_BITS: usize = 64;
+const BASE_FIELD_BITS: usize = 32;
 
 #[derive(Default)]
 pub struct PBSSnarks<F, EF, S, PCS>
@@ -48,7 +49,7 @@ fn main() {
     let mut rng = rand::rng();
 
     // set parameter
-    let params = *ZAMA_GOLDILOCKS_PARAMETERS;
+    let params = *BABYBEAR_BINARY_128_BITS_PARAMETERS;
     println!("Parameters: {params:#?}\n");
 
     let noise_max = (params.lwe_cipher_modulus_value() as f64 / 16.0).as_into();
@@ -97,6 +98,8 @@ fn main() {
     println!("");
     println!("--- Starting verification of nand ---\n");
 
+    // Perepare parameters and traces
+    let time = std::time::Instant::now();
     let PBSTrace {
         modulus_switching_trace,
         mut blind_rotation_trace,
@@ -105,8 +108,6 @@ fn main() {
     } = trace;
     blind_rotation_trace.finalize(params.lwe_dimension());
 
-    // Perepare parameters and traces
-    let time = std::time::Instant::now();
     let blind_rotation_ntt_table = FF::get_ntt_table(blind_rotation_trace.log_coeff_count as u32)
         .unwrap()
         .root_powers();
@@ -116,12 +117,12 @@ fn main() {
 
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
 
-    let bs_keys_commitment = KeyCommitment::new(&code_spec, &blind_rotation_trace);
+    let bs_key_commitment = KeyCommitment::new(&code_spec, &blind_rotation_trace);
     let blind_rotation_params = BlindRotationParams::new(
         code_spec.clone(),
         blind_rotation_ntt_table,
         &blind_rotation_trace,
-        &bs_keys_commitment,
+        &bs_key_commitment,
     );
 
     let key_switching_trace = key_switching_trace.into();
@@ -196,8 +197,8 @@ fn main() {
         time.elapsed()
     );
 
-    let mut prover_total_time = prover_total_time.elapsed();
     println!("--- Proofs generation done! ---\n");
+    let prover_total_time = prover_total_time.elapsed();
     println!("Proof generation time: {:?}\n", prover_total_time);
 
     let mut verifier_trans = Transcript::default();
@@ -374,4 +375,8 @@ fn main() {
         "\n✓ Statistics appended to: {} (Run #{})",
         csv_path, run_number
     );
+
+    
 }
+
+// fn main() {}

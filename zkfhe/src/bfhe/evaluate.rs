@@ -78,14 +78,14 @@ impl<Q: NTTField> EvaluationKey<Q> {
 
         let lt_general_tables = LTTables::<Q>::new(&parameters.blind_rotation_basis(), None);
 
-        let mut blind_rotation_trace = BlindRotationTrace {
+        let blind_rotation_trace = BlindRotationTrace {
             log_coeff_count,
             log_num_round,
             acc_trace,
             hadamard_trace,
             tables: lt_general_tables,
         };
-        blind_rotation_trace.finalize(parameters.lwe_dimension());
+        // blind_rotation_trace.finalize(parameters.lwe_dimension());
         // -- End --
 
         acc.b_mut()[0] += Q::new(Q::MODULUS_VALUE >> 3u32);

@@ -235,6 +235,21 @@ impl<F: Field> BatchedSumHadamardProof<F> {
         proof
     }
 
+    pub fn from_vec_blind_rotation_trace_eval(trace_eval: &Vec<BlindRotationTraceEval<F>>) -> Self {
+        let mut proof = BatchedSumHadamardProof {
+            poly_info: PolynomialInfo::default(),
+            sumcheck_proof: Proof::default(),
+            hadamard_at_r: Vec::with_capacity(4),
+        };
+        trace_eval
+            .iter()
+            .for_each(|trace_eval| proof.append_eval(&trace_eval.hadamard_trace));
+        trace_eval.iter().for_each(|trace_eval| {
+            proof.append_eval(&trace_eval.acc_trace.extract_hadamard_eval())
+        });
+        proof
+    }
+
     pub fn append_eval(&mut self, trace_eval: &SumHadamardTraceEval<F>) {
         let num_sum = 2;
         let mut hadamard_at_r: Vec<SumHadamardEval<F>> = Vec::with_capacity(num_sum);

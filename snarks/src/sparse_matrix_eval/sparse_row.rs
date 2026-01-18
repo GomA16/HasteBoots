@@ -20,7 +20,7 @@ use piop::{
 };
 use serde::Serialize;
 
-use crate::lookup::indexed_table::{IndexedLogUpSnarks, IndexedLogUpSnarksProof};
+use crate::lookup::indexed_table::{IndexedLogUpSnarks, IndexedLogUpSnarksProof, indexed_batch::BatchedIndexedLogUpSnarks};
 
 #[derive(Default)]
 pub struct SparseRowEvalSnarks<F, EF, S, PCS>
@@ -45,7 +45,6 @@ where
     PCS: PolynomialCommitmentScheme<F, EF, S>,
 {
     pub val_commitment: PCS::EFPolynomial,
-    pub col_commitment: PCS::EFPolynomial,
     pub eval_mle_ry_commitment: PCS::EFPolynomial,
     pub indexed_lookup_proof: IndexedLogUpSnarksProof<F, EF, S, PCS>,
     pub sparse_row_instance_info: SparseRowEvalInfo<EF>,
@@ -75,9 +74,6 @@ where
         bincode::serde::encode_to_vec(&self.val_commitment, standard())
             .unwrap()
             .len()
-            + bincode::serde::encode_to_vec(&self.col_commitment, standard())
-                .unwrap()
-                .len()
             + bincode::serde::encode_to_vec(&self.eval_mle_ry_commitment, standard())
                 .unwrap()
                 .len()
@@ -136,7 +132,6 @@ where
 
         SparseRowEvalSnarksProof {
             val_commitment: instance.val.as_ref().clone(),
-            col_commitment: instance.col.as_ref().clone(),
             eval_mle_ry_commitment: instance.eval_mle_ry.as_ref().clone(),
             indexed_lookup_proof,
             sparse_row_instance_info: instance.info(),
@@ -150,11 +145,13 @@ where
         statistics: &mut Option<&mut crate::SnarkStatistics>,
     ) -> bool {
         let mut res = true;
-        trans.append_message(b"[Commit Phase]", &proof.val_commitment);
-        // trans.append_message(b"[Commit Phase]", &proof.col_commitment);
-        // trans.append_message(b"[Commit Phase]", &proof.eval_mle_ry_commitment);
-
         let time = std::time::Instant::now();
+        trans.append_message(b"[Commit Phase]", &proof.val_commitment);
+        info!("[V]-[PCS] Receiving small polynomial time in {:?}", time.elapsed());
+        if let Some(stats) = statistics {
+            stats.add_verifier_pcs_time(time.elapsed());
+        }
+
         let res_lookup = IndexedLogUpSnarks::<F, EF, S, PCS>::verify_as_subprotocol(
             trans,
             &proof.indexed_lookup_proof,
@@ -165,10 +162,6 @@ where
             &proof.indexed_lookup_proof,
         );
         res &= res_lookup;
-        info!(
-            "[V]-[PIOP] Indexed lookup proof verification in {:?}",
-            time.elapsed()
-        );
 
         let time = std::time::Instant::now();
         let (piop_res, piop_subclaim) =

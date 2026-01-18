@@ -12,6 +12,7 @@ pub mod indexed_batch;
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 use bincode::config::standard;
 use helper::{FiatShamirTranscript, Transcript, utils::eval_identity_function};
+use log::info;
 use pcs::PolynomialCommitmentScheme;
 use piop::{
     SumcheckInstance, SumcheckPIOP,
@@ -146,8 +147,6 @@ where
             indexed_table::IndexedLogUpTableInstance::<EF>::from(&witness, &helper);
         let (table_piop_proof, _table_piop_state) =
             indexed_table::IndexedLogUpTableIOP::prover(trans, &table_instance);
-        trans.append_message(b"[PIOP Phase]", &input_piop_proof);
-        trans.append_message(b"[PIOP Phase]", &table_piop_proof);
 
         IndexedLogUpSnarksProof {
             input_commitment: trace_mle.input.as_ref().clone(),
@@ -168,32 +167,46 @@ where
         statistics: &mut Option<&mut crate::SnarkStatistics>,
     ) -> bool {
         let mut res = true;
+        let time = std::time::Instant::now();
         trans.append_message(b"[Commit Phase]", &proof.input_commitment);
         trans.append_message(b"[Commit Phase]", &proof.index_commitment);
         trans.append_message(b"[Commit Phase]", &proof.multiplicity_commitment);
+        info!("[V]-[PCS] Receiving small polynomial time in {:?}", time.elapsed());
+        if let Some(stats) = statistics {
+            stats.add_verifier_pcs_time(time.elapsed());
+        }
 
         // Some simple value equality checks are omitted here for brevity.
         let _random_value =
             trans.get_challenge(b"[Challenge] random value used in the rational identity");
         let _random_s_hash = trans.get_challenge(b"[Challenge] random value used for hashing.");
 
+        let time = std::time::Instant::now();
         trans.append_message(b"[Commit Phase]", &proof.helper_input_commitment);
         trans.append_message(b"[Commit Phase]", &proof.helper_table_commitment);
+        info!("[V]-[PCS] Receiving small polynomial time in {:?}", time.elapsed());
+        if let Some(stats) = statistics {
+            stats.add_verifier_pcs_time(time.elapsed());
+        }
 
+        let time = std::time::Instant::now();
         let (piop_res1, piop_subclaim1) = IndexedLogUpInputIOP::verifier(
             trans,
             &proof.input_instance_info,
             &proof.input_piop_proof,
         );
         res &= piop_res1;
+        info!("[V]-[PIOP] Verifying indexed table in {:?}", time.elapsed());
+        
+        // These two protocols can be combined together in a single sumcheck protocol, so the verifier PIOP time can be reduced by half.
+        let time = std::time::Instant::now();
         let (piop_res2, piop_subclaim2) = IndexedLogUpTableIOP::verifier(
             trans,
             &proof.table_instance_info,
             &proof.table_piop_proof,
         );
         res &= piop_res2;
-        trans.append_message(b"[PIOP Phase]", &proof.input_piop_proof);
-        trans.append_message(b"[PIOP Phase]", &proof.table_piop_proof);
+        info!("[V]-[PIOP] Verifying indexed table in {:?}", time.elapsed());
 
         let time = std::time::Instant::now();
         let evaluate_input_at_r = |poly: &PCS::EFPolynomial| poly.evaluate(&piop_subclaim1.point_r);
@@ -207,15 +220,15 @@ where
             == proof.table_piop_proof.multiplicity_at_ry;
         res &= evaluate_table_at_r(&proof.helper_table_commitment)
             == proof.table_piop_proof.helper_table_at_ry;
-        if let Some(stats) = statistics {
-            stats.add_verifier_pcs_time(time.elapsed());
-        }
 
         if proof.table_instance_info.table_point.is_some() {
             res &= eval_identity_function(
                 proof.table_instance_info.table_point.as_ref().unwrap(),
                 &piop_subclaim2.point_r,
             ) == proof.table_piop_proof.table_at_ry;
+        }
+        if let Some(stats) = statistics {
+            stats.add_verifier_pcs_time(time.elapsed());
         }
 
         res

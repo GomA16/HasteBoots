@@ -38,7 +38,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let pp = BrakedownPCS::<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>::setup(
         num_vars,
-        Some(&code_spec),
+        &code_spec,
     );
 
     let mut trans = Transcript::<EF>::new();

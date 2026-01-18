@@ -37,14 +37,18 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for DenseMultil
 
 pub trait PackableTrace<F: Field> {
     fn num_vars(&self) -> usize;
-    fn num_oracles(&self) -> usize;
+    fn num_oracles(&self) -> usize {
+        unimplemented!()
+    }
     fn log_num_oracles(&self) -> usize {
         match self.num_oracles() {
             1 => 0,
             _ => self.num_oracles().next_power_of_two().trailing_zeros() as usize,
         }
     }
-    fn pack_to_vec(&self) -> Vec<F>;
+    fn pack_to_vec(&self) -> Vec<F> {
+        unimplemented!()
+    }
     fn generate_oracle(&self) -> DenseMultilinearExtension<F> {
         let new_nvs = self.num_vars() + self.log_num_oracles();
         let num_zeros = (1 << new_nvs) - (self.num_oracles() << self.num_vars());
@@ -57,7 +61,9 @@ pub trait PackableTrace<F: Field> {
 
 pub trait SeparatelyPackableTrace<F: Field>: PackableTrace<F> {
     fn num_bit_oracles(&self) -> usize;
-    fn num_key_oracles(&self) -> usize;
+    fn num_key_oracles(&self) -> usize {
+        unimplemented!()
+    }
     fn log_num_bit_oracles(&self) -> usize {
         match self.num_bit_oracles() {
             1 => 0,
@@ -71,8 +77,12 @@ pub trait SeparatelyPackableTrace<F: Field>: PackableTrace<F> {
             _ => self.num_key_oracles().next_power_of_two().trailing_zeros() as usize,
         }
     }
-    fn pack_bit_to_vec(&self) -> Vec<F>;
-    fn pack_key_to_vec(&self) -> Vec<F>;
+    fn pack_bit_to_vec(&self) -> Vec<F> {
+        unimplemented!()
+    }
+    fn pack_key_to_vec(&self) -> Vec<F> {
+        unimplemented!()
+    }
     fn generate_bit_oracle(&self) -> DenseMultilinearExtension<F> {
         let new_nvs = self.num_vars() + self.log_num_bit_oracles();
         let num_zeros = (1 << new_nvs) - (self.num_bit_oracles() << self.num_vars());
@@ -93,7 +103,7 @@ pub trait SeparatelyPackableTrace<F: Field>: PackableTrace<F> {
 
 pub trait PackableEval<F: Field> {
     fn num_evals(&self) -> usize;
-    fn pack_to_vec(&self) -> Vec<F>{
+    fn pack_to_vec(&self) -> Vec<F> {
         unimplemented!()
     }
     // These two functions are used when the polynomials are stored both in coefficient form and NTT form
@@ -107,7 +117,9 @@ pub trait PackableEval<F: Field> {
 
 pub trait SeparatelyPackableEval<F: Field>: PackableEval<F> {
     fn num_bit_evals(&self) -> usize;
-    fn num_key_evals(&self) -> usize;
+    fn num_key_evals(&self) -> usize {
+        unimplemented!()
+    }
     fn log_num_bit_evals(&self) -> usize {
         match self.num_bit_evals() {
             1 => 0,

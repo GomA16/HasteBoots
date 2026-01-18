@@ -434,8 +434,7 @@ where
     type Proof = BrakedownOpenProof<F, H, EF>;
     type Point = EF;
 
-    fn setup(num_vars: usize, code_spec: Option<&S>) -> Self::Parameters {
-        let code_spec = code_spec.expect("Need a code spec");
+    fn setup(num_vars: usize, code_spec: &S) -> Self::Parameters {
         BrakedownParams::<F, EF, C>::new(num_vars, code_spec)
     }
 

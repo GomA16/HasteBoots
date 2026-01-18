@@ -143,7 +143,7 @@ where
         // [PCS Phase] Commit to the input oracles
         let poly = traces.generate_oracle();
         let commit_time = std::time::Instant::now();
-        let input_params = PCS::setup(poly.num_vars(), Some(&params.code_spec));
+        let input_params = PCS::setup(poly.num_vars(), &params.code_spec);
         let (input_commitment, input_comm_state) = PCS::commit(&input_params, &poly);
         trans.append_message(b"[Commit Phase]", &input_commitment);
         info!(

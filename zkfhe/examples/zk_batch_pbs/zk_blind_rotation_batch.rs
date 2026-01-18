@@ -5,6 +5,8 @@ use helper::Transcript;
 use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
+use snarks::SnarkStatistics;
+use snarks::fhe_batch_op::batch_blind_rotation::{BatchBlindRotationParams, BatchBlindRotationSnarks};
 use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks, KeyCommitment};
 use trace::BlindRotationTraceMLE;
 // use trace::HadamardProdTraceMLE;
@@ -17,6 +19,7 @@ type FF = BabyBear;
 type EF = BabyBearExetension;
 type Hash = sha2::Sha256;
 const BASE_FIELD_BITS: usize = 31;
+const LOG_BATCH_SIZE: usize = 5; // batch size = 2^LOG_BATCH_SIZE
 fn main() {
     env_logger::init();
     // set random generator
@@ -73,40 +76,83 @@ fn main() {
 
     let mut trace = trace.blind_rotation_trace;
     trace.finalize(params.lwe_dimension());
-    let ntt_table = FF::get_ntt_table(trace.log_coeff_count as u32)
+
+    let traces = vec![trace; 1 << LOG_BATCH_SIZE]; // batch size 2
+
+
+    let ntt_table = FF::get_ntt_table(traces[0].log_coeff_count as u32)
         .unwrap()
         .root_powers();
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
 
-    let key_commitment = KeyCommitment::new(&code_spec, &trace);
-    let params = BlindRotationParams::new(code_spec, ntt_table, &trace, &key_commitment);
-    let snarks = BlindRotationSnarks::<
+    let key_commitment = KeyCommitment::new(&code_spec, &traces[0]);
+    let params = BatchBlindRotationParams::new(code_spec, ntt_table, &traces, &key_commitment);
+    let snarks = BatchBlindRotationSnarks::<
         FF,
         EF,
         ExpanderCodeSpec,
         BrakedownPCS<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>,
     >::default();
+    let pcs_statistics = &mut Some(&mut SnarkStatistics::default());
 
     let mut prover_trans = Transcript::default();
     let time = std::time::Instant::now();
-    let proof = snarks.prove(&mut prover_trans, trace, &params, &mut None);
+    let proof = snarks.prove(&mut prover_trans, traces, &params, pcs_statistics);
+    let prover_total_time = time.elapsed();
     println!("Proofs generation done!\n");
-    println!("Proof generation time: {:?}\n", time.elapsed());
+    println!("Proof generation time: {:?}\n", prover_total_time);
 
     let mut verifier_trans = Transcript::default();
     let time = std::time::Instant::now();
-    let res = snarks.verify(&mut verifier_trans, &proof, &mut None);
-    println!("Proofs verification done!\n");
-    println!("Proof verification time: {:?}\n", time.elapsed());
-    println!(
-        "PIOP Proof Size: {} MB",
-        proof.piop_proof_len() as f64 / (1000 * 1000) as f64
-    );
-    println!(
-        "PCS Proof Size: {} MB",
-        proof.pcs_proof_len() as f64 / (1000 * 1000) as f64
-    );
+    let res = snarks.verify(&mut verifier_trans, &proof, pcs_statistics);
+    let verifier_total_time = time.elapsed();
     assert!(res);
+    println!("Proofs verification done!\n");
+    println!("Proof verification time: {:?}\n", verifier_total_time);
+    
+    println!("--- SNARK Statistics Summary ---\n");
+    println!("Prover Total Time: {:.2?} s", prover_total_time.as_secs_f64());
+    if let Some(stats) = pcs_statistics {
+        let pcs_ratio =
+            stats.prover_pcs_time.as_secs_f64() / prover_total_time.as_secs_f64() * 100.0;
+        println!(
+            "Prover PCS Time (including commit and open): {:.2?} s, accounts for {:.2} %",
+            stats.prover_pcs_time.as_secs_f64(), pcs_ratio
+        );
+        println!(
+            "Prover PIOP Time: {:.2?}\n",
+            (prover_total_time - stats.prover_pcs_time).as_secs_f64()
+        );
+    }
+    println!("Verifier Total Time: {:.2?} ms", verifier_total_time.as_secs_f64() * 1000.0);
+    if let Some(stats) = pcs_statistics {
+        let pcs_ratio =
+            stats.verifier_pcs_time.as_secs_f64() / verifier_total_time.as_secs_f64() * 100.0;
+        println!(
+            "Verifier PCS Time (including commit and open): {:.2?} ms, accounts for {:.2} %",
+            stats.verifier_pcs_time.as_secs_f64() * 1000.0, pcs_ratio
+        );
+        println!(
+            "Verifier PIOP Time: {:.2?} ms\n",
+            (verifier_total_time - stats.verifier_pcs_time).as_secs_f64() * 1000.0
+        );
+    }
+
+    let piop_size = proof.piop_proof_len();
+    let pcs_size = proof.pcs_proof_len();
+    println!(
+        "Proof Sizes: {} MB total",
+        (piop_size + pcs_size) as f64 / (1024 * 1024) as f64
+    );
+    println!(
+        "PCS Proof Sizes: {:.2} MB, accounts for {:.2} %",
+        (pcs_size) as f64 / (1024 * 1024) as f64,
+        pcs_size as f64 / (piop_size + pcs_size) as f64 * 100.0
+    );
+    println!(
+        "PIOP Proof Sizes: {:.2} MB",
+        piop_size as f64 / (1024 * 1024) as f64,
+    );
 }
 
 // fn main() {}

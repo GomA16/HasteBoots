@@ -4,7 +4,7 @@ use std::rc::Rc;
 use algebra::AbstractExtensionField;
 use algebra::{DenseMultilinearExtension, Field, NTTField, transformation::AbstractNTT};
 use itertools::izip;
-use serde::Serialize;
+use serde::{Serialize, de};
 
 use crate::basic_ops::hadamard_trace::HadamardTraceEval;
 use crate::basic_ops::rlwe_trace::{
@@ -15,6 +15,7 @@ use crate::basic_ops::row_perm_trace::{PermutationInfo, RowPermTraceMLE};
 use crate::basic_ops::{HadamardTraceMLE, SumHadamardTraceEval, SumHadamardTraceMLE};
 use crate::{ConvertToEF, EvaluableTrace, EvaluableTraceEF, PackableEval, PackableTrace};
 
+#[derive(Clone)]
 pub struct AccTrace<F: Field> {
     pub log_coeff_count: usize,
     pub log_num_round: usize,
@@ -136,6 +137,23 @@ impl<F: NTTField> AccTrace<F> {
     #[inline]
     pub fn append_external_product_input(&mut self, ext_prod_input: (&[F], &[F])) {
         self.external_product_input.append_poly(ext_prod_input);
+    }
+
+    #[inline]
+    pub fn append_trace(&mut self, trace: &AccTrace<F>) {
+        self.initial_acc.append_trace(&trace.initial_acc);
+        self.final_acc.append_trace(&trace.final_acc);
+        self.input_acc.append_trace(&trace.input_acc);
+        self.output_acc.append_trace(&trace.output_acc);
+        self.input_acc_permuted
+            .append_trace(&trace.input_acc_permuted);
+        self.monomial.append_trace(&trace.monomial);
+        self.monomial_representation
+            .append_trace(&trace.monomial_representation);
+        self.monomial_times_acc
+            .append_trace(&trace.monomial_times_acc);
+        self.external_product_input
+            .append_trace(&trace.external_product_input);
     }
 }
 

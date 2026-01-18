@@ -28,6 +28,7 @@ pub struct PolynomialEval<F: Field> {
     pub ntt: F,
 }
 
+#[derive(Clone)]
 pub struct MonomialTrace<F: Field> {
     // degree < 2^{log_coeff_max}
     pub log_coeff_max: usize,
@@ -107,6 +108,11 @@ impl<F: Field> MonomialTrace<F> {
         }
 
     }
+
+    pub fn append_trace(&mut self, trace: &MonomialTrace<F>) {
+        self.degree.extend_from_slice(&trace.degree);
+        self.coefficient.extend_from_slice(&trace.coefficient);
+    }
 }
 
 impl<F: Field> PolynomialTrace<F> {
@@ -127,6 +133,12 @@ impl<F: Field> PolynomialTrace<F> {
             self.poly.extend(vec![F::zero(); num_zeros]);
             self.ntt.extend(vec![F::zero(); num_zeros]);
         }
+    }
+
+    #[inline]
+    pub fn append_trace(&mut self, trace: &PolynomialTrace<F>) {
+        self.poly.extend_from_slice(&trace.poly);
+        self.ntt.extend_from_slice(&trace.ntt);
     }
 }
 
@@ -178,6 +190,14 @@ impl<F: Field> RLWETrace<F> {
             self.ntt.0.extend(vec![F::zero(); num_zeros]);
             self.ntt.1.extend(vec![F::zero(); num_zeros]);
         }
+    }
+
+    #[inline]
+    pub fn append_trace(&mut self, trace: &RLWETrace<F>) {
+        self.poly.0.extend_from_slice(&trace.poly.0);
+        self.poly.1.extend_from_slice(&trace.poly.1);
+        self.ntt.0.extend_from_slice(&trace.ntt.0);
+        self.ntt.1.extend_from_slice(&trace.ntt.1);
     }
 }
 
