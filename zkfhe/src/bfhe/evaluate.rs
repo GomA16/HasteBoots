@@ -120,6 +120,7 @@ impl<Q: NTTField> EvaluationKey<Q> {
             log_lwe_dim: ks_log_coeff_count,
             log_rlwe_dim: log_coeff_count,
             log_coeff_count: ks_log_coeff_count,
+            log_trace: 0, // one trace in a single pbs
             hadamard_trace: ks_hadamard_trace,
             permutation_trace,
             decomposed_polys,

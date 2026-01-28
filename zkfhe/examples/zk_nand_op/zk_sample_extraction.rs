@@ -7,7 +7,7 @@ use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
 use snarks::fhe_op::key_switching::{KeySwitchingParams, KeySwitchingSnarks};
 use snarks::fhe_op::row_permutation::RowPermutationSignedSnarks;
-use trace::basic_ops::{RowPermTraceMLE, SumHadamardTraceMLE};
+use trace::basic_ops::{RowPermTrace, RowPermTraceMLE, SumHadamardTraceMLE};
 use trace::key_switching_trace::KeySwitchingTraceMLE;
 use zkfhe::bfhe::{
     BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator,
@@ -18,6 +18,7 @@ type FF = BabyBear;
 type EF = BabyBearExetension;
 type Hash = sha2::Sha256;
 const BASE_FIELD_BITS: usize = 31;
+const LOG_BATCH_SIZE: usize = 2; // batch size = 2^LOG_BATCH_SIZE
 fn main() {
     env_logger::init();
     // set random generator
@@ -69,9 +70,11 @@ fn main() {
 
     // Generate SNARKs for nand
     println!("");
-    println!("Starting verification of nand.\n");
+    println!("Starting verification of {} instances of sample extraction.\n", 1 << LOG_BATCH_SIZE);
 
     let trace = trace.sample_extraction_trace;
+    let traces = vec![trace; 1 << LOG_BATCH_SIZE]; // batch size 2^LOG_BATCH_SIZE
+    let trace = RowPermTrace::from_batch_trace(traces);
     let trace_mle: RowPermTraceMLE<_> = trace.into();
 
     let snarks = RowPermutationSignedSnarks::<

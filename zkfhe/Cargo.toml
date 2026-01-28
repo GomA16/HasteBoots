@@ -55,6 +55,10 @@ rustdoc-args = ["--cfg", "docsrs"]
 # RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features --no-deps
 
 [[example]]
+name = "zk_nand_batch"
+path = "examples/zk_batch_pbs/zk_nand_batch.rs"
+
+[[example]]
 name = "zk_nand_babybear"
 path = "examples/zk_binary_pbs/zk_nand_babybear.rs"
 
@@ -80,7 +84,7 @@ path = "examples/zk_nand_op/zk_blind_rotation.rs"
 
 [[example]]
 name = "zk_blind_rotation_batch"
-path = "examples/zk_batch_pbs/zk_blind_rotation_batch.rs"
+path = "examples/zk_nand_op/zk_blind_rotation_batch.rs"
 
 [[example]]
 name = "zk_key_switching"

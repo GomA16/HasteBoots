@@ -7,6 +7,7 @@ use rand_distr::num_traits::Zero;
 use crate::{ConvertToEF, lookup_trace::indexed_table::IndexedLookupTraceMLE};
 
 // Trace for row permutation operation
+#[derive(Clone)]
 pub struct RowPermTrace<F: Field> {
     pub log_num_rows: usize,
     pub log_num_cols: usize,
@@ -279,6 +280,29 @@ impl<F: Field> RowPermTrace<F> {
         Self {
             log_num_rows,
             log_num_cols,
+            input,
+            output,
+            permutation_info,
+        }
+    }
+
+    pub fn from_batch_trace(traces: Vec<RowPermTrace<F>>) -> Self {
+        let num_trace = traces.len();
+        assert!(num_trace.is_power_of_two());
+        let log_num_trace = num_trace.trailing_zeros() as usize;
+        let log_num_rows = traces[0].log_num_rows;
+        let mut input = vec![F::zero(); 1 << (log_num_rows + log_num_trace)];
+        let mut output = vec![F::zero(); 1 << (log_num_rows + log_num_trace)];
+        let permutation_info = traces[0].permutation_info.clone();
+        traces.iter().enumerate().for_each(|(i, trace)| {
+            for r in 0..1 << log_num_rows {
+                input[i | (r << log_num_trace)] = trace.input[r];
+                output[i | (r << log_num_trace)] = trace.output[r];
+            }
+        });
+        RowPermTrace {
+            log_num_rows,
+            log_num_cols: traces[0].log_num_cols + log_num_trace,
             input,
             output,
             permutation_info,

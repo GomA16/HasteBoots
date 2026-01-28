@@ -5,10 +5,10 @@ use helper::Transcript;
 use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
-use rayon::vec;
-use snarks::fhe_op::key_switching::{KeySwitchingParams, KeySwitchingSnarks};
-use trace::basic_ops::SumHadamardTraceMLE;
-use trace::key_switching_trace::{KeySwitchingTrace, KeySwitchingTraceMLE};
+use snarks::fhe_batch_op::batch_blind_rotation::{BatchBlindRotationParams, BatchBlindRotationSnarks};
+use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks, KeyCommitment};
+use trace::BlindRotationTraceMLE;
+// use trace::HadamardProdTraceMLE;
 use zkfhe::bfhe::{
     BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator,
 };
@@ -18,7 +18,7 @@ type FF = BabyBear;
 type EF = BabyBearExetension;
 type Hash = sha2::Sha256;
 const BASE_FIELD_BITS: usize = 31;
-const LOG_BATCH_SIZE: usize = 0; // batch size = 2^LOG_BATCH_SIZE
+const LOG_BATCH_SIZE: usize = 1; // batch size = 2^LOG_BATCH_SIZE
 fn main() {
     env_logger::init();
     // set random generator
@@ -68,21 +68,23 @@ fn main() {
     assert_eq!(m, nand(a, b), "Noise: {noise}");
     check_noise(noise, "nand");
 
+
     // Generate SNARKs for nand
     println!("");
-    println!("Starting verification of {} instances of key switching.\n", 1 << LOG_BATCH_SIZE);
+    println!("Starting verification of {} instances of blind rotation.\n", 1 << LOG_BATCH_SIZE);
 
-    let trace = trace.key_switching_trace;
-    let traces = vec![trace; 1 << LOG_BATCH_SIZE]; // batch size 2
-    let batched_trace = KeySwitchingTrace::from_batch_trace(traces);
-    let trace_mle: KeySwitchingTraceMLE<_> = batched_trace.into();
+    let mut trace = trace.blind_rotation_trace;
+    trace.finalize(params.lwe_dimension());
+    let traces = vec![trace; 1 << LOG_BATCH_SIZE];
 
-    let ntt_table = FF::get_ntt_table(trace_mle.log_coeff_count as u32)
+    let ntt_table = FF::get_ntt_table(traces[0].log_coeff_count as u32)
         .unwrap()
         .root_powers();
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
-    let params = KeySwitchingParams::new(code_spec, ntt_table, &trace_mle);
-    let snarks = KeySwitchingSnarks::<
+
+    let key_commitment = KeyCommitment::new(&code_spec, &traces[0]);
+    let params = BatchBlindRotationParams::new(code_spec, ntt_table, &traces, &key_commitment);
+    let snarks = BatchBlindRotationSnarks::<
         FF,
         EF,
         ExpanderCodeSpec,
@@ -91,7 +93,7 @@ fn main() {
 
     let mut prover_trans = Transcript::default();
     let time = std::time::Instant::now();
-    let proof = snarks.prove(&mut prover_trans, &trace_mle, &params, &mut None);
+    let proof = snarks.prove(&mut prover_trans, traces, &params, &mut None);
     println!("Proofs generation done!\n");
     println!("Proof generation time: {:?}\n", time.elapsed());
 
@@ -100,7 +102,14 @@ fn main() {
     let res = snarks.verify(&mut verifier_trans, &proof, &mut None);
     println!("Proofs verification done!\n");
     println!("Proof verification time: {:?}\n", time.elapsed());
-
+    println!(
+        "PIOP Proof Size: {} MB",
+        proof.piop_proof_len() as f64 / (1000 * 1000) as f64
+    );
+    println!(
+        "PCS Proof Size: {} MB",
+        proof.pcs_proof_len() as f64 / (1000 * 1000) as f64
+    );
     assert!(res);
 }
 

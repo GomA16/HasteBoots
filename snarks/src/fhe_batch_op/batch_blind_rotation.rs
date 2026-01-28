@@ -108,12 +108,12 @@ where
     pub hadamard_proof: BatchedSumHadamardProof<EF>,
     pub ntt_infos: Vec<NTTMatrixEvalInfo<EF>>,
     pub ntt_proof: BatchedNTTMatrixEvalProof<EF>,
-    // pub acc_iteration_proof: AccIterationSnarksProof<F, EF, S, PCS>,
+    pub acc_iteration_proof: AccIterationSnarksProof<F, EF, S, PCS>,
     pub decomp_proof: DecompositionSnarksProof<F, EF, S, PCS>,
 
     pub eval_proof: PCS::Proof,
     pub eval_proof_key: PCS::Proof,
-    // pub sparse_eval_proof: SparseRowEvalSnarksProof<F, EF, S, PCS>,
+    pub sparse_eval_proof: SparseRowEvalSnarksProof<F, EF, S, PCS>,
 
     // Redudant fields for ease of implementation
     #[serde(skip)]
@@ -155,9 +155,9 @@ where
             + bincode::serde::encode_to_vec(&self.ntt_proof, standard())
                 .unwrap()
                 .len()
-            // + self.acc_iteration_proof.piop_proof_len()
+            + self.acc_iteration_proof.piop_proof_len()
             + self.decomp_proof.piop_proof_len()
-            // + self.sparse_eval_proof.piop_proof_len()
+            + self.sparse_eval_proof.piop_proof_len()
     }
 
     pub fn pcs_proof_len(&self) -> usize {
@@ -167,9 +167,9 @@ where
             + bincode::serde::encode_to_vec(&self.commitment, standard())
                 .unwrap()
                 .len()
-            // + self.acc_iteration_proof.pcs_proof_len()
+            + self.acc_iteration_proof.pcs_proof_len()
             + self.decomp_proof.pcs_proof_len()
-            // + self.sparse_eval_proof.pcs_proof_len()
+            + self.sparse_eval_proof.pcs_proof_len()
     }
 }
 
@@ -298,14 +298,14 @@ where
             sumcheck_state.randomness[blind_rotation_trace_mle[0].log_coeff_count..].to_vec();
 
         // prepare the NTT equality instance for monomials used in Hadamard, where the coefficient matrix is sparse
-        // let monomial_poly = blind_rotation_trace_ef.acc_trace.monomial.poly.clone();
-        // let ntt_sparse_instance = NTTMatrixEvalInstance::from_subclaim(
-        //     &monomial_poly,
-        //     &params.ntt_table,
-        //     &point_u,
-        //     &point_v,
-        //     trace_evals.acc_trace.monomial.ntt,
-        // );
+        let monomial_poly = blind_rotation_trace_ef[0].acc_trace.monomial.poly.clone();
+        let ntt_sparse_instance = NTTMatrixEvalInstance::from_subclaim(
+            &monomial_poly,
+            &params.ntt_table,
+            &point_u,
+            &point_v,
+            trace_evals[0].acc_trace.monomial.ntt,
+        );
 
         // parepare the NTT equality instance for normal polynomials used in Hadamard, where the coefficient matrix is dense
         let point_bit_oracle = trans.get_vec_challenge(
@@ -352,14 +352,14 @@ where
 
         // prove both NTT instances in one sumcheck protocol
         let ntt_infos = vec![
-            // ntt_sparse_instance.info(),
             ntt_dense_instance.info(),
             ntt_dense_instance_key.info(),
+            ntt_sparse_instance.info(),
         ];
         let ntt_instances = vec![
-            // ntt_sparse_instance,
             ntt_dense_instance,
             ntt_dense_instance_key,
+            ntt_sparse_instance,
         ];
         let (ntt_proof, ntt_state) = NTTMatrixEvalIOP::prover_batch(trans, &ntt_instances);
         info!(
@@ -410,45 +410,45 @@ where
             stats.add_prover_pcs_time(pcs_poly_open_time.elapsed());
         }
 
-        // [PIOP Phase] Open the sparse coefficient matrix evaluation `ntt_proof.coeff_eval_at_r_v[0]` at point_r_v
+        // [PIOP Phase] Open the sparse coefficient matrix evaluation `ntt_proof.coeff_eval_at_r_v[2]` at point_r_v
         // the pcs part is skipped in this since the polynomial to be committed is too small
-        // let piop_sparse_open_time = std::time::Instant::now();
-        // let kernel_rx = LagrangeKernel::from_point(&point_v);
-        // let kernel_ry = LagrangeKernel::from_point(&ntt_state.randomness);
-        // let sparse_matrix_eval_instance = SparseRowEvalInstance::from_subclaim::<F>(
-        //     &blind_rotation_trace_mle.acc_trace.monomial_representation,
-        //     &kernel_rx,
-        //     &kernel_ry,
-        //     ntt_proof.coeff_eval_at_r_v[0],
-        // );
-        // let sparse_eval_proof = SparseRowEvalSnarks::<F, EF, S, PCS>::prove_as_subprotocol(
-        //     trans,
-        //     &sparse_matrix_eval_instance,
-        // );
-        // info!(
-        //     "[P]-PIOP Generating evaluation proof for a sparse polynomial in {:?}",
-        //     piop_sparse_open_time.elapsed()
-        // );
+        let piop_sparse_open_time = std::time::Instant::now();
+        let kernel_rx = LagrangeKernel::from_point(&point_v);
+        let kernel_ry = LagrangeKernel::from_point(&ntt_state.randomness);
+        let sparse_matrix_eval_instance = SparseRowEvalInstance::from_subclaim::<F>(
+            &blind_rotation_trace_mle[0].acc_trace.monomial_representation,
+            &kernel_rx,
+            &kernel_ry,
+            ntt_proof.coeff_eval_at_r_v[2],
+        );
+        let sparse_eval_proof = SparseRowEvalSnarks::<F, EF, S, PCS>::prove_as_subprotocol(
+            trans,
+            &sparse_matrix_eval_instance,
+        );
+        info!(
+            "[P]-PIOP Generating evaluation proof for a sparse polynomial in {:?}",
+            piop_sparse_open_time.elapsed()
+        );
 
         // [PIOP Phase] Prove the correctness of Accumulator Iteration Structure
         // the pcs part is skipped in this since the polynomial to be committed is too small
-        // let piop_acc_iteration_time = std::time::Instant::now();
-        // let indexed_lookup_permutation = blind_rotation_trace_ef
-        //     .acc_trace
-        //     .permutation_info
-        //     .extract_indexed_lookup_trace(&point_v);
-        // let acc_iteration_proof = AccIterationSnarks::<F, EF, S, PCS>::prove_as_subprotocol(
-        //     trans,
-        //     &blind_rotation_trace_ef,
-        //     &trace_evals,
-        //     &point_v,
-        //     &point_u,
-        //     &indexed_lookup_permutation,
-        // );
-        // info!(
-        //     "[P]-[PIOP] Proving Accumulator Iteration Structure in {:?}",
-        //     piop_acc_iteration_time.elapsed()
-        // );
+        let piop_acc_iteration_time = std::time::Instant::now();
+        let indexed_lookup_permutation = blind_rotation_trace_ef[0]
+            .acc_trace
+            .permutation_info
+            .extract_indexed_lookup_trace(&point_v);
+        let acc_iteration_proof = AccIterationSnarks::<F, EF, S, PCS>::prove_as_subprotocol(
+            trans,
+            &blind_rotation_trace_ef[0],
+            &trace_evals[0],
+            &point_v,
+            &point_u,
+            &indexed_lookup_permutation,
+        );
+        info!(
+            "[P]-[PIOP] Proving Accumulator Iteration Structure in {:?}",
+            piop_acc_iteration_time.elapsed()
+        );
 
         // [Prover] Prove decomposition relation via lookup PIOP
         // For better modularity, we commit to the decomposition trace again in the decomposition SNARKs,
@@ -480,10 +480,10 @@ where
             hadamard_proof: hadamard_eval_proof,
             ntt_infos,
             ntt_proof,
-            // acc_iteration_proof,
+            acc_iteration_proof,
             eval_proof,
             eval_proof_key,
-            // sparse_eval_proof,
+            sparse_eval_proof,
             decomp_proof,
 
             trace_evals,
@@ -618,33 +618,33 @@ where
         }
 
         // [PIOP Phase] Verify the opening proof for the sparse coefficient matrix
-        // evaluation `ntt_proof.coeff_eval_at_r_v[0]` at point_r_v
-        // let piop_sparse_open_time = std::time::Instant::now();
-        // let sparse_eval_res = SparseRowEvalSnarks::<F, EF, S, PCS>::verify_as_subprotocol(
-        //     trans,
-        //     &proof.sparse_eval_proof,
-        //     statistics,
-        // );
-        // res &= sparse_eval_res;
-        // assert!(res, "Sparse Matrix Evaluation verification failed.");
-        // info!(
-        //     "[V]-[PIOP] Verifying evaluation proof for a sparse polynomial in {:?}",
-        //     piop_sparse_open_time.elapsed()
-        // );
+        // evaluation `ntt_proof.coeff_eval_at_r_v[2]` at point_r_v
+        let piop_sparse_open_time = std::time::Instant::now();
+        let sparse_eval_res = SparseRowEvalSnarks::<F, EF, S, PCS>::verify_as_subprotocol(
+            trans,
+            &proof.sparse_eval_proof,
+            statistics,
+        );
+        res &= sparse_eval_res;
+        assert!(res, "Sparse Matrix Evaluation verification failed.");
+        info!(
+            "[V]-[PIOP] Verifying evaluation proof for a sparse polynomial in {:?}",
+            piop_sparse_open_time.elapsed()
+        );
 
         // [PIOP Phase] Verify the correctness of Accumulator Iteration Structure
-        // let piop_acc_iteration_time = std::time::Instant::now();
-        // let acc_iteration_res = AccIterationSnarks::<F, EF, S, PCS>::verify_as_subprotocol(
-        //     trans,
-        //     &proof.acc_iteration_proof,
-        //     statistics,
-        // );
-        // res &= acc_iteration_res;
-        // assert!(res, "Acc Iteration verification failed.");
-        // info!(
-        //     "[V]-[PIOP] Verifying Accumulator Iteration Structure in {:?}",
-        //     piop_acc_iteration_time.elapsed()
-        // );
+        let piop_acc_iteration_time = std::time::Instant::now();
+        let acc_iteration_res = AccIterationSnarks::<F, EF, S, PCS>::verify_as_subprotocol(
+            trans,
+            &proof.acc_iteration_proof,
+            statistics,
+        );
+        res &= acc_iteration_res;
+        assert!(res, "Acc Iteration verification failed.");
+        info!(
+            "[V]-[PIOP] Verifying Accumulator Iteration Structure in {:?}",
+            piop_acc_iteration_time.elapsed()
+        );
 
         // [Verifier] Verify decomposition relation via lookup PIOP
         let decomp_res = DecompositionSnarks::<F, EF, S, PCS>::verify_as_subprotocol(
