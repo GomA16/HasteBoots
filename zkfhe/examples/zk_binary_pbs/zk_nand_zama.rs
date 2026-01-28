@@ -98,11 +98,12 @@ fn main() {
     println!("--- Starting verification of nand ---\n");
 
     let PBSTrace {
-        modulus_switching_trace,
+        mut modulus_switching_trace,
         mut blind_rotation_trace,
         key_switching_trace,
         sample_extraction_trace,
     } = trace;
+    modulus_switching_trace.finalize(params.lwe_dimension() + 1);
     blind_rotation_trace.finalize(params.lwe_dimension());
 
     // Perepare parameters and traces

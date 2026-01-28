@@ -87,7 +87,7 @@ impl<F: NTTField> BlindRotationTrace<F> {
 
     // Aggregate multiple traces into one trace
     pub fn from_batch_trace(traces: &Vec<BlindRotationTrace<F>>, num_each_poly: usize) -> Self {
-        let log_coeff_count = traces[0].log_coeff_count;
+        let log_coeff_count: usize = traces[0].log_coeff_count;
         let num_polys = num_each_poly * traces.len();
         let log_num_poly = num_polys.next_power_of_two().trailing_zeros() as usize;
 

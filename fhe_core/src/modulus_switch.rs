@@ -80,7 +80,7 @@ pub fn lwe_modulus_switch_w_trace<T: UnsignedInteger, F: DecomposableField>(
         .map(&conver_to_field)
         .collect::<Vec<F>>();
     trace.append_output(&a_b_field);
-    trace.finalize(c.a().len() + 1);
+    // trace.finalize(c.a().len() + 1);
 
     (LWECiphertext::new(a, b), trace)
 }

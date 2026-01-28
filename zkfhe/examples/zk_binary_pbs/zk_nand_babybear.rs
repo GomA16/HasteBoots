@@ -101,11 +101,12 @@ fn main() {
     // Perepare parameters and traces
     let time = std::time::Instant::now();
     let PBSTrace {
-        modulus_switching_trace,
+        mut modulus_switching_trace,
         mut blind_rotation_trace,
         key_switching_trace,
         sample_extraction_trace,
     } = trace;
+    modulus_switching_trace.finalize(params.lwe_dimension() + 1);
     blind_rotation_trace.finalize(params.lwe_dimension());
 
     let blind_rotation_ntt_table = FF::get_ntt_table(blind_rotation_trace.log_coeff_count as u32)

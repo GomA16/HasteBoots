@@ -32,6 +32,14 @@ pub struct KeySwitchingTraceMLE<F: Field> {
     pub lt_tables: LTTablesMLE<F>,
 }
 
+impl<F: Field> KeySwitchingTrace<F> {
+    // pub fn from_batch_trace(traces: Vec<KeySwitchingTrace<F>>) -> Self {
+    //     let num_trace = traces.len();
+    //     assert!(num_trace.is_power_of_two());
+
+    // }
+}
+
 impl<F: Field> From<KeySwitchingTrace<F>> for KeySwitchingTraceMLE<F> {
     fn from(trace: KeySwitchingTrace<F>) -> Self {
         KeySwitchingTraceMLE {

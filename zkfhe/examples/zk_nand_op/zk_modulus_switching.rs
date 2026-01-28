@@ -10,15 +10,15 @@ use snarks::fhe_op::key_switching::{KeySwitchingParams, KeySwitchingSnarks};
 use snarks::fhe_op::modulus_switch::{ModulusSwitchingParams, ModulusSwitchingSnarks};
 use trace::basic_ops::SumHadamardTraceMLE;
 use trace::key_switching_trace::KeySwitchingTraceMLE;
-use zkfhe::bfhe::{
-    BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator,
-};
+use trace::modulus_switching_trace::ModulusSwitchingTrace;
+use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
 type FF = BabyBear;
 type EF = BabyBearExetension;
 type Hash = sha2::Sha256;
 const BASE_FIELD_BITS: usize = 31;
+const LOG_BATCH_SIZE: usize = 0; // batch size = 2^LOG_BATCH_SIZE
 fn main() {
     env_logger::init();
     // set random generator
@@ -72,7 +72,12 @@ fn main() {
     println!("");
     println!("Starting verification of nand.\n");
 
-    let trace = trace.modulus_switching_trace.into();
+    let modulus_switching_trace = trace.modulus_switching_trace;
+    let traces = vec![modulus_switching_trace; 1 << LOG_BATCH_SIZE];
+    let batched_trace =
+        ModulusSwitchingTrace::from_batch_trace(traces, params.lwe_dimension() + 1);
+    let trace = batched_trace.into();
+
 
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
     let params = ModulusSwitchingParams::new(&code_spec);

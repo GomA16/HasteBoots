@@ -25,6 +25,7 @@ use crate::{
 // - Lookup Trace (large table):
 //   Table is [0, 2k]
 //   Input is e
+#[derive(Clone)]
 pub struct ModulusSwitchingTrace<F: Field> {
     pub log_num: usize,
     // q is the modulus after switching s.t. 2q | Q - 1
@@ -136,6 +137,20 @@ impl<F: DecomposableField> ModulusSwitchingTrace<F> {
         self.output_witness
             .extend(vec![self.modulus_after; num_zeros]);
         self.helper.extend(vec![self.blk_param; num_zeros]);
+    }
+
+    pub fn from_batch_trace(traces: Vec<ModulusSwitchingTrace<F>>, num_each_instance: usize) -> Self {
+        let num = num_each_instance * traces.len();
+        let log_num = num.next_power_of_two().trailing_zeros() as usize;
+
+        let mut new_trace = Self::new(log_num, traces[0].modulus_after);
+        traces.into_iter()
+            .for_each(|trace| {
+                new_trace.append_input(&trace.input);
+                new_trace.append_output(&trace.output);
+            });
+        new_trace.finalize(num);
+        new_trace
     }
 }
 
