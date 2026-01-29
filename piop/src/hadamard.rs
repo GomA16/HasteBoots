@@ -1,34 +1,19 @@
-use algebra::AbstractExtensionField;
-use algebra::DenseMultilinearExtension;
-use algebra::Field;
-use algebra::PolynomialInfo;
-use helper::FiatShamirTranscript;
+use std::rc::Rc;
+
+use algebra::{DenseMultilinearExtension, Field, PolynomialInfo};
 use helper::Transcript;
-use helper::utils::eval_identity_function;
 use itertools::izip;
 use serde::Serialize;
-use std::collections::HashMap;
-use std::collections::btree_map::Range;
-use std::rc::Rc;
-use sumcheck::MLSumcheck;
 use sumcheck::Proof;
-use sumcheck::prover;
 use sumcheck::verifier::SubClaim;
 use trace::basic_ops::{SumHadamardTraceEval, SumHadamardTraceMLE};
 use trace::blind_rotation_trace::BlindRotationTraceEval;
 
-use crate::BatchedSumcheckPIOP;
-use crate::LagrangeKernel;
-use crate::SumcheckClaim;
-use crate::SumcheckInfo;
-use crate::SumcheckInstance;
-use crate::SumcheckPIOP;
-use crate::SumcheckProverState;
-use crate::SumcheckProverStateTrait;
-use crate::SumcheckPureBatchedProof;
-use crate::SumcheckPureProof;
-use crate::SumcheckSubclaim;
-use crate::SumcheckSubclaimTrait;
+use crate::{
+    BatchedSumcheckPIOP, LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance,
+    SumcheckPIOP, SumcheckProverState, SumcheckPureBatchedProof, SumcheckPureProof,
+    SumcheckSubclaim,
+};
 
 pub struct HadamardPIOP<F: Field> {
     _marker: std::marker::PhantomData<F>,

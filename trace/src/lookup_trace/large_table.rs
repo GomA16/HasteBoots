@@ -1,8 +1,8 @@
 use std::rc::Rc;
 
-use algebra::{Basis, DecomposableField, DenseMultilinearExtension, Field};
+use algebra::{DecomposableField, DenseMultilinearExtension, Field};
 
-use crate::lookup_trace::normal_table::{LookupTrace, LookupTraceMLE};
+use crate::lookup_trace::normal_table::LookupTraceMLE;
 
 pub struct LookupLargeTableTrace<F: Field> {
     pub num_input_vars: usize,

@@ -1,12 +1,11 @@
+use std::rc::Rc;
+use std::sync::Arc;
+
 use algebra::derive::{DecomposableField, FheField, Field, NTT, Prime};
 use algebra::{DenseMultilinearExtension, Field, NTTPolynomial};
 use algebra::{NTTField, Polynomial, transformation::AbstractNTT};
 use num_traits::{One, Zero};
 use rand::prelude::*;
-use sha2::Sha256;
-use std::rc::Rc;
-use std::sync::Arc;
-use std::vec;
 use zkp::piop::ntt::NTTInstances;
 use zkp::piop::ntt::ntt_bare::init_fourier_table;
 use zkp::piop::{NTTBareIOP, NTTIOP, NTTInstance};
@@ -21,8 +20,8 @@ pub struct Fp32(u32);
 
 // field type
 type FF = Fp32;
-type Hash = Sha256;
-const BASE_FIELD_BITS: usize = 31;
+// type Hash = sha2::Sha256;
+// const BASE_FIELD_BITS: usize = 31;
 type PolyFF = Polynomial<FF>;
 
 fn obtain_fourier_matrix_oracle(log_n: u32) -> DenseMultilinearExtension<FF> {
@@ -193,7 +192,7 @@ fn test_ntt_inverse_transform_normal_order() {
 #[test]
 fn test_ntt_bare_without_delegation() {
     let log_n: usize = 10;
-    let m = 1 << (log_n + 1);
+    let _m = 1 << (log_n + 1);
     // let mut ntt_table = Vec::with_capacity(m as usize);
     let plan = FF::get_ntt_table(log_n as u32).unwrap();
     let ntt_table = Arc::new(plan.root_powers());

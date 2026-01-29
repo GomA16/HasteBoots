@@ -106,7 +106,6 @@ impl<F: Field> MonomialTrace<F> {
             self.degree.extend(vec![F::zero(); num_zeros]);
             self.coefficient.extend(vec![F::zero(); num_zeros]);
         }
-
     }
 
     pub fn append_trace(&mut self, trace: &MonomialTrace<F>) {
@@ -392,9 +391,9 @@ impl<F: Field> EvaluableTrace<F> for MonomialTraceMLE<F> {
 
     fn evaluate_with_lookup(
         &self,
-        point: &[F],
-        hash_table: &algebra::ListOfProductsOfPolynomials<F>,
-        eval_table: &[F],
+        _point: &[F],
+        _hash_table: &algebra::ListOfProductsOfPolynomials<F>,
+        _eval_table: &[F],
     ) -> Self::TraceEval {
         unimplemented!()
     }
@@ -412,21 +411,21 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for Monomi
 
     fn evaluate_ef_with_lookup(
         &self,
-        point: &[EF],
-        trace_ef: &Self::TraceMLEEF,
-        hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
-        eval_table: &[EF],
+        _point: &[EF],
+        _trace_ef: &Self::TraceMLEEF,
+        _hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+        _eval_table: &[EF],
     ) -> Self::TraceEvalEF {
         unimplemented!()
     }
 
     fn evaluate_ef_ntt_only(
         &self,
-        eval: &mut Self::TraceEvalEF,
-        point: &[EF],
-        trace_ef: &Self::TraceMLEEF,
-        hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
-        eval_table: &[EF],
+        _eval: &mut Self::TraceEvalEF,
+        _point: &[EF],
+        _trace_ef: &Self::TraceMLEEF,
+        _hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+        _eval_table: &[EF],
     ) {
         unimplemented!()
     }

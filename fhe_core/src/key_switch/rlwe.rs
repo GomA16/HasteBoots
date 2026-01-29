@@ -3,9 +3,7 @@ use std::slice::ChunksExact;
 use algebra::{Basis, NTTField, NTTPolynomial, Polynomial};
 use lattice::{DecompositionSpace, LWE, NTTGadgetRLWE, NTTRLWE, PolynomialSpace, RLWE};
 use trace::basic_ops::{
-    RowPermTrace, SumHadamardTrace,
-    rlwe_trace::PolynomialTrace,
-    row_perm_trace::{PermutationInfo, PermutationSignedInfo},
+    RowPermTrace, SumHadamardTrace, rlwe_trace::PolynomialTrace, row_perm_trace::PermutationInfo,
 };
 
 use crate::{NTRUCiphertext, SecretKeyPack};

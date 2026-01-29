@@ -29,15 +29,11 @@
 //!     P(k, r_x) = eq(r_x, ρ_inv(k)) for all k in \{0, 1\}^logN
 //! which means to perform the inverse permutation on the equality function evaluations.
 //!
-use algebra::DenseMultilinearExtension;
-use algebra::Field;
-use algebra::MultilinearExtension;
-use algebra::PolynomialInfo;
+use std::rc::Rc;
+
+use algebra::{DenseMultilinearExtension, Field, MultilinearExtension, PolynomialInfo};
 use helper::utils::eval_identity_function;
 use serde::Serialize;
-use std::collections::HashMap;
-
-use std::rc::Rc;
 use sumcheck::Proof;
 use sumcheck::verifier::SubClaim;
 use trace::BlindRotationTraceMLE;
@@ -45,16 +41,10 @@ use trace::basic_ops::{RowPermTrace, RowPermTraceMLE};
 use trace::blind_rotation_trace::BlindRotationTraceEval;
 use trace::lookup_trace::indexed_table::IndexedLookupTraceMLE;
 
-use crate::BatchedSumcheckPIOP;
-use crate::SumcheckInfo;
-use crate::SumcheckInstance;
-use crate::SumcheckPIOP;
-use crate::SumcheckProverState;
-use crate::SumcheckProverStateTrait;
-use crate::SumcheckPureBatchedProof;
-use crate::SumcheckPureProof;
-use crate::SumcheckSubclaim;
-use crate::SumcheckSubclaimTrait;
+use crate::{
+    BatchedSumcheckPIOP, SumcheckInfo, SumcheckInstance, SumcheckPIOP, SumcheckProverState,
+    SumcheckPureBatchedProof, SumcheckPureProof, SumcheckSubclaim,
+};
 
 pub struct RowPermPIOP<F: Field> {
     _marker: std::marker::PhantomData<F>,

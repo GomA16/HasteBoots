@@ -2,7 +2,6 @@
 // It is derived from https://github.com/arkworks-rs/sumcheck/blob/master/src/ml_sumcheck/protocol/prover.rs.
 
 use core::panic;
-use std::rc::Rc;
 use std::vec;
 
 use algebra::Field;

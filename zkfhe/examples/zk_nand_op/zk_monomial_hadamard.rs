@@ -10,9 +10,7 @@ use rand::Rng;
 use snarks::fhe_op::monomial_hadamard::{MonomialHadamardParams, MonomialHadamardSnarks};
 use trace::{AccTraceMLE, ConvertToEF};
 // use trace::HadamardProdTraceMLE;
-use zkfhe::bfhe::{
-    BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator,
-};
+use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
 type FF = BabyBear;
@@ -51,8 +49,8 @@ fn main() {
     let b: bool = rng.random();
     // let mut c = rng.random();
 
-    let mut a = a.as_into();
-    let mut b = b.as_into();
+    let a = a.as_into();
+    let b = b.as_into();
 
     let x = enc.encrypt(a);
     let y = enc.encrypt(b);
@@ -60,7 +58,7 @@ fn main() {
 
     let _start = std::time::Instant::now();
     // let (ct_nand, trace) = eval.nand(&x, &y);
-    let (ct_nand, mut trace) = eval.nand(&x, &y);
+    let (ct_nand, trace) = eval.nand(&x, &y);
 
     // nand
     let (m, noise) = dec.decrypt_with_noise(&ct_nand);

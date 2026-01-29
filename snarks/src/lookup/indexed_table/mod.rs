@@ -171,7 +171,10 @@ where
         trans.append_message(b"[Commit Phase]", &proof.input_commitment);
         trans.append_message(b"[Commit Phase]", &proof.index_commitment);
         trans.append_message(b"[Commit Phase]", &proof.multiplicity_commitment);
-        info!("[V]-[PCS] Receiving small polynomial time in {:?}", time.elapsed());
+        info!(
+            "[V]-[PCS] Receiving small polynomial time in {:?}",
+            time.elapsed()
+        );
         if let Some(stats) = statistics {
             stats.add_verifier_pcs_time(time.elapsed());
         }
@@ -184,7 +187,10 @@ where
         let time = std::time::Instant::now();
         trans.append_message(b"[Commit Phase]", &proof.helper_input_commitment);
         trans.append_message(b"[Commit Phase]", &proof.helper_table_commitment);
-        info!("[V]-[PCS] Receiving small polynomial time in {:?}", time.elapsed());
+        info!(
+            "[V]-[PCS] Receiving small polynomial time in {:?}",
+            time.elapsed()
+        );
         if let Some(stats) = statistics {
             stats.add_verifier_pcs_time(time.elapsed());
         }
@@ -197,7 +203,7 @@ where
         );
         res &= piop_res1;
         info!("[V]-[PIOP] Verifying indexed table in {:?}", time.elapsed());
-        
+
         // These two protocols can be combined together in a single sumcheck protocol, so the verifier PIOP time can be reduced by half.
         let time = std::time::Instant::now();
         let (piop_res2, piop_subclaim2) = IndexedLogUpTableIOP::verifier(

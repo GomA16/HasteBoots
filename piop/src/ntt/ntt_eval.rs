@@ -1,7 +1,6 @@
 use algebra::{DenseMultilinearExtension, Field, PolynomialInfo};
 use helper::{FiatShamirTranscript, Transcript};
 use serde::Serialize;
-use serde::Serializer;
 use std::rc::Rc;
 use sumcheck::{MLSumcheck, Proof, verifier::SubClaim};
 use trace::basic_ops::NTTTraceMLE;

@@ -866,8 +866,7 @@ where
 
         // 1. Use PCS to commit the above polynomial.
         let start = Instant::now();
-        let pp =
-            BrakedownPCS::<F, H, C, S, EF>::setup(committed_poly.num_vars, Some(code_spec.clone()));
+        let pp = BrakedownPCS::<F, H, C, S, EF>::setup(committed_poly.num_vars, &code_spec);
         let setup_time = start.elapsed().as_millis();
 
         let start = Instant::now();

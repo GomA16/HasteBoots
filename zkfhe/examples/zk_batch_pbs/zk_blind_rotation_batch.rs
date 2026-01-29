@@ -6,13 +6,11 @@ use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
 use snarks::SnarkStatistics;
-use snarks::fhe_batch_op::batch_blind_rotation::{BatchBlindRotationParams, BatchBlindRotationSnarks};
-use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks, KeyCommitment};
-use trace::BlindRotationTraceMLE;
-// use trace::HadamardProdTraceMLE;
-use zkfhe::bfhe::{
-    BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator,
+use snarks::fhe_batch_op::batch_blind_rotation::{
+    BatchBlindRotationParams, BatchBlindRotationSnarks,
 };
+use snarks::fhe_op::blind_rotation::KeyCommitment;
+use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
 type FF = BabyBear;
@@ -61,14 +59,13 @@ fn main() {
 
     let start = std::time::Instant::now();
     // let (ct_nand, trace) = eval.nand(&x, &y);
-    let (ct_nand, mut trace) = eval.nand(&x, &y);
+    let (ct_nand, trace) = eval.nand(&x, &y);
     println!("NAND Evaluation Time is : {:?}\n", start.elapsed());
 
     // nand
     let (m, noise) = dec.decrypt_with_noise(&ct_nand);
     assert_eq!(m, nand(a, b), "Noise: {noise}");
     check_noise(noise, "nand");
-
 
     // Generate SNARKs for nand
     println!("");
@@ -78,7 +75,6 @@ fn main() {
     trace.finalize(params.lwe_dimension());
 
     let traces = vec![trace; 1 << LOG_BATCH_SIZE]; // batch size 2
-
 
     let ntt_table = FF::get_ntt_table(traces[0].log_coeff_count as u32)
         .unwrap()
@@ -109,28 +105,36 @@ fn main() {
     assert!(res);
     println!("Proofs verification done!\n");
     println!("Proof verification time: {:?}\n", verifier_total_time);
-    
+
     println!("--- SNARK Statistics Summary ---\n");
-    println!("Prover Total Time: {:.2?} s", prover_total_time.as_secs_f64());
+    println!(
+        "Prover Total Time: {:.2?} s",
+        prover_total_time.as_secs_f64()
+    );
     if let Some(stats) = pcs_statistics {
         let pcs_ratio =
             stats.prover_pcs_time.as_secs_f64() / prover_total_time.as_secs_f64() * 100.0;
         println!(
             "Prover PCS Time (including commit and open): {:.2?} s, accounts for {:.2} %",
-            stats.prover_pcs_time.as_secs_f64(), pcs_ratio
+            stats.prover_pcs_time.as_secs_f64(),
+            pcs_ratio
         );
         println!(
             "Prover PIOP Time: {:.2?}\n",
             (prover_total_time - stats.prover_pcs_time).as_secs_f64()
         );
     }
-    println!("Verifier Total Time: {:.2?} ms", verifier_total_time.as_secs_f64() * 1000.0);
+    println!(
+        "Verifier Total Time: {:.2?} ms",
+        verifier_total_time.as_secs_f64() * 1000.0
+    );
     if let Some(stats) = pcs_statistics {
         let pcs_ratio =
             stats.verifier_pcs_time.as_secs_f64() / verifier_total_time.as_secs_f64() * 100.0;
         println!(
             "Verifier PCS Time (including commit and open): {:.2?} ms, accounts for {:.2} %",
-            stats.verifier_pcs_time.as_secs_f64() * 1000.0, pcs_ratio
+            stats.verifier_pcs_time.as_secs_f64() * 1000.0,
+            pcs_ratio
         );
         println!(
             "Verifier PIOP Time: {:.2?} ms\n",

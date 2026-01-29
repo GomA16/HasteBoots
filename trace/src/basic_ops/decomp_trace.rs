@@ -3,8 +3,7 @@ use std::rc::Rc;
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 
 use crate::{
-    EvaluableTraceEF, PackableTrace,
-    cmp_trace::lt_trace::{LTTable, LTTables, LTTablesMLE},
+    EvaluableTraceEF, PackableTrace, cmp_trace::lt_trace::LTTablesMLE,
     lookup_trace::indexed_table::IndexedLookupTraceMLE,
 };
 
@@ -82,11 +81,11 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for Decomp
 
     fn evaluate_ef_ntt_only(
         &self,
-        eval: &mut Self::TraceEvalEF,
-        point: &[EF],
-        trace_ef: &Self::TraceMLEEF,
-        hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
-        eval_table: &[EF],
+        _eval: &mut Self::TraceEvalEF,
+        _point: &[EF],
+        _trace_ef: &Self::TraceMLEEF,
+        _hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+        _eval_table: &[EF],
     ) {
         unimplemented!()
     }

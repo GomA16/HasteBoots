@@ -18,7 +18,7 @@ const BASE_FIELD_BITS: usize = 31;
 #[modulus = 1024]
 pub struct Fq(u32);
 
-const DIM_LWE: usize = 1024;
+const _DIM_LWE: usize = 1024;
 const LOG_DIM_RLWE: usize = 10;
 const MOD_LWE: usize = 1024;
 const LOG_B: u32 = 1;

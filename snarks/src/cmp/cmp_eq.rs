@@ -1,23 +1,17 @@
-use core::time;
-
 use algebra::{
     AbstractExtensionField, AsInto, DecomposableField, DenseMultilinearExtension, Field,
 };
-use bincode::{config::standard, de};
-use helper::{FiatShamirTranscript, Transcript, utils::compute_oracle_evals};
-use pcs::{PolynomialCommitmentScheme, utils::code};
+use bincode::config::standard;
+use helper::{FiatShamirTranscript, Transcript};
+use pcs::PolynomialCommitmentScheme;
 use piop::{
     SumcheckInstance, SumcheckPIOP,
     grand_prod::{GrandProdInfo, GrandProdInstance, GrandProdPIOP, GrandProdProof},
 };
-use serde::{Serialize, ser};
+use serde::Serialize;
 use trace::{
-    ConvertToEF, PackableTrace,
-    basic_ops::decomp_trace::DecompTraceMLE,
-    cmp_trace::{
-        eq_trace::{self, EQTablesMLE, EQTraceMLE},
-        lt_trace::LTTablesMLE,
-    },
+    ConvertToEF,
+    cmp_trace::eq_trace::{EQTablesMLE, EQTraceMLE},
 };
 
 use crate::{
@@ -162,7 +156,7 @@ where
 
         let trace_ef: EQTraceMLE<EF> = trace.to_ef();
         let equality_instance = GrandProdInstance::from_eq_trace(&trace_ef);
-        let (piop_proof, piop_state) = GrandProdPIOP::<EF>::prover(trans, &equality_instance);
+        let (piop_proof, _piop_state) = GrandProdPIOP::<EF>::prover(trans, &equality_instance);
 
         let basis = 1 << params.eq_tables.basis_bits;
         ComputeEqualityProof {
@@ -222,7 +216,6 @@ where
 
 #[cfg(test)]
 mod test {
-    use core::num;
     use std::rc::Rc;
 
     use super::*;
@@ -233,12 +226,12 @@ mod test {
         multilinear::BrakedownPCS,
         utils::code::{ExpanderCode, ExpanderCodeSpec},
     };
-    use trace::cmp_trace::eq_trace::{EQTable, EQTables, EQTrace};
+    use trace::cmp_trace::eq_trace::{EQTables, EQTrace};
 
     type FF = BabyBear;
     type EF = BabyBearExetension;
     type Hash = sha2::Sha256;
-    const BASE_FIELD_BITS: usize = 31;
+    const _BASE_FIELD_BITS: usize = 31;
 
     #[test]
     fn test_cmp_eq_snarks() {

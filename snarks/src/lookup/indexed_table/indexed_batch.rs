@@ -1,23 +1,15 @@
-use core::time;
-use std::ops::Add;
-
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 use bincode::config::standard;
-use helper::{
-    FiatShamirTranscript, Transcript,
-    utils::{compute_oracle_evals, eval_identity_function},
-};
+use helper::{FiatShamirTranscript, Transcript, utils::compute_oracle_evals};
 use log::info;
 use pcs::PolynomialCommitmentScheme;
 use piop::{
-    BatchedSumcheckPIOP, SumcheckInstance, SumcheckPIOP,
+    BatchedSumcheckPIOP, SumcheckInstance,
     lookup::indexed_table::{
         self, BatchedIndexLogUpInputProof, IndexedLogUpInputIOP, IndexedLogUpInputInstanceInfo,
-        IndexedLogUpInputProof, IndexedLogUpTableIOP, IndexedLogUpTableInstanceInfo,
-        IndexedLogUpTableProof,
     },
 };
-use serde::{Serialize, ser};
+use serde::Serialize;
 use trace::{
     ConvertToEF, EvaluableTraceEF, PackableEval, PackableTrace,
     lookup_trace::indexed_table::{IndexedLookupEval, IndexedLookupTraceMLE},
@@ -220,7 +212,7 @@ where
         );
 
         // [Commit Phase] Commit to the helper polynomials
-        // TODO: optimize it. 
+        // TODO: optimize it.
         // We can batch multiple lookups into one helper function, which is implemented in undexed lookup right now.
         let helper_poly = helper.generate_oracle();
         let commit_time = std::time::Instant::now();

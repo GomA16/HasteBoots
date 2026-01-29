@@ -753,9 +753,9 @@ where
 {
     /// Setup for the PCS.
     pub fn setup(&mut self, instance: &LookupInstance<F>, code_spec: S) {
-        self.pp_first = Pcs::setup(instance.generate_first_num_var(), Some(code_spec.clone()));
+        self.pp_first = Pcs::setup(instance.generate_first_num_var(), &code_spec);
 
-        self.pp_second = Pcs::setup(instance.generate_second_num_var(), Some(code_spec));
+        self.pp_second = Pcs::setup(instance.generate_second_num_var(), &code_spec);
     }
 }
 

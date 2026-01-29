@@ -1,10 +1,10 @@
 use algebra::{Basis, NTTField, Polynomial};
 use fhe_core::{
     KeySwitchingKeyEnum, KeySwitchingRLWEKey, LWECiphertext, Parameters, RLWEBlindRotationKey,
-    SecretKeyPack, lwe_modulus_switch, lwe_modulus_switch_w_trace,
+    SecretKeyPack, lwe_modulus_switch_w_trace,
 };
 use trace::basic_ops::SumHadamardTrace;
-use trace::cmp_trace::lt_trace::{LTTable, LTTables};
+use trace::cmp_trace::lt_trace::LTTables;
 use trace::key_switching_trace::KeySwitchingTrace;
 use trace::pbs_trace::PBSTrace;
 use trace::{AccTrace, BlindRotationTrace};

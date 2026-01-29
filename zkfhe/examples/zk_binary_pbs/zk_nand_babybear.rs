@@ -2,10 +2,7 @@ use std::fs::OpenOptions;
 use std::path::Path;
 
 use algebra::transformation::AbstractNTT;
-use algebra::{
-    AbstractExtensionField, AsInto, BabyBear, BabyBearExetension, Field, Goldilocks,
-    GoldilocksExtension, NTTField,
-};
+use algebra::{AbstractExtensionField, AsInto, BabyBear, BabyBearExetension, Field, NTTField};
 use fhe_core::utils::*;
 use helper::Transcript;
 use pcs::PolynomialCommitmentScheme;
@@ -17,8 +14,8 @@ use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks, K
 use snarks::fhe_op::key_switching::{KeySwitchingParams, KeySwitchingSnarks};
 use snarks::fhe_op::modulus_switch::{self, ModulusSwitchingSnarks};
 use snarks::fhe_op::row_permutation::RowPermutationSignedSnarks;
-use trace::pbs_trace::PBSTrace;
 use std::io::Write;
+use trace::pbs_trace::PBSTrace;
 // use trace::HadamardProdTraceMLE;
 use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
@@ -84,7 +81,7 @@ fn main() {
 
     let start = std::time::Instant::now();
     // let (ct_nand, trace) = eval.nand(&x, &y);
-    let (ct_nand, mut trace) = eval.nand(&x, &y);
+    let (ct_nand, trace) = eval.nand(&x, &y);
     println!("NAND Evaluation Time is : {:?}\n", start.elapsed());
 
     // nand
@@ -375,8 +372,6 @@ fn main() {
         "\n✓ Statistics appended to: {} (Run #{})",
         csv_path, run_number
     );
-
-    
 }
 
 // fn main() {}

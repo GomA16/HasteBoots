@@ -46,9 +46,9 @@ fn build_instances(log_n: u32, num_ntt: u32) -> NTTInstances<FF> {
 // B = 2^3: denotes the basis used in the bit decomposition
 // q = 1024: denotes the modulus in LWE
 // Q = DefaultFieldU32: denotes the ciphertext modulus in RLWE
-const DIM_LWE: usize = 1024;
+const _DIM_LWE: usize = 1024;
 const LOG_DIM_RLWE: usize = 10;
-const BITS_LEN: usize = 10;
+const _BITS_LEN: usize = 10;
 
 fn bench_ntt_snarks(c: &mut Criterion) {
     let num_vars = LOG_DIM_RLWE;

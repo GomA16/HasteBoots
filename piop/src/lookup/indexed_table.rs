@@ -1,10 +1,10 @@
 use std::{collections::HashMap, rc::Rc};
 
 use algebra::{DenseMultilinearExtension, Field, PolynomialInfo};
-use helper::{FiatShamirTranscript, Transcript, utils::eval_identity_function};
+use helper::Transcript;
 use itertools::izip;
 use serde::Serialize;
-use sumcheck::{MLSumcheck, Proof, prover::ProverState, verifier::SubClaim};
+use sumcheck::{Proof, prover::ProverState, verifier::SubClaim};
 use trace::lookup_trace::indexed_table::{
     IndexedLookupTraceMLE, IndexedLookupWitness, IndexedLookupWitnessHelper,
 };
@@ -598,7 +598,7 @@ impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for IndexedLogUpTableIOP<F> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{SumcheckInstance, lookup};
+    use crate::SumcheckInstance;
     use algebra::{
         FieldUniformSampler,
         derive::{Field, Prime},
@@ -730,7 +730,7 @@ mod test {
 
     #[test]
     fn test_custom_table_iop() {
-        let mut rng = &mut rand::rng();
+        let rng = &mut rand::rng();
         let num_input_vars = 2;
         let num_table_vars = 4;
         let table = (1..=(1 << num_table_vars))
@@ -747,7 +747,7 @@ mod test {
 
     #[test]
     fn test_custom_table_batched_iop() {
-        let mut rng = &mut rand::rng();
+        let rng = &mut rand::rng();
         let num_input_vars = 2;
         let num_table_vars = 4;
 

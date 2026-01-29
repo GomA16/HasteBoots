@@ -1,11 +1,7 @@
 use std::rc::Rc;
 
-use algebra::{AsFrom, AsInto, Basis, DecomposableField, DenseMultilinearExtension, Field};
-use num_traits::Zero;
-use rayon::{
-    iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator},
-    vec,
-};
+use algebra::{AsInto, Basis, DecomposableField, DenseMultilinearExtension, Field};
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 use crate::{
     cmp_trace::{
@@ -82,7 +78,7 @@ impl<F: DecomposableField> ModulusSwitchingTrace<F> {
         // k = (Q - 1) / (2q)
         let blk_size = (-F::one()) / (modulus_after + modulus_after);
         // helper_upper_bound = 2k = (Q - 1) / q
-        let helper_upper_bound = ((-F::one()) / modulus_after);
+        let helper_upper_bound = (-F::one()) / modulus_after;
         let basis = Basis::<F>::new(10);
         let a_eq_k_tables = EQTables::<F>::new(blk_size, &basis);
         let e_lt_2k_plus_1_tables = LTTables::<F>::new(&basis, Some(helper_upper_bound + F::one()));

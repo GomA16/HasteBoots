@@ -5,7 +5,6 @@ use algebra::{
     transformation::AbstractNTT,
 };
 use rand_distr::Distribution;
-use serde::Serialize;
 
 use super::rlwe_trace::{MonomialTrace, MonomialTraceMLE};
 use crate::{ConvertToEF, PackableTrace};

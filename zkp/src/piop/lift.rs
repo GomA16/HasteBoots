@@ -574,8 +574,7 @@ where
         let committed_poly = instance.generate_oracle();
         // 1. Use PCS to commit the above polynomial.
         let time_mark = Instant::now();
-        let pp =
-            BrakedownPCS::<F, H, C, S, EF>::setup(committed_poly.num_vars, Some(code_spec.clone()));
+        let pp = BrakedownPCS::<F, H, C, S, EF>::setup(committed_poly.num_vars, &code_spec);
         let mut setup_time = time_mark.elapsed().as_millis();
 
         let time_mark = Instant::now();
@@ -670,10 +669,8 @@ where
         let mut piop_time = time_mark.elapsed().as_millis();
 
         let time_mark = Instant::now();
-        let second_pp = BrakedownPCS::<F, H, C, S, EF>::setup(
-            second_committed_poly.num_vars,
-            Some(code_spec.clone()),
-        );
+        let second_pp =
+            BrakedownPCS::<F, H, C, S, EF>::setup(second_committed_poly.num_vars, &code_spec);
         setup_time += time_mark.elapsed().as_millis();
 
         let time_mark = Instant::now();

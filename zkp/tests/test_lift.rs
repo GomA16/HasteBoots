@@ -21,14 +21,14 @@ type EF = BabyBearExetension;
 type Hash = Sha256;
 const BASE_FIELD_BITS: usize = 31;
 
-macro_rules! field_vec {
-    ($t:ty; $elem:expr; $n:expr)=>{
-        vec![<$t>::new($elem);$n]
-    };
-    ($t:ty; $($x:expr),+ $(,)?) => {
-        vec![$(<$t>::new($x)),+]
-    }
-}
+// macro_rules! field_vec {
+//     ($t:ty; $elem:expr; $n:expr)=>{
+//         vec![<$t>::new($elem);$n]
+//     };
+//     ($t:ty; $($x:expr),+ $(,)?) => {
+//         vec![$(<$t>::new($x)),+]
+//     }
+// }
 
 #[derive(Field)]
 #[modulus = 2048]

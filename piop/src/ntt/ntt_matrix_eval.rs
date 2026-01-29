@@ -1,8 +1,4 @@
-use algebra::{
-    AbstractExtensionField, DenseMultilinearExtension, Field, MultilinearExtension, NTTField,
-    PolynomialInfo, transformation::AbstractNTT,
-};
-use core::time;
+use algebra::{DenseMultilinearExtension, Field, MultilinearExtension, PolynomialInfo};
 use helper::{FiatShamirTranscript, Transcript};
 use itertools::izip;
 use serde::Serialize;
@@ -14,7 +10,6 @@ use crate::{
     BatchedSumcheckPIOP, LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance,
     SumcheckPIOP, SumcheckProverStateTrait, SumcheckPureBatchedProof, SumcheckPureProof,
     SumcheckSubclaimTrait,
-    hadamard::BatchedSumHadamardProof,
     ntt::{
         NTTFourierEvalIOP, NTTFourierEvalInfo, fourier_eval::NTTFourierProof,
         ntt_eval::init_fourier_table,
@@ -378,17 +373,17 @@ impl<F: Field + Serialize> SumcheckPureBatchedProof<F> for BatchedNTTMatrixEvalP
     type ProverState = BatchedNTTMatrixEvalProverState<F>;
     fn append_evaluations(
         &mut self,
-        instances: &[Self::Instance],
-        prover_state: &Self::ProverState,
+        _instances: &[Self::Instance],
+        _prover_state: &Self::ProverState,
     ) {
         unimplemented!("append_evaluations is not implemented for BatchedNTTMatrixEvalProof");
     }
     fn compute_subclaim(
         &self,
-        infos: &[Self::Info],
-        subclaim: &mut SubClaim<F>,
-        randomness: &Vec<Vec<F>>,
-        kernel_at_r: Option<F>,
+        _infos: &[Self::Info],
+        _subclaim: &mut SubClaim<F>,
+        _randomness: &Vec<Vec<F>>,
+        _kernel_at_r: Option<F>,
     ) {
         unimplemented!("compute_subclaim is not implemented for BatchedNTTMatrixEvalProof");
     }
@@ -397,7 +392,7 @@ impl<F: Field + Serialize> SumcheckPureBatchedProof<F> for BatchedNTTMatrixEvalP
 impl<F: Field> SumcheckProverStateTrait<F> for BatchedNTTMatrixEvalProverState<F> {
     fn from_sumcheck(
         _sumcheck_prover_state: sumcheck::prover::ProverState<F>,
-        claim: SumcheckClaim<F>,
+        _claim: SumcheckClaim<F>,
     ) -> Self {
         unimplemented!("from_sumcheck is not implemented for BatchedNTTMatrixEvalProverState");
     }

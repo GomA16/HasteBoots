@@ -1,17 +1,14 @@
-use core::num;
-use std::rc::Rc;
-
 use algebra::AbstractExtensionField;
-use algebra::{DenseMultilinearExtension, Field, NTTField, transformation::AbstractNTT};
+use algebra::{Field, NTTField};
 use itertools::izip;
-use serde::{Serialize, de};
+use serde::Serialize;
 
 use crate::basic_ops::hadamard_trace::HadamardTraceEval;
 use crate::basic_ops::rlwe_trace::{
     MonomialTrace, MonomialTraceMLE, PolynomialEval, PolynomialTrace, PolynomialTraceMLE, RLWEEval,
     RLWETrace, RLWETraceMLE,
 };
-use crate::basic_ops::row_perm_trace::{PermutationInfo, RowPermTraceMLE};
+use crate::basic_ops::row_perm_trace::PermutationInfo;
 use crate::basic_ops::{HadamardTraceMLE, SumHadamardTraceEval, SumHadamardTraceMLE};
 use crate::{ConvertToEF, EvaluableTrace, EvaluableTraceEF, PackableEval, PackableTrace};
 

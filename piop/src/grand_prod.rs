@@ -1,10 +1,9 @@
 use std::rc::Rc;
 
 use algebra::{DenseMultilinearExtension, Field, PolynomialInfo};
-use rand::random;
 use serde::Serialize;
 use sumcheck::Proof;
-use trace::cmp_trace::{eq_trace::EQTraceMLE, lt_trace::LTTablesMLE};
+use trace::cmp_trace::eq_trace::EQTraceMLE;
 
 use crate::{
     LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance, SumcheckPIOP,
@@ -43,8 +42,7 @@ impl<F: Field> GrandProdInstance<F> {
         kernal: &LagrangeKernel<F>,
         random_lambda: F,
     ) {
-        let mut prod = Vec::with_capacity(self.products.len() + 1);
-        prod = self.products.iter().map(|p| p.clone()).collect();
+        let mut prod: Vec<_> = self.products.iter().map(|p| p.clone()).collect();
         prod.push(Rc::clone(&kernal.eq_at_point));
         claim.poly.add_product(prod, random_lambda);
 
@@ -169,15 +167,13 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for GrandProdPIOP<F> {
 
 #[cfg(test)]
 mod test {
-    use algebra::{
-        BabyBear, Basis,
-        derive::{DecomposableField, Field},
-    };
-    use helper::Transcript;
-    use trace::cmp_trace::eq_trace::{self, EQTables, EQTrace};
-
     use super::*;
+
+    use algebra::{BabyBear, Basis};
+    use helper::Transcript;
     use num_traits::One;
+    use trace::cmp_trace::eq_trace::{EQTables, EQTrace};
+
     // field type
     type FF = BabyBear;
 

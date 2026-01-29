@@ -281,7 +281,7 @@ fn test_snarks() {
     let start = Instant::now();
     let pp = BrakedownPCS::<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>::setup(
         committed_poly.num_vars,
-        Some(code_spec),
+        &code_spec,
     );
     let setup_time = start.elapsed().as_millis();
 

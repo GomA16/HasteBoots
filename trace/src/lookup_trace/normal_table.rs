@@ -1,16 +1,13 @@
-use algebra::{AbstractExtensionField, AsInto};
-use algebra::{DenseMultilinearExtension, Field};
-use core::num;
-use helper::utils::batch_inverse;
-use itertools::Itertools;
-use rayon::iter::ParallelIterator;
-use rayon::slice::ParallelSlice;
-use rayon::vec;
-use std::sync::Arc;
 use std::{collections::HashMap, rc::Rc};
 
+use algebra::{AbstractExtensionField, AsInto};
+use algebra::{DenseMultilinearExtension, Field};
+use helper::utils::batch_inverse;
+use log::debug;
+use rayon::iter::ParallelIterator;
+use rayon::slice::ParallelSlice;
+
 use crate::{ConvertToEF, EvaluableTrace, EvaluableTraceEF, PackableEval, PackableTrace};
-use log::{debug, info};
 
 // Conversion Chain: LookupTrace => LookupTraceMLE => LookupWitness
 // LookupWitnessHelper is computed from LookupWitness with a random value
@@ -436,11 +433,11 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for Lookup
 
     fn evaluate_ef_ntt_only(
         &self,
-        eval: &mut Self::TraceEvalEF,
-        point: &[EF],
-        trace_ef: &Self::TraceMLEEF,
-        hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
-        eval_table: &[EF],
+        _eval: &mut Self::TraceEvalEF,
+        _point: &[EF],
+        _trace_ef: &Self::TraceMLEEF,
+        _hash_table: &algebra::ListOfProductsOfPolynomials<EF>,
+        _eval_table: &[EF],
     ) {
         unimplemented!()
     }

@@ -135,8 +135,8 @@ where
         trans: &mut Transcript<EF>,
         proof: &AccIterationSnarksProof<F, EF, S, PCS>,
     ) -> bool {
-        let point_rx = LagrangeKernel::random_point(trans, proof.log_num_rows);
-        let point_ry = LagrangeKernel::random_point(trans, proof.log_num_cols);
+        let _point_rx = LagrangeKernel::random_point(trans, proof.log_num_rows);
+        let _point_ry = LagrangeKernel::random_point(trans, proof.log_num_cols);
 
         AccIterationSnarks::<F, EF, S, PCS>::verify_as_subprotocol(trans, proof, &mut None)
     }

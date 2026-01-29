@@ -23,9 +23,9 @@ type PolyFF = Polynomial<FF>;
 // B = 2^3: denotes the basis used in the bit decomposition
 // q = 1024: denotes the modulus in LWE
 // Q = DefaultFieldU32: denotes the ciphertext modulus in RLWE
-const DIM_LWE: usize = 1024;
+// const DIM_LWE: usize = 1024;
 const LOG_DIM_RLWE: usize = 10;
-const BITS_LEN: usize = 10;
+// const BITS_LEN: usize = 10;
 
 /// Given an `index` of `len` bits, output a new index where the bits are reversed.
 fn reverse_bits(index: usize, len: u32) -> usize {

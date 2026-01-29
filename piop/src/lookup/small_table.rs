@@ -1,9 +1,8 @@
 use algebra::{DenseMultilinearExtension, Field, PolynomialInfo};
-use helper::{FiatShamirTranscript, Transcript};
+use helper::Transcript;
 use serde::Serialize;
 use std::rc::Rc;
-use sumcheck::{MLSumcheck, Proof};
-use sumcheck::{prover::ProverState, verifier::SubClaim};
+use sumcheck::{Proof, prover::ProverState, verifier::SubClaim};
 use trace::basic_ops::SumHadamardTraceEval;
 use trace::lookup_trace::small_table::{
     LookupTraceEval, LookupTraceMLE, LookupWitnessHelper, LookupWitnessHelperEval,
@@ -210,7 +209,7 @@ impl<F: Field> SumcheckPureProof<F> for LogUpProof<F> {
 }
 
 impl<F: Field> SumcheckProverStateTrait<F> for LogUpProverState<F> {
-    fn from_sumcheck(sumcheck_prover_state: ProverState<F>, claim: SumcheckClaim<F>) -> Self {
+    fn from_sumcheck(sumcheck_prover_state: ProverState<F>, _claim: SumcheckClaim<F>) -> Self {
         LogUpProverState {
             point_r: sumcheck_prover_state.randomness,
         }

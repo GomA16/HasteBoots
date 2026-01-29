@@ -1,8 +1,5 @@
 use algebra::transformation::AbstractNTT;
-use algebra::{
-    AbstractExtensionField, AsInto, BabyBear, BabyBearExetension, Field, Goldilocks,
-    GoldilocksExtension, NTTField,
-};
+use algebra::{AbstractExtensionField, AsInto, Field, Goldilocks, GoldilocksExtension, NTTField};
 use fhe_core::utils::*;
 use helper::Transcript;
 use pcs::PolynomialCommitmentScheme;
@@ -14,7 +11,7 @@ use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks, K
 use snarks::fhe_op::key_switching::{KeySwitchingParams, KeySwitchingSnarks};
 use snarks::fhe_op::modulus_switch::{self, ModulusSwitchingSnarks};
 use snarks::fhe_op::row_permutation::RowPermutationSignedSnarks;
-use std::fs::{File, OpenOptions};
+use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::Path;
 use trace::pbs_trace::PBSTrace;
@@ -83,7 +80,7 @@ fn main() {
 
     let start = std::time::Instant::now();
     // let (ct_nand, trace) = eval.nand(&x, &y);
-    let (ct_nand, mut trace) = eval.nand(&x, &y);
+    let (ct_nand, trace) = eval.nand(&x, &y);
     println!("NAND Evaluation Time is : {:?}\n", start.elapsed());
 
     // nand
@@ -196,7 +193,7 @@ fn main() {
         time.elapsed()
     );
 
-    let mut prover_total_time = prover_total_time.elapsed();
+    let prover_total_time = prover_total_time.elapsed();
     println!("--- Proofs generation done! ---\n");
     println!("Proof generation time: {:?}\n", prover_total_time);
 

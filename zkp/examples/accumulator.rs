@@ -1,13 +1,11 @@
-use algebra::{
-    BabyBear, BabyBearExetension, Basis, DenseMultilinearExtension, Field, MultilinearExtension,
-};
+use std::sync::Arc;
+
+use algebra::{BabyBear, BabyBearExetension, Basis, DenseMultilinearExtension, Field};
 use algebra::{NTTField, NTTPolynomial, Polynomial, transformation::AbstractNTT};
 use itertools::izip;
 use num_traits::One;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use sha2::Sha256;
-use std::sync::Arc;
-use std::vec;
 use zkp::piop::AccumulatorSnarksOpt;
 use zkp::piop::{
     AccumulatorInstance, AccumulatorWitness, DecomposedBitsInfo, NTTInstanceInfo, RlweCiphertext,

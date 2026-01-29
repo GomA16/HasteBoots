@@ -1,12 +1,10 @@
-use algebra::{AbstractExtensionField, Field};
+use algebra::Field;
 
 use crate::{
-    ConvertToEF,
     basic_ops::{
         RowPermTrace, RowPermTraceMLE, SumHadamardTrace, SumHadamardTraceMLE,
         decomp_trace::DecompTraceMLE,
         rlwe_trace::{PolynomialTrace, PolynomialTraceMLE},
-        row_perm_trace::PermutationSignedInfo,
     },
     cmp_trace::lt_trace::{LTTables, LTTablesMLE},
 };

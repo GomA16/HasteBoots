@@ -1,11 +1,9 @@
-use core::time;
-
 use algebra::{AbstractExtensionField, AsInto, DenseMultilinearExtension, Field};
-use bincode::{config::standard, de};
+use bincode::config::standard;
 use helper::{FiatShamirTranscript, Transcript, utils::compute_oracle_evals};
 use log::info;
-use pcs::{PolynomialCommitmentScheme, utils::code};
-use serde::{Serialize, ser};
+use pcs::PolynomialCommitmentScheme;
+use serde::Serialize;
 use trace::{
     PackableTrace, basic_ops::decomp_trace::DecompTraceMLE, cmp_trace::lt_trace::LTTablesMLE,
 };

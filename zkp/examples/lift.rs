@@ -30,7 +30,7 @@ pub struct F32(u64);
 // Q = DefaultFieldU32: denotes the ciphertext modulus in RLWE
 const DIM_LWE: usize = 1024;
 const LOG_DIM_RLWE: usize = 10;
-const LOG_B: usize = 7;
+// const LOG_B: usize = 7;
 
 /// Invoke the existing api to perform ntt transform.
 /// The input is in normal order and the output is in the bit-reversed order

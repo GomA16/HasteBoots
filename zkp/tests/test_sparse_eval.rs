@@ -1,30 +1,27 @@
 use std::rc::Rc;
 use std::vec;
 
-use algebra::{
-    BabyBear, BabyBearExetension, DenseMultilinearExtension, Field, FieldUniformSampler,
-    derive::Field,
-};
+use algebra::{BabyBear, DenseMultilinearExtension, Field, FieldUniformSampler, derive::Field};
 use helper::Transcript;
 use num_traits::Zero;
 use rand_distr::Distribution;
-use sha2::Sha256;
+
 use zkp::piop::{
     LookupIOP,
     sparse_eval::{SparseEvalIOP, SparseEvalInstance},
 };
 
 type FF = BabyBear; // field type
-type EF = BabyBearExetension;
-type Hash = Sha256;
-const BASE_FIELD_BITS: usize = 31;
-const FP: u32 = FF::MODULUS_VALUE; // ciphertext space
-const dim_x: usize = 4;
-const dim_y: usize = 4;
+// type EF = BabyBearExetension;
+// type Hash = Sha256;
+// const BASE_FIELD_BITS: usize = 31;
+// const FP: u32 = FF::MODULUS_VALUE; // ciphertext space
+const DIM_X: usize = 4;
+const DIM_Y: usize = 4;
 
 #[derive(Field)]
 #[modulus = 4]
-pub struct F_num(u32);
+pub struct FNum(u32);
 
 macro_rules! field_vec {
     ($t:ty; $elem:expr; $n:expr)=>{
@@ -148,33 +145,33 @@ fn test_sparse_eval_naive_iop_with_lookup() {
 fn test_sparse_eval_random_with_lookupiop() {
     let mut rng = rand::rng();
     let uniform_f = <FieldUniformSampler<FF>>::new();
-    let uniform_row = <FieldUniformSampler<F_num>>::new();
+    let uniform_row = <FieldUniformSampler<FNum>>::new();
 
-    let row_vec_origin: Vec<_> = (0..(1 << dim_y))
+    let row_vec_origin: Vec<_> = (0..(1 << DIM_Y))
         .map(|_| uniform_row.sample(&mut rng))
         .collect();
     let row_vec: Vec<_> = row_vec_origin.iter().map(|x| FF::new(x.value())).collect();
-    let val_vec: Vec<FF> = (0..(1 << dim_y))
+    let val_vec: Vec<FF> = (0..(1 << DIM_Y))
         .map(|_| uniform_f.sample(&mut rng))
         .collect();
-    let mut matrix_vec = vec![FF::zero(); (1 << dim_x) * (1 << dim_y)];
+    let mut matrix_vec = vec![FF::zero(); (1 << DIM_X) * (1 << DIM_Y)];
     for (col, (row, val)) in row_vec.iter().zip(val_vec.iter()).enumerate() {
-        let idx = (row.value() as usize) * (1 << dim_y) + col;
+        let idx = (row.value() as usize) * (1 << DIM_Y) + col;
         matrix_vec[idx] = *val;
     }
 
-    let matrix = DenseMultilinearExtension::from_evaluations_vec(dim_x + dim_y, matrix_vec);
+    let matrix = DenseMultilinearExtension::from_evaluations_vec(DIM_X + DIM_Y, matrix_vec);
     let row = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
-        dim_y, row_vec,
+        DIM_Y, row_vec,
     ));
     let val = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
-        dim_y, val_vec,
+        DIM_Y, val_vec,
     ));
-    let mut instance = SparseEvalInstance::<FF>::from_slice(dim_x, dim_y, &row, &val);
+    let mut instance = SparseEvalInstance::<FF>::from_slice(DIM_X, DIM_Y, &row, &val);
 
-    let r_x: Vec<_> = (0..dim_x).map(|_| uniform_f.sample(&mut rng)).collect();
-    let r_y: Vec<_> = (0..dim_y).map(|_| uniform_f.sample(&mut rng)).collect();
-    let mut r = Vec::with_capacity(dim_x + dim_y);
+    let r_x: Vec<_> = (0..DIM_X).map(|_| uniform_f.sample(&mut rng)).collect();
+    let r_y: Vec<_> = (0..DIM_Y).map(|_| uniform_f.sample(&mut rng)).collect();
+    let mut r = Vec::with_capacity(DIM_X + DIM_Y);
     r.extend(&r_y);
     r.extend(&r_x);
 
@@ -225,33 +222,33 @@ fn test_sparse_eval_random_with_lookupiop() {
 fn test_sparse_eval_random_iop() {
     let mut rng = rand::rng();
     let uniform_f = <FieldUniformSampler<FF>>::new();
-    let uniform_row = <FieldUniformSampler<F_num>>::new();
+    let uniform_row = <FieldUniformSampler<FNum>>::new();
 
-    let row_vec_origin: Vec<_> = (0..(1 << dim_y))
+    let row_vec_origin: Vec<_> = (0..(1 << DIM_Y))
         .map(|_| uniform_row.sample(&mut rng))
         .collect();
     let row_vec: Vec<_> = row_vec_origin.iter().map(|x| FF::new(x.value())).collect();
-    let val_vec: Vec<FF> = (0..(1 << dim_y))
+    let val_vec: Vec<FF> = (0..(1 << DIM_Y))
         .map(|_| uniform_f.sample(&mut rng))
         .collect();
-    let mut matrix_vec = vec![FF::zero(); (1 << dim_x) * (1 << dim_y)];
+    let mut matrix_vec = vec![FF::zero(); (1 << DIM_X) * (1 << DIM_Y)];
     for (col, (row, val)) in row_vec.iter().zip(val_vec.iter()).enumerate() {
-        let idx = (row.value() as usize) * (1 << dim_y) + col;
+        let idx = (row.value() as usize) * (1 << DIM_Y) + col;
         matrix_vec[idx] = *val;
     }
 
-    let matrix = DenseMultilinearExtension::from_evaluations_vec(dim_x + dim_y, matrix_vec);
+    let matrix = DenseMultilinearExtension::from_evaluations_vec(DIM_X + DIM_Y, matrix_vec);
     let row = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
-        dim_y, row_vec,
+        DIM_Y, row_vec,
     ));
     let val = Rc::new(DenseMultilinearExtension::from_evaluations_vec(
-        dim_y, val_vec,
+        DIM_Y, val_vec,
     ));
-    let mut instance = SparseEvalInstance::<FF>::from_slice(dim_x, dim_y, &row, &val);
+    let mut instance = SparseEvalInstance::<FF>::from_slice(DIM_X, DIM_Y, &row, &val);
 
-    let r_x: Vec<_> = (0..dim_x).map(|_| uniform_f.sample(&mut rng)).collect();
-    let r_y: Vec<_> = (0..dim_y).map(|_| uniform_f.sample(&mut rng)).collect();
-    let mut r = Vec::with_capacity(dim_x + dim_y);
+    let r_x: Vec<_> = (0..DIM_X).map(|_| uniform_f.sample(&mut rng)).collect();
+    let r_y: Vec<_> = (0..DIM_Y).map(|_| uniform_f.sample(&mut rng)).collect();
+    let mut r = Vec::with_capacity(DIM_X + DIM_Y);
     r.extend(&r_y);
     r.extend(&r_x);
 

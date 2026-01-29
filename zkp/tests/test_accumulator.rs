@@ -1,6 +1,4 @@
-use algebra::{
-    BabyBear, BabyBearExetension, Basis, DenseMultilinearExtension, Field, MultilinearExtension,
-};
+use algebra::{BabyBear, BabyBearExetension, Basis, DenseMultilinearExtension, Field};
 use algebra::{NTTField, NTTPolynomial, Polynomial, transformation::AbstractNTT};
 use itertools::izip;
 use num_traits::One;

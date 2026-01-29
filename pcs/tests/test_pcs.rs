@@ -27,8 +27,7 @@ fn pcs_test() {
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0284, 1.9, BASE_FIELD_BITS, 10);
 
     let pp = BrakedownPCS::<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>::setup(
-        num_vars,
-        &code_spec,
+        num_vars, &code_spec,
     );
 
     let mut trans = Transcript::<EF>::new();
