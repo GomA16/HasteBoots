@@ -23,7 +23,7 @@ do
     echo "=========================================="
     
     # 运行程序
-    cargo run --release --example zk_blind_rotation_batch
+    cargo run --release --example zk_nand_zama
     
     # 检查退出状态
     if [ $? -ne 0 ]; then

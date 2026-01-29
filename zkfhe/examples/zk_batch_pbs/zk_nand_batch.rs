@@ -30,7 +30,7 @@ type FF = BabyBear;
 type EF = BabyBearExetension;
 type Hash = sha2::Sha256;
 const BASE_FIELD_BITS: usize = 31;
-const LOG_BATCH_SIZE: usize = 4; // batch size = 2^LOG_BATCH_SIZE
+const LOG_BATCH_SIZE: usize = 2; // batch size = 2^LOG_BATCH_SIZE
 
 #[derive(Default)]
 pub struct PBSSnarks<F, EF, S, PCS>
