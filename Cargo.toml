@@ -7,7 +7,6 @@ members = [
     "lattice",
     "tfhe",
     "pcs",
-    "zkp",
     "sumcheck",
     "trace",
     "piop",
