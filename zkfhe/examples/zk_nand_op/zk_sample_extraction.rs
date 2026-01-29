@@ -9,9 +9,7 @@ use snarks::fhe_op::key_switching::{KeySwitchingParams, KeySwitchingSnarks};
 use snarks::fhe_op::row_permutation::RowPermutationSignedSnarks;
 use trace::basic_ops::{RowPermTrace, RowPermTraceMLE, SumHadamardTraceMLE};
 use trace::key_switching_trace::KeySwitchingTraceMLE;
-use zkfhe::bfhe::{
-    BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator,
-};
+use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
 type FF = BabyBear;
@@ -70,7 +68,10 @@ fn main() {
 
     // Generate SNARKs for nand
     println!("");
-    println!("Starting verification of {} instances of sample extraction.\n", 1 << LOG_BATCH_SIZE);
+    println!(
+        "Starting verification of {} instances of sample extraction.\n",
+        1 << LOG_BATCH_SIZE
+    );
 
     let trace = trace.sample_extraction_trace;
     let traces = vec![trace; 1 << LOG_BATCH_SIZE]; // batch size 2^LOG_BATCH_SIZE

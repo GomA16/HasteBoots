@@ -15,7 +15,6 @@ impl From<usize> for BabyBear {
 }
 
 // NTT Table Cache that maps log_n to NTT Table.
-// once_cell is used to ensure that the table is only initialized once.
 type Table = <BabyBear as NTTField>::Table;
 #[allow(clippy::type_complexity)]
 static NTT_TABLE: OnceLock<ArcSwap<Vec<(u32, Arc<Table>)>>> = OnceLock::new();

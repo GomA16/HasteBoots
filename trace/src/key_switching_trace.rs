@@ -68,9 +68,12 @@ impl<F: Field> KeySwitchingTrace<F> {
         let log_coeff_count = traces[0].log_coeff_count;
         let lt_tables = traces[0].lt_tables.clone();
         traces.into_iter().for_each(|trace| {
-            decomposed_polys.iter_mut().zip(trace.decomposed_polys.iter()).for_each(|(dst, src)| {
-                dst.append_trace(src);
-            });
+            decomposed_polys
+                .iter_mut()
+                .zip(trace.decomposed_polys.iter())
+                .for_each(|(dst, src)| {
+                    dst.append_trace(src);
+                });
             hadamard_trace.append_trace(&trace.hadamard_trace);
         });
         KeySwitchingTrace {

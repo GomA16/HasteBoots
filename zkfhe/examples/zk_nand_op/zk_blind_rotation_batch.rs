@@ -5,13 +5,13 @@ use helper::Transcript;
 use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
-use snarks::fhe_batch_op::batch_blind_rotation::{BatchBlindRotationParams, BatchBlindRotationSnarks};
+use snarks::fhe_batch_op::batch_blind_rotation::{
+    BatchBlindRotationParams, BatchBlindRotationSnarks,
+};
 use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks, KeyCommitment};
 use trace::BlindRotationTraceMLE;
 // use trace::HadamardProdTraceMLE;
-use zkfhe::bfhe::{
-    BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator,
-};
+use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
 type FF = BabyBear;
@@ -68,10 +68,12 @@ fn main() {
     assert_eq!(m, nand(a, b), "Noise: {noise}");
     check_noise(noise, "nand");
 
-
     // Generate SNARKs for nand
     println!("");
-    println!("Starting verification of {} instances of blind rotation.\n", 1 << LOG_BATCH_SIZE);
+    println!(
+        "Starting verification of {} instances of blind rotation.\n",
+        1 << LOG_BATCH_SIZE
+    );
 
     let mut trace = trace.blind_rotation_trace;
     trace.finalize(params.lwe_dimension());

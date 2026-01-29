@@ -106,7 +106,6 @@ impl<F: Field> MonomialTrace<F> {
             self.degree.extend(vec![F::zero(); num_zeros]);
             self.coefficient.extend(vec![F::zero(); num_zeros]);
         }
-
     }
 
     pub fn append_trace(&mut self, trace: &MonomialTrace<F>) {

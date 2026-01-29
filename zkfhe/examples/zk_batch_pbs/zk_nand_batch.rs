@@ -11,19 +11,19 @@ use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
 use rayon::vec;
 use snarks::SnarkStatistics;
-use snarks::fhe_batch_op::batch_blind_rotation::{BatchBlindRotationParams, BatchBlindRotationSnarks};
+use snarks::fhe_batch_op::batch_blind_rotation::{
+    BatchBlindRotationParams, BatchBlindRotationSnarks,
+};
 use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks, KeyCommitment};
 use snarks::fhe_op::key_switching::{KeySwitchingParams, KeySwitchingSnarks};
 use snarks::fhe_op::modulus_switch::{ModulusSwitchingParams, ModulusSwitchingSnarks};
 use snarks::fhe_op::row_permutation::RowPermutationSignedSnarks;
-use trace::modulus_switching_trace::ModulusSwitchingTrace;
-use trace::{BlindRotationTraceMLE, modulus_switching_trace};
-use trace::pbs_trace::PBSTrace;
-use std::fs::{File};
+use std::fs::File;
 use std::io::Write;
-use zkfhe::bfhe::{
-    BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator,
-};
+use trace::modulus_switching_trace::ModulusSwitchingTrace;
+use trace::pbs_trace::PBSTrace;
+use trace::{BlindRotationTraceMLE, modulus_switching_trace};
+use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
 type FF = BabyBear;
@@ -95,7 +95,6 @@ fn main() {
     assert_eq!(m, nand(a, b), "Noise: {noise}");
     check_noise(noise, "nand");
 
-
     // Prepare Batched Traces
     let batched_trace = trace.generate_batched_trace(LOG_BATCH_SIZE);
     let PBSTrace {
@@ -114,9 +113,10 @@ fn main() {
 
     // Perepare parameters and traces
     let time = std::time::Instant::now();
-    let blind_rotation_ntt_table = FF::get_ntt_table(blind_rotation_traces[0].log_coeff_count as u32)
-        .unwrap()
-        .root_powers();
+    let blind_rotation_ntt_table =
+        FF::get_ntt_table(blind_rotation_traces[0].log_coeff_count as u32)
+            .unwrap()
+            .root_powers();
     let key_switching_ntt_table = FF::get_ntt_table(key_switching_trace.log_coeff_count as u32)
         .unwrap()
         .root_powers();
@@ -266,20 +266,25 @@ fn main() {
             stats.prover_pcs_time.as_secs_f64() / prover_total_time.as_secs_f64() * 100.0;
         println!(
             "Prover PCS Time (including commit and open): {:?} s, accounts for {:.2}%",
-            stats.prover_pcs_time.as_secs_f64(), pcs_ratio
+            stats.prover_pcs_time.as_secs_f64(),
+            pcs_ratio
         );
         println!(
             "Prover PIOP Time: {:?} s\n",
             (prover_total_time - stats.prover_pcs_time).as_secs_f64()
         );
     }
-    println!("Verifier Total Time: {:?} ms", verifier_total_time.as_secs_f64() * 1000.0);
+    println!(
+        "Verifier Total Time: {:?} ms",
+        verifier_total_time.as_secs_f64() * 1000.0
+    );
     if let Some(stats) = pcs_statistics {
         let pcs_ratio =
             stats.verifier_pcs_time.as_secs_f64() / verifier_total_time.as_secs_f64() * 100.0;
         println!(
             "Verifier PCS Time (including commit and open): {:?} ms, accounts for {:.2}%",
-            stats.verifier_pcs_time.as_secs_f64() * 1000.0, pcs_ratio
+            stats.verifier_pcs_time.as_secs_f64() * 1000.0,
+            pcs_ratio
         );
         println!(
             "Verifier PIOP Time: {:?} ms\n",

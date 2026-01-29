@@ -17,8 +17,8 @@ use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks, K
 use snarks::fhe_op::key_switching::{KeySwitchingParams, KeySwitchingSnarks};
 use snarks::fhe_op::modulus_switch::{self, ModulusSwitchingSnarks};
 use snarks::fhe_op::row_permutation::RowPermutationSignedSnarks;
-use trace::pbs_trace::PBSTrace;
 use std::io::Write;
+use trace::pbs_trace::PBSTrace;
 // use trace::HadamardProdTraceMLE;
 use zkfhe::bfhe::{CUSTOM_GOLDILOCKS_BINARY_128_BITS_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
@@ -306,7 +306,7 @@ fn run_single_verification() -> (f64, f64, f64, f64, f64, f64) {
     let total_size_mb = (piop_size + pcs_size) as f64 / (1024 * 1024) as f64;
     let piop_size_mb = piop_size as f64 / (1024 * 1024) as f64;
     let prover_total_s = prover_total_time.as_secs_f64();
-    
+
     let (prover_piop_s, verifier_piop_ms) = if let Some(stats) = pcs_statistics {
         (
             (prover_total_time - stats.prover_pcs_time).as_secs_f64(),
@@ -317,40 +317,47 @@ fn run_single_verification() -> (f64, f64, f64, f64, f64, f64) {
     };
 
     let verifier_total_ms = verifier_total_time.as_secs_f64() * 1000.0;
-    (prover_total_s, prover_piop_s, verifier_total_ms, verifier_piop_ms, total_size_mb, piop_size_mb)
+    (
+        prover_total_s,
+        prover_piop_s,
+        verifier_total_ms,
+        verifier_piop_ms,
+        total_size_mb,
+        piop_size_mb,
+    )
 }
 
 fn main() {
     env_logger::init();
-    
+
     println!("Running SNARK verification 3 times to calculate average...\n");
-    
+
     let mut prover_totals = Vec::new();
     let mut prover_piops = Vec::new();
     let mut verifier_totals = Vec::new();
     let mut verifier_piops = Vec::new();
     let mut total_sizes = Vec::new();
     let mut piop_sizes = Vec::new();
-    
+
     // Run 3 times
     for i in 1..=3 {
         println!("========================================");
         println!("Run #{}", i);
         println!("========================================\n");
-        
-        let (prover_total, prover_piop, verifier_total, verifier_piop, total_size, piop_size) = 
+
+        let (prover_total, prover_piop, verifier_total, verifier_piop, total_size, piop_size) =
             run_single_verification();
-        
+
         prover_totals.push(prover_total);
         prover_piops.push(prover_piop);
         verifier_totals.push(verifier_total);
         verifier_piops.push(verifier_piop);
         total_sizes.push(total_size);
         piop_sizes.push(piop_size);
-        
+
         println!("\n");
     }
-    
+
     // Calculate averages
     let avg_prover_total = prover_totals.iter().sum::<f64>() / 3.0;
     let avg_prover_piop = prover_piops.iter().sum::<f64>() / 3.0;
@@ -358,7 +365,7 @@ fn main() {
     let avg_verifier_piop = verifier_piops.iter().sum::<f64>() / 3.0;
     let avg_total_size = total_sizes.iter().sum::<f64>() / 3.0;
     let avg_piop_size = piop_sizes.iter().sum::<f64>() / 3.0;
-    
+
     println!("========================================");
     println!("Average Results (3 runs)");
     println!("========================================");

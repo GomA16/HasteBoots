@@ -9,9 +9,7 @@ use rayon::vec;
 use snarks::fhe_op::key_switching::{KeySwitchingParams, KeySwitchingSnarks};
 use trace::basic_ops::SumHadamardTraceMLE;
 use trace::key_switching_trace::{KeySwitchingTrace, KeySwitchingTraceMLE};
-use zkfhe::bfhe::{
-    BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator,
-};
+use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
 type FF = BabyBear;
@@ -70,7 +68,10 @@ fn main() {
 
     // Generate SNARKs for nand
     println!("");
-    println!("Starting verification of {} instances of key switching.\n", 1 << LOG_BATCH_SIZE);
+    println!(
+        "Starting verification of {} instances of key switching.\n",
+        1 << LOG_BATCH_SIZE
+    );
 
     let trace = trace.key_switching_trace;
     let traces = vec![trace; 1 << LOG_BATCH_SIZE]; // batch size 2

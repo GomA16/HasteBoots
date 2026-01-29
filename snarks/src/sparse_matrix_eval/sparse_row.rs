@@ -20,7 +20,9 @@ use piop::{
 };
 use serde::Serialize;
 
-use crate::lookup::indexed_table::{IndexedLogUpSnarks, IndexedLogUpSnarksProof, indexed_batch::BatchedIndexedLogUpSnarks};
+use crate::lookup::indexed_table::{
+    IndexedLogUpSnarks, IndexedLogUpSnarksProof, indexed_batch::BatchedIndexedLogUpSnarks,
+};
 
 #[derive(Default)]
 pub struct SparseRowEvalSnarks<F, EF, S, PCS>
@@ -147,7 +149,10 @@ where
         let mut res = true;
         let time = std::time::Instant::now();
         trans.append_message(b"[Commit Phase]", &proof.val_commitment);
-        info!("[V]-[PCS] Receiving small polynomial time in {:?}", time.elapsed());
+        info!(
+            "[V]-[PCS] Receiving small polynomial time in {:?}",
+            time.elapsed()
+        );
         if let Some(stats) = statistics {
             stats.add_verifier_pcs_time(time.elapsed());
         }

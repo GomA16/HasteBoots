@@ -74,10 +74,8 @@ fn main() {
 
     let modulus_switching_trace = trace.modulus_switching_trace;
     let traces = vec![modulus_switching_trace; 1 << LOG_BATCH_SIZE];
-    let batched_trace =
-        ModulusSwitchingTrace::from_batch_trace(traces, params.lwe_dimension() + 1);
+    let batched_trace = ModulusSwitchingTrace::from_batch_trace(traces, params.lwe_dimension() + 1);
     let trace = batched_trace.into();
-
 
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
     let params = ModulusSwitchingParams::new(&code_spec);

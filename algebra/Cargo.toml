@@ -10,7 +10,6 @@ algebra_derive = { path = "../algebra_derive", default-features = false }
 
 thiserror = { workspace = true }
 num-traits = { workspace = true }
-once_cell = { workspace = true }
 rand = { workspace = true }
 rand_core = { workspace = true }
 rand_distr = { workspace = true }

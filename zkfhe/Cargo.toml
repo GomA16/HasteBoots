@@ -15,11 +15,10 @@ pcs = { path = "../pcs", default-features = false }
 
 rand = { workspace = true }
 rayon = { workspace = true }
-once_cell = { workspace = true }
 itertools = { workspace = true }
 rand_distr = { workspace = true }
 log = { workspace = true }
-env_logger = "0.10"
+env_logger = "0.11"
 bincode = { workspace = true }
 
 [target.'cfg(all(unix, any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64")))'.dependencies]

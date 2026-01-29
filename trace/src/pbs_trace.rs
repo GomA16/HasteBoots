@@ -12,18 +12,14 @@ pub struct PBSTrace<F: Field> {
     pub sample_extraction_trace: RowPermTrace<F>,
 }
 
-
 impl<F: DecomposableField> PBSTrace<F> {
     pub fn generate_batched_trace(self, log_batch_size: usize) -> Self {
         let batch_size = 1 << log_batch_size;
 
         let modulus_switching_trace_num = self.modulus_switching_trace.input.len();
-        let modulus_switching_traces =
-            vec![self.modulus_switching_trace; batch_size];
-        let key_switching_traces =
-            vec![self.key_switching_trace; batch_size];
-        let sample_extraction_traces =
-            vec![self.sample_extraction_trace; batch_size];
+        let modulus_switching_traces = vec![self.modulus_switching_trace; batch_size];
+        let key_switching_traces = vec![self.key_switching_trace; batch_size];
+        let sample_extraction_traces = vec![self.sample_extraction_trace; batch_size];
 
         PBSTrace {
             modulus_switching_trace: ModulusSwitchingTrace::from_batch_trace(
@@ -31,12 +27,8 @@ impl<F: DecomposableField> PBSTrace<F> {
                 modulus_switching_trace_num,
             ),
             blind_rotation_trace: self.blind_rotation_trace,
-            key_switching_trace: KeySwitchingTrace::from_batch_trace(
-                key_switching_traces,
-            ),
-            sample_extraction_trace: RowPermTrace::from_batch_trace(
-                sample_extraction_traces,
-            ),
+            key_switching_trace: KeySwitchingTrace::from_batch_trace(key_switching_traces),
+            sample_extraction_trace: RowPermTrace::from_batch_trace(sample_extraction_traces),
         }
     }
 }

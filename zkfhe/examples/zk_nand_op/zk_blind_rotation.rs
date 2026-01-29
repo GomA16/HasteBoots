@@ -8,9 +8,7 @@ use rand::Rng;
 use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks, KeyCommitment};
 use trace::BlindRotationTraceMLE;
 // use trace::HadamardProdTraceMLE;
-use zkfhe::bfhe::{
-    BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator,
-};
+use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
 type FF = BabyBear;
@@ -65,7 +63,6 @@ fn main() {
     let (m, noise) = dec.decrypt_with_noise(&ct_nand);
     assert_eq!(m, nand(a, b), "Noise: {noise}");
     check_noise(noise, "nand");
-
 
     // Generate SNARKs for nand
     println!("");

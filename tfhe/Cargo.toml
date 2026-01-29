@@ -1,0 +1,49 @@
+[package]
+name = "tfhe"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+algebra = { path = "../algebra", default-features = false }
+lattice = { path = "../lattice", default-features = false }
+fhe_core = { path = "../fhe_core", default-features = false }
+
+rand = { workspace = true }
+rayon = { workspace = true }
+itertools = { workspace = true }
+rand_distr = { workspace = true }
+log = { workspace = true }
+env_logger = "0.11"
+bincode = { workspace = true }
+
+[target.'cfg(all(unix, any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64")))'.dependencies]
+sha2 = { version = "0.10", features = ["asm"] }
+
+[target.'cfg(all(target_os = "windows", target_arch = "x86_64", target_env = "gnu"))'.dependencies]
+sha2 = { version = "0.10", features = ["asm"] }
+
+[target.'cfg(all(target_os = "windows", target_env = "msvc"))'.dependencies]
+sha2 = { version = "0.10" }
+
+[features]
+default = ["concrete-ntt"]
+concrete-ntt = [
+    "algebra/concrete-ntt",
+    "lattice/concrete-ntt",
+    "fhe_core/concrete-ntt",
+]
+nightly = ["algebra/nightly", "lattice/nightly", "fhe_core/nightly"]
+count_ntt = ["algebra/count_ntt"]
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bench]]
+name = "bfhe"
+harness = false
+
+[package.metadata.docs.rs]
+all-features = true
+# enable unstable features in the documentation
+rustdoc-args = ["--cfg", "docsrs"]
+# RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features --no-deps

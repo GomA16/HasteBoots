@@ -416,7 +416,9 @@ where
         let kernel_rx = LagrangeKernel::from_point(&point_v);
         let kernel_ry = LagrangeKernel::from_point(&ntt_state.randomness);
         let sparse_matrix_eval_instance = SparseRowEvalInstance::from_subclaim::<F>(
-            &blind_rotation_trace_mle[0].acc_trace.monomial_representation,
+            &blind_rotation_trace_mle[0]
+                .acc_trace
+                .monomial_representation,
             &kernel_rx,
             &kernel_ry,
             ntt_proof.coeff_eval_at_r_v[2],

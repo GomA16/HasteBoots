@@ -16,7 +16,10 @@ use crate::cmp_trace::lt_trace::{LTTables, LTTablesMLE};
 use crate::lookup_trace::indexed_table::IndexedLookupTraceMLE;
 use crate::lookup_trace::normal_table::LookupTraceMLE as LookupTraceMLENormalTable;
 use crate::lookup_trace::small_table::LookupTraceMLE as LookupTraceMLESmallTable;
-use crate::{ConvertToEF, EvaluableTrace, EvaluableTraceEF, PackableEval, PackableTrace, SeparatelyPackableEval, SeparatelyPackableTrace};
+use crate::{
+    ConvertToEF, EvaluableTrace, EvaluableTraceEF, PackableEval, PackableTrace,
+    SeparatelyPackableEval, SeparatelyPackableTrace,
+};
 
 /// Store the traces of the multiplication between a bit polynomial and an RLWE ciphertext
 #[derive(Clone)]
@@ -407,10 +410,7 @@ impl<F: Field> SumHadamardTrace<F> {
     #[inline]
     pub fn append_trace(&mut self, trace: &SumHadamardTrace<F>) {
         assert_eq!(self.num_hadamard, trace.num_hadamard);
-        for (self_trace, other_trace) in self
-            .vec_hadamard
-            .iter_mut()
-            .zip(trace.vec_hadamard.iter())
+        for (self_trace, other_trace) in self.vec_hadamard.iter_mut().zip(trace.vec_hadamard.iter())
         {
             self_trace.append_trace(other_trace);
         }
@@ -535,7 +535,6 @@ impl<F: Field> PackableTrace<F> for HadamardTrace<F> {
 }
 
 impl<F: Field> SeparatelyPackableTrace<F> for HadamardTrace<F> {
-
     fn num_bit_oracles(&self) -> usize {
         1
     }
@@ -639,7 +638,6 @@ impl<F: Field> PackableTrace<F> for SumHadamardTrace<F> {
 }
 
 impl<F: Field> SeparatelyPackableTrace<F> for SumHadamardTrace<F> {
-
     fn num_bit_oracles(&self) -> usize {
         self.num_hadamard * self.vec_hadamard[0].num_bit_oracles() + self.sum_prod.num_oracles()
     }

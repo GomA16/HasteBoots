@@ -28,8 +28,7 @@ fn main() {
 
     let start = Instant::now();
     let pp = BrakedownPCS::<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>::setup(
-        num_vars,
-        &code_spec,
+        num_vars, &code_spec,
     );
     println!("setup time: {:?} ms", start.elapsed().as_millis());
 

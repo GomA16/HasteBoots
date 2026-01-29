@@ -8,9 +8,7 @@ use rand::Rng;
 use snarks::fhe_op::acc_iteration::AccIterationSnarks;
 use trace::BlindRotationTraceMLE;
 // use trace::HadamardProdTraceMLE;
-use zkfhe::bfhe::{
-    BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator,
-};
+use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
 
 type FF = BabyBear;

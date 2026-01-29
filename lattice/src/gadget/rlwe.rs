@@ -442,7 +442,6 @@ impl<F: NTTField> NTTGadgetRLWE<F> {
 
         destination.set_zero();
 
-        let mut approximate_cnt = 0;
         self.iter().enumerate().for_each(|(i, g_rlwe)| {
             polynomial_space.decompose_lsb_bits_inplace(self.basis, decompose_space.as_mut_slice());
 

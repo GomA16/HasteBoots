@@ -17,8 +17,8 @@ use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks, K
 use snarks::fhe_op::key_switching::{KeySwitchingParams, KeySwitchingSnarks};
 use snarks::fhe_op::modulus_switch::{self, ModulusSwitchingSnarks};
 use snarks::fhe_op::row_permutation::RowPermutationSignedSnarks;
-use trace::pbs_trace::PBSTrace;
 use std::io::Write;
+use trace::pbs_trace::PBSTrace;
 // use trace::HadamardProdTraceMLE;
 use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
 use zkfhe::{Decryptor, Encryptor, KeyGen};
@@ -376,8 +376,6 @@ fn main() {
         "\n✓ Statistics appended to: {} (Run #{})",
         csv_path, run_number
     );
-
-    
 }
 
 // fn main() {}

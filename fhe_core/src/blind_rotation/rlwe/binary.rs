@@ -1,7 +1,6 @@
 use algebra::{
     AsInto, Basis, Field, FieldDiscreteGaussianSampler, NTTField, NTTPolynomial, Polynomial,
-    ntt_mul_assign_fast,
-    transformation::{AbstractNTT, MonomialNTT},
+    ntt_mul_assign_fast, transformation::AbstractNTT,
 };
 use lattice::{
     DecompositionSpace, LWE, NTTPolynomialSpace, NTTRGSW, NTTRLWESpace, PolynomialSpace, RLWE,
@@ -179,7 +178,6 @@ impl<F: NTTField> BinaryBlindRotationKey<F> {
                 acc_trace.append_product(external_product.a_b_slice());
                 external_product.sub_assign_element_wise(&acc);
                 acc_trace.append_external_product_input(external_product.a_b_slice());
-
 
                 // external_product = (X^{a_i} - 1) * ACC * RGSW(s_i)
                 external_product.mul_assign_ntt_rgsw_w_trace(
