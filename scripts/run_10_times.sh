@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# 运行 zk_nand_pbs_64 程序10次，每次结果追加到 CSV 文件
-# 使用方法: ./run_10_times.sh
+# Run the zk_nand_pbs_64 program 10 times, appending each result to the CSV file
+# Usage: ./run_10_times.sh
 
 echo "=========================================="
 echo "Running SNARK verification 10 times"
@@ -9,23 +9,23 @@ echo "Results will be saved to snark_statistics.csv"
 echo "=========================================="
 echo ""
 
-# 删除旧的 CSV 文件（如果存在）
+# Remove the old CSV file (if it exists)
 if [ -f "snark_statistics.csv" ]; then
     echo "Removing old snark_statistics.csv..."
     rm snark_statistics.csv
 fi
 
-# 循环运行10次
+# Run the loop 10 times
 for i in {1..10}
 do
     echo "=========================================="
     echo "Starting Run #$i"
     echo "=========================================="
     
-    # 运行程序
+    # Run the program
     cargo run --release --example zk_nand_zama
     
-    # 检查退出状态
+    # Check exit status
     if [ $? -ne 0 ]; then
         echo "Error: Run #$i failed!"
         exit 1
@@ -41,7 +41,7 @@ echo "All 10 runs completed!"
 echo "Results saved in: snark_statistics.csv"
 echo "=========================================="
 
-# 显示统计摘要
+# Display summary statistics
 if command -v python3 &> /dev/null; then
     echo ""
     echo "Calculating statistics..."
