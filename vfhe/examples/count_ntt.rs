@@ -5,7 +5,7 @@ use algebra::transformation::count;
 
 use fhe_core::utils::nand;
 use rand::Rng;
-use zkfhe::{
+use vfhe::{
     Decryptor, Encryptor, KeyGen,
     bfhe::{DEFAULT_TERNARY_128_BITS_PARAMETERS, Evaluator},
 };

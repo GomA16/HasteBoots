@@ -3,7 +3,7 @@ use std::hint::black_box;
 use algebra::AsInto;
 use criterion::{Criterion, criterion_group, criterion_main};
 use rand::Rng;
-use zkfhe::{
+use vfhe::{
     Encryptor, KeyGen,
     bfhe::{DEFAULT_TERNARY_128_BITS_PARAMETERS, Evaluator},
 };

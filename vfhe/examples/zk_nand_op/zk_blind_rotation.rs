@@ -5,11 +5,9 @@ use helper::Transcript;
 use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
-use snarks::fhe_op::external_product::{ExternalProductParams, ExternalProductSnarks};
-// use trace::HadamardProdTraceMLE;
-use trace::basic_ops::SumHadamardTraceMLE;
-use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
-use zkfhe::{Decryptor, Encryptor, KeyGen};
+use snarks::fhe_op::blind_rotation::{BlindRotationParams, BlindRotationSnarks, KeyCommitment};
+use vfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
+use vfhe::{Decryptor, Encryptor, KeyGen};
 
 type FF = BabyBear;
 type EF = BabyBearExetension;
@@ -70,17 +68,14 @@ fn main() {
 
     let mut trace = trace.blind_rotation_trace;
     trace.finalize(params.lwe_dimension());
-
-    let trace = trace.hadamard_trace;
-    let trace_mle: SumHadamardTraceMLE<_> = trace.into();
-    let ntt_table = FF::get_ntt_table(trace_mle.log_coeff_count as u32)
+    let ntt_table = FF::get_ntt_table(trace.log_coeff_count as u32)
         .unwrap()
         .root_powers();
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
-    let blk_size = 3;
-    let basis = params.blind_rotation_basis().basis() as usize;
-    let params = ExternalProductParams::new(code_spec, ntt_table, blk_size, basis, &trace_mle);
-    let snarks = ExternalProductSnarks::<
+
+    let key_commitment = KeyCommitment::new(&code_spec, &trace);
+    let params = BlindRotationParams::new(code_spec, ntt_table, &trace, &key_commitment);
+    let snarks = BlindRotationSnarks::<
         FF,
         EF,
         ExpanderCodeSpec,
@@ -89,13 +84,13 @@ fn main() {
 
     let mut prover_trans = Transcript::default();
     let time = std::time::Instant::now();
-    let proof = snarks.prove(&mut prover_trans, &trace_mle, &params);
+    let proof = snarks.prove(&mut prover_trans, trace, &params, &mut None);
     println!("Proofs generation done!\n");
     println!("Proof generation time: {:?}\n", time.elapsed());
 
     let mut verifier_trans = Transcript::default();
     let time = std::time::Instant::now();
-    let res = snarks.verify(&mut verifier_trans, &proof);
+    let res = snarks.verify(&mut verifier_trans, &proof, &mut None);
     println!("Proofs verification done!\n");
     println!("Proof verification time: {:?}\n", time.elapsed());
     println!(

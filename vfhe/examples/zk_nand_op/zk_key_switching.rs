@@ -6,17 +6,15 @@ use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
 use snarks::fhe_op::key_switching::{KeySwitchingParams, KeySwitchingSnarks};
-use snarks::fhe_op::row_permutation::RowPermutationSignedSnarks;
-use trace::basic_ops::{RowPermTrace, RowPermTraceMLE, SumHadamardTraceMLE};
-use trace::key_switching_trace::KeySwitchingTraceMLE;
-use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
-use zkfhe::{Decryptor, Encryptor, KeyGen};
+use trace::key_switching_trace::{KeySwitchingTrace, KeySwitchingTraceMLE};
+use vfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
+use vfhe::{Decryptor, Encryptor, KeyGen};
 
 type FF = BabyBear;
 type EF = BabyBearExetension;
 type Hash = sha2::Sha256;
 const BASE_FIELD_BITS: usize = 31;
-const LOG_BATCH_SIZE: usize = 2; // batch size = 2^LOG_BATCH_SIZE
+const LOG_BATCH_SIZE: usize = 0; // batch size = 2^LOG_BATCH_SIZE
 fn main() {
     env_logger::init();
     // set random generator
@@ -69,16 +67,21 @@ fn main() {
     // Generate SNARKs for nand
     println!("");
     println!(
-        "Starting verification of {} instances of sample extraction.\n",
+        "Starting verification of {} instances of key switching.\n",
         1 << LOG_BATCH_SIZE
     );
 
-    let trace = trace.sample_extraction_trace;
-    let traces = vec![trace; 1 << LOG_BATCH_SIZE]; // batch size 2^LOG_BATCH_SIZE
-    let trace = RowPermTrace::from_batch_trace(traces);
-    let trace_mle: RowPermTraceMLE<_> = trace.into();
+    let trace = trace.key_switching_trace;
+    let traces = vec![trace; 1 << LOG_BATCH_SIZE]; // batch size 2
+    let batched_trace = KeySwitchingTrace::from_batch_trace(traces);
+    let trace_mle: KeySwitchingTraceMLE<_> = batched_trace.into();
 
-    let snarks = RowPermutationSignedSnarks::<
+    let ntt_table = FF::get_ntt_table(trace_mle.log_coeff_count as u32)
+        .unwrap()
+        .root_powers();
+    let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
+    let params = KeySwitchingParams::new(code_spec, ntt_table, &trace_mle);
+    let snarks = KeySwitchingSnarks::<
         FF,
         EF,
         ExpanderCodeSpec,
@@ -87,7 +90,7 @@ fn main() {
 
     let mut prover_trans = Transcript::default();
     let time = std::time::Instant::now();
-    let proof = snarks.prove(&mut prover_trans, &trace_mle);
+    let proof = snarks.prove(&mut prover_trans, &trace_mle, &params, &mut None);
     println!("Proofs generation done!\n");
     println!("Proof generation time: {:?}\n", time.elapsed());
 

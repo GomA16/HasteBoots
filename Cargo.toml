@@ -8,11 +8,11 @@ members = [
     "tfhe",
     "pcs",
     "sumcheck",
-    "trace",
     "piop",
     "helper",
     "snarks",
-    "zkfhe",
+    "vfhe",
+    "trace",
 ]
 
 resolver = "3"

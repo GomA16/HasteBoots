@@ -1,20 +1,20 @@
-use algebra::transformation::AbstractNTT;
-use algebra::{AsInto, BabyBear, BabyBearExetension, NTTField};
+use algebra::{AsInto, BabyBear, BabyBearExetension};
 use fhe_core::utils::*;
 use helper::Transcript;
 use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
-use snarks::fhe_op::acc_iteration::AccIterationSnarks;
-use trace::BlindRotationTraceMLE;
-// use trace::HadamardProdTraceMLE;
-use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
-use zkfhe::{Decryptor, Encryptor, KeyGen};
+use snarks::SnarkStatistics;
+use snarks::fhe_op::modulus_switch::{ModulusSwitchingParams, ModulusSwitchingSnarks};
+use trace::modulus_switching_trace::ModulusSwitchingTrace;
+use vfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
+use vfhe::{Decryptor, Encryptor, KeyGen};
 
 type FF = BabyBear;
 type EF = BabyBearExetension;
 type Hash = sha2::Sha256;
 const BASE_FIELD_BITS: usize = 31;
+const LOG_BATCH_SIZE: usize = 0; // batch size = 2^LOG_BATCH_SIZE
 fn main() {
     env_logger::init();
     // set random generator
@@ -68,28 +68,33 @@ fn main() {
     println!("");
     println!("Starting verification of nand.\n");
 
-    let mut trace = trace.blind_rotation_trace;
-    trace.finalize(params.lwe_dimension());
-    let trace_mle: BlindRotationTraceMLE<_> = trace.into();
+    let modulus_switching_trace = trace.modulus_switching_trace;
+    let traces = vec![modulus_switching_trace; 1 << LOG_BATCH_SIZE];
+    let batched_trace = ModulusSwitchingTrace::from_batch_trace(traces, params.lwe_dimension() + 1);
+    let trace = batched_trace.into();
 
-    let snarks = AccIterationSnarks::<
+    let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
+    let params = ModulusSwitchingParams::new(&code_spec);
+    let snarks = ModulusSwitchingSnarks::<
         FF,
         EF,
         ExpanderCodeSpec,
         BrakedownPCS<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>,
     >::default();
 
+    let pcs_statistics = &mut Some(&mut SnarkStatistics::default());
     let mut prover_trans = Transcript::default();
     let time = std::time::Instant::now();
-    let proof = snarks.prove(&mut prover_trans, &trace_mle);
+    let proof = snarks.prove(&mut prover_trans, &trace, &params, pcs_statistics);
     println!("Proofs generation done!\n");
     println!("Proof generation time: {:?}\n", time.elapsed());
 
     let mut verifier_trans = Transcript::default();
     let time = std::time::Instant::now();
-    let res = snarks.verify(&mut verifier_trans, &proof);
+    let res = snarks.verify(&mut verifier_trans, &proof, pcs_statistics);
     println!("Proofs verification done!\n");
     println!("Proof verification time: {:?}\n", time.elapsed());
+
     assert!(res);
 }
 

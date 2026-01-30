@@ -1,7 +1,7 @@
 use algebra::{AsInto, NTTField};
 use fhe_core::{LWECiphertext, utils::*};
 use rand::Rng;
-use zkfhe::{
+use vfhe::{
     Decryptor, Encryptor, KeyGen,
     bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator},
 };

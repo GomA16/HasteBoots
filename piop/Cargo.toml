@@ -5,8 +5,6 @@ edition = "2024"
 
 [dependencies]
 algebra = { path = "../algebra" }
-pcs = { path = "../pcs" }
-fhe_core = { path = "../fhe_core" }
 sumcheck = { path = "../sumcheck" }
 helper = { path = "../helper" }
 trace = { path = "../trace" }

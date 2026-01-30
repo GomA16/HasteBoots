@@ -1,22 +1,18 @@
-use algebra::transformation::AbstractNTT;
-use algebra::{AsInto, BabyBear, BabyBearExetension, NTTField};
+use algebra::{AsInto, BabyBear, BabyBearExetension};
 use fhe_core::utils::*;
 use helper::Transcript;
 use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
-use rayon::vec;
-use snarks::fhe_op::key_switching::{KeySwitchingParams, KeySwitchingSnarks};
-use trace::basic_ops::SumHadamardTraceMLE;
-use trace::key_switching_trace::{KeySwitchingTrace, KeySwitchingTraceMLE};
-use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
-use zkfhe::{Decryptor, Encryptor, KeyGen};
+use snarks::fhe_op::acc_iteration::AccIterationSnarks;
+use trace::BlindRotationTraceMLE;
+use vfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
+use vfhe::{Decryptor, Encryptor, KeyGen};
 
 type FF = BabyBear;
 type EF = BabyBearExetension;
 type Hash = sha2::Sha256;
 const BASE_FIELD_BITS: usize = 31;
-const LOG_BATCH_SIZE: usize = 0; // batch size = 2^LOG_BATCH_SIZE
 fn main() {
     env_logger::init();
     // set random generator
@@ -68,22 +64,13 @@ fn main() {
 
     // Generate SNARKs for nand
     println!("");
-    println!(
-        "Starting verification of {} instances of key switching.\n",
-        1 << LOG_BATCH_SIZE
-    );
+    println!("Starting verification of nand.\n");
 
-    let trace = trace.key_switching_trace;
-    let traces = vec![trace; 1 << LOG_BATCH_SIZE]; // batch size 2
-    let batched_trace = KeySwitchingTrace::from_batch_trace(traces);
-    let trace_mle: KeySwitchingTraceMLE<_> = batched_trace.into();
+    let mut trace = trace.blind_rotation_trace;
+    trace.finalize(params.lwe_dimension());
+    let trace_mle: BlindRotationTraceMLE<_> = trace.into();
 
-    let ntt_table = FF::get_ntt_table(trace_mle.log_coeff_count as u32)
-        .unwrap()
-        .root_powers();
-    let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
-    let params = KeySwitchingParams::new(code_spec, ntt_table, &trace_mle);
-    let snarks = KeySwitchingSnarks::<
+    let snarks = AccIterationSnarks::<
         FF,
         EF,
         ExpanderCodeSpec,
@@ -92,16 +79,15 @@ fn main() {
 
     let mut prover_trans = Transcript::default();
     let time = std::time::Instant::now();
-    let proof = snarks.prove(&mut prover_trans, &trace_mle, &params, &mut None);
+    let proof = snarks.prove(&mut prover_trans, &trace_mle);
     println!("Proofs generation done!\n");
     println!("Proof generation time: {:?}\n", time.elapsed());
 
     let mut verifier_trans = Transcript::default();
     let time = std::time::Instant::now();
-    let res = snarks.verify(&mut verifier_trans, &proof, &mut None);
+    let res = snarks.verify(&mut verifier_trans, &proof);
     println!("Proofs verification done!\n");
     println!("Proof verification time: {:?}\n", time.elapsed());
-
     assert!(res);
 }
 

@@ -5,20 +5,15 @@ use helper::Transcript;
 use pcs::multilinear::BrakedownPCS;
 use pcs::utils::code::{ExpanderCode, ExpanderCodeSpec};
 use rand::Rng;
-use snarks::SnarkStatistics;
-use snarks::fhe_op::key_switching::{KeySwitchingParams, KeySwitchingSnarks};
-use snarks::fhe_op::modulus_switch::{ModulusSwitchingParams, ModulusSwitchingSnarks};
+use snarks::fhe_op::external_product::{ExternalProductParams, ExternalProductSnarks};
 use trace::basic_ops::SumHadamardTraceMLE;
-use trace::key_switching_trace::KeySwitchingTraceMLE;
-use trace::modulus_switching_trace::ModulusSwitchingTrace;
-use zkfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
-use zkfhe::{Decryptor, Encryptor, KeyGen};
+use vfhe::bfhe::{BABYBEAR_BINARY_128_BITS_PARAMETERS, Evaluator};
+use vfhe::{Decryptor, Encryptor, KeyGen};
 
 type FF = BabyBear;
 type EF = BabyBearExetension;
 type Hash = sha2::Sha256;
 const BASE_FIELD_BITS: usize = 31;
-const LOG_BATCH_SIZE: usize = 0; // batch size = 2^LOG_BATCH_SIZE
 fn main() {
     env_logger::init();
     // set random generator
@@ -72,33 +67,44 @@ fn main() {
     println!("");
     println!("Starting verification of nand.\n");
 
-    let modulus_switching_trace = trace.modulus_switching_trace;
-    let traces = vec![modulus_switching_trace; 1 << LOG_BATCH_SIZE];
-    let batched_trace = ModulusSwitchingTrace::from_batch_trace(traces, params.lwe_dimension() + 1);
-    let trace = batched_trace.into();
+    let mut trace = trace.blind_rotation_trace;
+    trace.finalize(params.lwe_dimension());
 
+    let trace = trace.hadamard_trace;
+    let trace_mle: SumHadamardTraceMLE<_> = trace.into();
+    let ntt_table = FF::get_ntt_table(trace_mle.log_coeff_count as u32)
+        .unwrap()
+        .root_powers();
     let code_spec = ExpanderCodeSpec::new(0.1195, 0.0248, 1.9, BASE_FIELD_BITS, 10);
-    let params = ModulusSwitchingParams::new(&code_spec);
-    let snarks = ModulusSwitchingSnarks::<
+    let blk_size = 3;
+    let basis = params.blind_rotation_basis().basis() as usize;
+    let params = ExternalProductParams::new(code_spec, ntt_table, blk_size, basis, &trace_mle);
+    let snarks = ExternalProductSnarks::<
         FF,
         EF,
         ExpanderCodeSpec,
         BrakedownPCS<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>,
     >::default();
 
-    let pcs_statistics = &mut Some(&mut SnarkStatistics::default());
     let mut prover_trans = Transcript::default();
     let time = std::time::Instant::now();
-    let proof = snarks.prove(&mut prover_trans, &trace, &params, pcs_statistics);
+    let proof = snarks.prove(&mut prover_trans, &trace_mle, &params);
     println!("Proofs generation done!\n");
     println!("Proof generation time: {:?}\n", time.elapsed());
 
     let mut verifier_trans = Transcript::default();
     let time = std::time::Instant::now();
-    let res = snarks.verify(&mut verifier_trans, &proof, pcs_statistics);
+    let res = snarks.verify(&mut verifier_trans, &proof);
     println!("Proofs verification done!\n");
     println!("Proof verification time: {:?}\n", time.elapsed());
-
+    println!(
+        "PIOP Proof Size: {} MB",
+        proof.piop_proof_len() as f64 / (1000 * 1000) as f64
+    );
+    println!(
+        "PCS Proof Size: {} MB",
+        proof.pcs_proof_len() as f64 / (1000 * 1000) as f64
+    );
     assert!(res);
 }
 
