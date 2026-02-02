@@ -25,14 +25,19 @@ pub static DEFAULT_TERNARY_128_BITS_PARAMETERS: LazyLock<Parameters<DefaultField
 /// Default 128-bits security for Zama's Parameters
 pub static ZAMA_GOLDILOCKS_PARAMETERS: LazyLock<Parameters<Goldilocks>> = LazyLock::new(|| {
     Parameters::<Goldilocks>::new(ConstParameters {
+        // denoted as `n`
         lwe_dimension: 728,
+        // denoted as `t`
         lwe_plain_modulus: 4,
         lwe_noise_standard_deviation: 2.9 * ((1u64 << 45) as f64),
         lwe_secret_key_type: LWESecretKeyType::Binary,
+        // denoted as `N`
         ring_dimension: 1024,
+        // denoted as `Q`
         ring_modulus: Goldilocks::MODULUS_VALUE,
         ring_noise_standard_deviation: 2.3 * ((1u64 << 37) as f64),
         ring_secret_key_type: RingSecretKeyType::Ternary,
+        // denoted as `B`
         blind_rotation_basis_bits: 5,
         key_switching_basis_bits: 5,
         key_switching_standard_deviation: 2.9 * ((1u64 << 45) as f64),
@@ -97,7 +102,7 @@ pub static CUSTOM_GOLDILOCKS_BINARY_128_BITS_PARAMETERS: LazyLock<Parameters<Gol
         .unwrap()
     });
 
-/// Default 128-bits security for BabyBear Parameters
+/// Custom BabyBear Parameters only for testing
 pub static CUSTOM_BABYBEAR_BINARY_128_BITS_PARAMETERS: LazyLock<Parameters<BabyBear>> =
     LazyLock::new(|| {
         Parameters::<BabyBear>::new(ConstParameters {
