@@ -136,7 +136,7 @@ where
         > + Serialize,
 {
     pub fn piop_proof_len(&self) -> usize {
-        bincode::serde::encode_to_vec(&self.sumcheck_poly_info, standard())
+        bincode::serde::encode_to_vec(self.sumcheck_poly_info, standard())
             .unwrap()
             .len()
             + bincode::serde::encode_to_vec(&self.sumcheck_proof, standard())
@@ -204,7 +204,7 @@ where
         let bit_poly = blind_rotation_trace.generate_bit_oracle();
         let blind_rotation_trace_mle = blind_rotation_trace
             .into_iter()
-            .map(|trace| BlindRotationTraceMLE::from(trace))
+            .map(BlindRotationTraceMLE::from)
             .collect::<Vec<_>>();
         let pcs_commit_time = std::time::Instant::now();
         let (commitment, commitment_state) = PCS::commit(&params.pcs_params, &bit_poly);
@@ -275,7 +275,7 @@ where
             trace.evaluate_ef_ntt_only(
                 trace_eval,
                 &sumcheck_state.randomness,
-                &trace_ef,
+                trace_ef,
                 &sumcheck_claim.poly,
                 &eval_table,
             );

@@ -136,7 +136,7 @@ impl<F: Field> LogUpInstance<F> {
 
         let phi_block = self.helper.phi_functions[idx_start..idx_end]
             .iter()
-            .map(|phi| Rc::clone(phi))
+            .map(Rc::clone)
             .collect::<Vec<_>>();
 
         // randomness * L * h * \prod phi_i
@@ -297,14 +297,14 @@ impl<F: Field> LogUpProof<F> {
             .iter()
             .map(|x| x.bit.poly + random_value)
             .collect::<Vec<_>>();
-        let proof = LogUpProof {
+
+        LogUpProof {
             poly_info: PolynomialInfo::default(),
             sumcheck_proof: Proof::default(),
             input_at_r: Vec::default(),
             phi_at_r,
             helper_at_r: helper_eval.helper_functions_at_r.clone(),
-        };
-        proof
+        }
     }
 
     pub fn compute_helper_subclaim(&self, random_lambda: F) -> F {

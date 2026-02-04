@@ -198,10 +198,7 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for IndexedLook
             index: Rc::new(self.index.to_ef()),
             input: Rc::new(self.input.to_ef()),
             table: Rc::new(self.table.to_ef()),
-            table_point: match &self.table_point {
-                Some(point) => Some(point.to_ef()),
-                None => None,
-            },
+            table_point: self.table_point.as_ref().map(|point| point.to_ef()),
         }
     }
 }
@@ -222,7 +219,7 @@ impl<F: Field> IndexedLookupTraceMLE<F> {
 
         for (t_i, m_i) in self.table.iter().zip(multiplicity.iter_mut()) {
             let count = multiplicity_hashmap.remove(t_i).unwrap_or(0u32);
-            *m_i = F::new((count as u32).as_into());
+            *m_i = F::new(count.as_into());
         }
 
         IndexedLookupWitness {
@@ -261,10 +258,7 @@ impl<F: Field> IndexedLookupTraceMLE<F> {
 
         let num_threads = rayon::current_num_threads();
         debug!("Computing helper functions using {} threads", num_threads);
-        let chunk_size = std::cmp::max(
-            1,
-            (hashed_inputs_plus_r.len() + num_threads - 1) / num_threads,
-        );
+        let chunk_size = std::cmp::max(1, hashed_inputs_plus_r.len().div_ceil(num_threads));
 
         // helper_input = 1 / phi_input
         let helper_input = hashed_inputs_plus_r
@@ -275,10 +269,7 @@ impl<F: Field> IndexedLookupTraceMLE<F> {
 
         let num_threads = rayon::current_num_threads();
         debug!("Computing helper functions using {} threads", num_threads);
-        let chunk_size = std::cmp::max(
-            1,
-            (hashed_table_plus_r.len() + num_threads - 1) / num_threads,
-        );
+        let chunk_size = std::cmp::max(1, hashed_table_plus_r.len().div_ceil(num_threads));
 
         // 1 / phi_table
         let table_inversed_values = hashed_table_plus_r
@@ -348,10 +339,7 @@ impl<F: Field> IndexedLookupTraceMLE<F> {
 
         let num_threads = rayon::current_num_threads();
         debug!("Computing helper functions using {} threads", num_threads);
-        let chunk_size = std::cmp::max(
-            1,
-            (hashed_inputs_plus_r.len() + num_threads - 1) / num_threads,
-        );
+        let chunk_size = std::cmp::max(1, hashed_inputs_plus_r.len().div_ceil(num_threads));
 
         // helper_input = 1 / phi_input
         let helper_input = hashed_inputs_plus_r
@@ -362,10 +350,7 @@ impl<F: Field> IndexedLookupTraceMLE<F> {
 
         let num_threads = rayon::current_num_threads();
         debug!("Computing helper functions using {} threads", num_threads);
-        let chunk_size = std::cmp::max(
-            1,
-            (hashed_table_plus_r.len() + num_threads - 1) / num_threads,
-        );
+        let chunk_size = std::cmp::max(1, hashed_table_plus_r.len().div_ceil(num_threads));
 
         // 1 / phi_table
         let table_inversed_values = hashed_table_plus_r
@@ -452,8 +437,8 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF>
     fn evaluate_ef(&self, point: &[EF]) -> Self::TraceEvalEF {
         self.iter()
             .map(|trace| IndexedLookupEval {
-                index_at_r: trace.index.evaluate_ext(&point),
-                input_at_r: trace.input.evaluate_ext(&point),
+                index_at_r: trace.index.evaluate_ext(point),
+                input_at_r: trace.input.evaluate_ext(point),
             })
             .collect()
     }

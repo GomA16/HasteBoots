@@ -92,7 +92,7 @@ where
 {
     pub fn piop_proof_len(&self) -> usize {
         let mut len = if self.permutation_proof.is_some() {
-            bincode::serde::encode_to_vec(&self.permutation_proof.as_ref().unwrap(), standard())
+            bincode::serde::encode_to_vec(self.permutation_proof.as_ref().unwrap(), standard())
                 .unwrap()
                 .len()
         } else {
@@ -104,7 +104,7 @@ where
 
     pub fn pcs_proof_len(&self) -> usize {
         let mut len = if self.permutation_proof.is_some() {
-            bincode::serde::encode_to_vec(&self.permutation_proof.as_ref().unwrap(), standard())
+            bincode::serde::encode_to_vec(self.permutation_proof.as_ref().unwrap(), standard())
                 .unwrap()
                 .len()
         } else {

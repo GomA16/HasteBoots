@@ -102,7 +102,7 @@ impl<F: Field, EF: AbstractExtensionField<F>> EvaluableTraceEF<F, EF> for Decomp
             .iter()
             .zip(trace_ef.bits.iter())
             .map(|(bit, trace_bit)| {
-                hash_table.lookup_mle_eval_ef(&bit, &trace_bit, eval_table, point)
+                hash_table.lookup_mle_eval_ef(bit, trace_bit, eval_table, point)
             })
             .collect();
         let input = hash_table.lookup_mle_eval_ef(&self.input, &trace_ef.input, eval_table, point);

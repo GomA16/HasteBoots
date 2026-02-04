@@ -133,8 +133,8 @@ impl<F: Field> RowPermInstance<F> {
             + eq_rx_ones
                 * (trace_eval.acc_trace.initial_acc.poly.1 - trace_eval.acc_trace.final_acc.poly.1);
 
-        let input_ry_0 = Rc::new(trace.acc_trace.input_acc.poly.0.fix_variables(&point_ry));
-        let input_ry_1 = Rc::new(trace.acc_trace.input_acc.poly.1.fix_variables(&point_ry));
+        let input_ry_0 = Rc::new(trace.acc_trace.input_acc.poly.0.fix_variables(point_ry));
+        let input_ry_1 = Rc::new(trace.acc_trace.input_acc.poly.1.fix_variables(point_ry));
 
         let instance_0 = Self {
             log_num_cols,
@@ -162,7 +162,7 @@ impl<F: Field> RowPermInstance<F> {
         point_rx: &[F],
         point_ry: &[F],
     ) -> Self {
-        let input_ry = trace.input.fix_variables(&point_ry);
+        let input_ry = trace.input.fix_variables(point_ry);
 
         let point_ry_rx = point_ry
             .iter()

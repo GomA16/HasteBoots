@@ -178,7 +178,7 @@ where
         > + Serialize,
 {
     pub fn piop_proof_len(&self) -> usize {
-        bincode::serde::encode_to_vec(&self.sumcheck_poly_info, standard())
+        bincode::serde::encode_to_vec(self.sumcheck_poly_info, standard())
             .unwrap()
             .len()
             + bincode::serde::encode_to_vec(&self.sumcheck_proof, standard())

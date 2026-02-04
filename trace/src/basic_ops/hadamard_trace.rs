@@ -420,7 +420,7 @@ impl<F: Field> SumHadamardTraceMLE<F> {
     #[inline]
     pub fn log_num_helper_poly(&self, blk_size: usize) -> usize {
         let num_lookup = self.num_bit_poly();
-        let num_helper = (num_lookup + blk_size - 1) / blk_size;
+        let num_helper = num_lookup.div_ceil(blk_size);
         num_helper.next_power_of_two().trailing_zeros() as usize
     }
 
@@ -487,7 +487,7 @@ impl<F: Field> SumHadamardTraceMLE<F> {
         };
         let traces_0 = extract_traces(0);
         let traces_1 = extract_traces(tables.decomp_len);
-        traces_0.into_iter().chain(traces_1.into_iter()).collect()
+        traces_0.into_iter().chain(traces_1).collect()
     }
 }
 
@@ -504,7 +504,7 @@ impl<F: Field> PackableTrace<F> for HadamardTraceMLE<F> {
         self.bit
             .pack_to_vec()
             .into_iter()
-            .chain(self.rlwe.pack_to_vec().into_iter())
+            .chain(self.rlwe.pack_to_vec())
             .collect()
     }
 }
@@ -522,7 +522,7 @@ impl<F: Field> PackableTrace<F> for HadamardTrace<F> {
         self.bit
             .pack_to_vec()
             .into_iter()
-            .chain(self.rlwe.pack_to_vec().into_iter())
+            .chain(self.rlwe.pack_to_vec())
             .collect()
     }
 }
@@ -556,7 +556,7 @@ impl<F: Field> PackableEval<F> for HadamardTraceEval<F> {
         self.bit
             .pack_ntt_to_vec()
             .into_iter()
-            .chain(self.rlwe.pack_ntt_to_vec().into_iter())
+            .chain(self.rlwe.pack_ntt_to_vec())
             .collect()
     }
 
@@ -565,7 +565,7 @@ impl<F: Field> PackableEval<F> for HadamardTraceEval<F> {
         self.bit
             .pack_poly_to_vec()
             .into_iter()
-            .chain(self.rlwe.pack_poly_to_vec().into_iter())
+            .chain(self.rlwe.pack_poly_to_vec())
             .collect()
     }
 }
@@ -605,7 +605,7 @@ impl<F: Field> PackableTrace<F> for SumHadamardTraceMLE<F> {
         self.vec_hadamard
             .iter()
             .flat_map(|trace| trace.pack_to_vec().into_iter())
-            .chain(self.sum_prod.pack_to_vec().into_iter())
+            .chain(self.sum_prod.pack_to_vec())
             .collect()
     }
 }
@@ -643,7 +643,7 @@ impl<F: Field> SeparatelyPackableTrace<F> for SumHadamardTrace<F> {
         self.vec_hadamard
             .iter()
             .flat_map(|trace| trace.pack_bit_to_vec().into_iter())
-            .chain(self.sum_prod.pack_to_vec().into_iter())
+            .chain(self.sum_prod.pack_to_vec())
             .collect()
     }
 
@@ -666,7 +666,7 @@ impl<F: Field> PackableEval<F> for SumHadamardTraceEval<F> {
         self.vec_hadamard
             .iter()
             .flat_map(|trace| trace.pack_ntt_to_vec().into_iter())
-            .chain(self.sum_prod.pack_ntt_to_vec().into_iter())
+            .chain(self.sum_prod.pack_ntt_to_vec())
             .collect()
     }
 
@@ -675,7 +675,7 @@ impl<F: Field> PackableEval<F> for SumHadamardTraceEval<F> {
         self.vec_hadamard
             .iter()
             .flat_map(|trace| trace.pack_poly_to_vec().into_iter())
-            .chain(self.sum_prod.pack_poly_to_vec().into_iter())
+            .chain(self.sum_prod.pack_poly_to_vec())
             .collect()
     }
 }
@@ -696,7 +696,7 @@ impl<F: Field> SeparatelyPackableEval<F> for SumHadamardTraceEval<F> {
         self.vec_hadamard
             .iter()
             .flat_map(|trace| trace.pack_bit_ntt_to_vec().into_iter())
-            .chain(self.sum_prod.pack_ntt_to_vec().into_iter())
+            .chain(self.sum_prod.pack_ntt_to_vec())
             .collect()
     }
 

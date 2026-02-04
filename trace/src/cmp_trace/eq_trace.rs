@@ -74,8 +74,7 @@ impl<F: DecomposableField> EQTables<F> {
         let mask = basis.mask();
         let basis_bits = basis.bits() as usize;
         for i in 0..basis.decompose_len() {
-            let bit_constant =
-                (&mut decomposed_constant).decompose_lsb_bits(mask, basis_bits as u32);
+            let bit_constant = decomposed_constant.decompose_lsb_bits(mask, basis_bits as u32);
             let table = EQTable::new(basis_bits, bit_constant, i);
             tables.push(table);
         }
@@ -143,7 +142,7 @@ impl<F: DecomposableField> EQTrace<F> {
             let mut x = input[i];
 
             for (j, eq_table) in eq_tables.tables.iter().enumerate() {
-                let bit = (&mut x).decompose_lsb_bits(
+                let bit = x.decompose_lsb_bits(
                     F::mask(eq_tables.basis_bits as u32),
                     eq_tables.basis_bits as u32,
                 );
@@ -223,7 +222,7 @@ impl<F: DecomposableField> EQTraceMLE<F> {
                 };
                 let mut x = *input;
                 eq_tables.tables.iter().enumerate().for_each(|(j, table)| {
-                    let bit = (&mut x).decompose_lsb_bits(
+                    let bit = x.decompose_lsb_bits(
                         F::mask(eq_tables.basis_bits as u32),
                         eq_tables.basis_bits as u32,
                     );

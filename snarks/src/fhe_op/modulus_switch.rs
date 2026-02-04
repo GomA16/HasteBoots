@@ -186,8 +186,8 @@ where
 
         let mut all_indexed_lookups = indexed_lookups_e
             .into_iter()
-            .chain(indexed_lookups_a.into_iter())
-            .chain(indexed_lookups_e_eq.into_iter())
+            .chain(indexed_lookups_a)
+            .chain(indexed_lookups_e_eq)
             .collect::<Vec<_>>();
         all_indexed_lookups.push(b_eq_b_prime);
 

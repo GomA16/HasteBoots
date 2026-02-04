@@ -141,7 +141,7 @@ impl<F: Field> LogUpInstance<F> {
 
         let phi_block = self.helper.phi_functions[idx_start..idx_end]
             .iter()
-            .map(|phi| Rc::clone(phi))
+            .map(Rc::clone)
             .collect::<Vec<_>>();
 
         // randomness * L * h * \prod phi_i

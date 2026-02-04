@@ -61,10 +61,7 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for NTTTraceMLE
             ntt_table: Rc::new(self.ntt_table.to_ef()),
             coefficients: Rc::new(self.coefficients.to_ef()),
             evaluations: Rc::new(self.evaluations.to_ef()),
-            is_monomial: match &self.is_monomial {
-                Some(mono) => Some(mono.to_ef()),
-                None => None,
-            },
+            is_monomial: self.is_monomial.as_ref().map(|mono| mono.to_ef()),
         }
     }
 }
@@ -122,10 +119,7 @@ impl<F: Field> From<NTTTrace<F>> for NTTTraceMLE<F> {
             ntt_table,
             coefficients,
             evaluations,
-            is_monomial: match trace.is_monomial {
-                Some(mono) => Some(MonomialTraceMLE::from(mono)),
-                None => None,
-            },
+            is_monomial: trace.is_monomial.map(MonomialTraceMLE::from),
         }
     }
 }

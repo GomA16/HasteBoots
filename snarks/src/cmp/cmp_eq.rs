@@ -197,7 +197,7 @@ where
         let mut power = EF::one();
         for bit in proof.lookup_proof.lookup_evals.iter() {
             sum += bit.index_at_r * power;
-            power = power * proof.basis;
+            power *= proof.basis;
         }
         res &= input_eval == sum;
         assert!(

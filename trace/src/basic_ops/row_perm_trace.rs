@@ -41,7 +41,7 @@ pub struct PermutationSignedInfo<F: Field> {
 impl<F: Field> PermutationInfo<F> {
     // rotation left by offset
     pub fn new_rotation_left(log_num: usize, range: usize, offset: usize) -> Self {
-        let mut permuation_table = (0..1 << log_num).map(|x| x).collect::<Vec<usize>>();
+        let mut permuation_table = (0..1 << log_num).collect::<Vec<usize>>();
         permuation_table[0..range].rotate_left(offset);
 
         Self {
@@ -55,8 +55,8 @@ impl<F: Field> PermutationInfo<F> {
     pub fn new_ks_permutation(num: usize, blk_size: usize) -> Self {
         assert!(num.is_power_of_two());
         assert!(blk_size.is_power_of_two());
-        assert!(num % blk_size == 0);
-        let mut permutation_table = (0..num).map(|x| x).collect::<Vec<usize>>();
+        assert!(num.is_multiple_of(blk_size));
+        let mut permutation_table = (0..num).collect::<Vec<usize>>();
         let mut sign = vec![F::one(); num];
         sign[0] = -sign[0];
         permutation_table[1..].reverse();
@@ -89,7 +89,7 @@ impl<F: Field> PermutationInfo<F> {
     // sample extraction permutation
     pub fn new_sample_extraction_permutation(num: usize) -> Self {
         assert!(num.is_power_of_two());
-        let mut permutation_table = (0..num).map(|x| x).collect::<Vec<usize>>();
+        let mut permutation_table = (0..num).collect::<Vec<usize>>();
         let mut sign = vec![-F::one(); num];
         sign[0] = F::one();
         permutation_table[1..].reverse();
@@ -355,10 +355,7 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for Permutation
         PermutationInfo {
             log_num: self.log_num,
             permutation_table: self.permutation_table.clone(),
-            signed: match self.signed {
-                None => None,
-                Some(ref s) => Some(s.to_ef()),
-            },
+            signed: self.signed.as_ref().map(|s| s.to_ef()),
         }
     }
 }

@@ -452,7 +452,7 @@ impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
         trans.append_message(b"[Oracle Evaluation]", &fourier_eval_at_u_r);
 
         let fourier_eval_subclaim = NTTFourierEvalInfo {
-            log_coeff_count: log_coeff_count,
+            log_coeff_count,
             ntt_table,
             point_u,
             point_v: sumcheck_state.randomness.clone(),
@@ -561,7 +561,7 @@ impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
         .expect("[NTTEvalIOP - Verifier] Fail to verify the sumcheck");
 
         Self::verifier_batch_compute_subclaim(
-            &infos,
+            infos,
             proof,
             &mut sumcheck_subclaim,
             &randomness,

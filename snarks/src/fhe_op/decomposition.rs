@@ -163,8 +163,7 @@ where
         let time_prep_lookup = std::time::Instant::now();
         let lookup_trace = traces
             .iter()
-            .map(|trace| trace.extract_lt_general_lookup_trace(&params.lt_tables))
-            .flatten()
+            .flat_map(|trace| trace.extract_lt_general_lookup_trace(params.lt_tables))
             .collect::<Vec<_>>();
         info!(
             "[P]-[PIOP] Preparing lookup traces for decomposition validity in {:?}",
@@ -259,7 +258,7 @@ where
                 let mut basis = EF::one();
                 for bit in bits {
                     sum += bit.index_at_r * basis;
-                    basis = basis * proof.basis;
+                    basis *= proof.basis;
                 }
                 sum == *input
             });

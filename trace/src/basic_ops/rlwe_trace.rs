@@ -588,7 +588,7 @@ impl<F: Field> PackableTrace<F> for PolynomialTrace<F> {
     }
 
     fn pack_to_vec(&self) -> Vec<F> {
-        self.poly.iter().cloned().collect::<Vec<F>>()
+        self.poly.to_vec()
     }
 }
 

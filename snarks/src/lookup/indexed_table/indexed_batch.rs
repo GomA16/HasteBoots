@@ -202,9 +202,7 @@ where
         let helper = trace_mle
             .iter()
             .zip(witness.iter())
-            .map(|(trace, wit)| {
-                trace.compute_helper_functions_ef(&wit, random_value, random_s_hash)
-            })
+            .map(|(trace, wit)| trace.compute_helper_functions_ef(wit, random_value, random_s_hash))
             .collect::<Vec<_>>();
         info!(
             "[P]-[PIOP] Computing helper polynomials in {:?}",

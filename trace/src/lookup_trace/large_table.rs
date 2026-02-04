@@ -30,7 +30,7 @@ impl<F: DecomposableField> LookupLargeTableTraceMLE<F> {
         // basis_len is the bit length of basis (we only support power of 2 basis)
         basis_bits: usize,
     ) -> LookupLargeTableWitness<F> {
-        let decompose_len = (self.range_bits + basis_bits - 1) / basis_bits + 1;
+        let decompose_len = self.range_bits.div_ceil(basis_bits) + 1;
         let decomposed_input = self.input.get_decomposed_mles(basis_bits, decompose_len);
         LookupLargeTableWitness {
             input_bits: decomposed_input,

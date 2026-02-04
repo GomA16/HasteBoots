@@ -128,7 +128,7 @@ impl<F: Field> PackableTrace<F> for BlindRotationTraceMLE<F> {
         self.hadamard_trace
             .pack_to_vec()
             .into_iter()
-            .chain(self.acc_trace.pack_to_vec().into_iter())
+            .chain(self.acc_trace.pack_to_vec())
             .collect()
     }
 }
@@ -149,7 +149,7 @@ impl<F: Field> PackableTrace<F> for BlindRotationTrace<F> {
         self.hadamard_trace
             .pack_to_vec()
             .into_iter()
-            .chain(self.acc_trace.pack_to_vec().into_iter())
+            .chain(self.acc_trace.pack_to_vec())
             .collect()
     }
 }
@@ -170,7 +170,7 @@ impl<F: Field> SeparatelyPackableTrace<F> for BlindRotationTrace<F> {
         self.hadamard_trace
             .pack_bit_to_vec()
             .into_iter()
-            .chain(self.acc_trace.pack_to_vec().into_iter())
+            .chain(self.acc_trace.pack_to_vec())
             .collect()
     }
 
@@ -212,7 +212,7 @@ impl<F: Field> PackableEval<F> for BlindRotationTraceEval<F> {
         self.hadamard_trace
             .pack_ntt_to_vec()
             .into_iter()
-            .chain(self.acc_trace.pack_ntt_to_vec().into_iter())
+            .chain(self.acc_trace.pack_ntt_to_vec())
             .collect()
     }
 
@@ -221,7 +221,7 @@ impl<F: Field> PackableEval<F> for BlindRotationTraceEval<F> {
         self.hadamard_trace
             .pack_poly_to_vec()
             .into_iter()
-            .chain(self.acc_trace.pack_poly_to_vec().into_iter())
+            .chain(self.acc_trace.pack_poly_to_vec())
             .collect()
     }
 
@@ -247,7 +247,7 @@ impl<F: Field> SeparatelyPackableEval<F> for BlindRotationTraceEval<F> {
         self.hadamard_trace
             .pack_bit_ntt_to_vec()
             .into_iter()
-            .chain(self.acc_trace.pack_ntt_to_vec().into_iter())
+            .chain(self.acc_trace.pack_ntt_to_vec())
             .collect()
     }
 

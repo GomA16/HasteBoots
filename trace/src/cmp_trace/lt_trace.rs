@@ -121,7 +121,7 @@ impl<F: DecomposableField> LTTables<F> {
         let mut tables = Vec::with_capacity(basis.decompose_len());
         for i in 0..basis.decompose_len() {
             let mut bit_constant =
-                (&mut decomposed_constant).decompose_lsb_bits(basis.mask(), basis.bits());
+                decomposed_constant.decompose_lsb_bits(basis.mask(), basis.bits());
             if lt_constant.is_none() && i == 0 {
                 // if no constant is provided, we set it to p - 1, so we need to add 1 to the LSB gadget
                 bit_constant += F::one();
@@ -206,10 +206,7 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for LTTablesMLE
             .collect::<Vec<_>>();
 
         LTTablesMLE {
-            lt_constant: match self.lt_constant {
-                Some(c) => Some(EF::from_base(c)),
-                None => None,
-            },
+            lt_constant: self.lt_constant.map(EF::from_base),
             basis_bits: self.basis_bits,
             decomp_len: self.decomp_len,
             tables: mle_tables,
@@ -280,7 +277,7 @@ impl<F: DecomposableField> LTTraceMLE<F> {
                     .iter()
                     .enumerate()
                     .for_each(|(j, lt_table)| {
-                        let bit = (&mut x).decompose_lsb_bits(
+                        let bit = x.decompose_lsb_bits(
                             F::mask(lt_tables.basis_bits as u32),
                             lt_tables.basis_bits as u32,
                         );

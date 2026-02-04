@@ -56,9 +56,7 @@ impl<Q: NTTField> EvaluationKey<Q> {
             _ => panic!("Unable to get the corresponding key switching key!"),
         };
 
-        let output_lwe = ksk.key_switch_for_rlwe(acc);
-
-        output_lwe
+        ksk.key_switch_for_rlwe(acc)
     }
 }
 

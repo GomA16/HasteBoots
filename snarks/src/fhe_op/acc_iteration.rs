@@ -170,8 +170,8 @@ where
         // Prove the permutation;
         let permutation_instances = RowPermInstance::from_subclaim(
             trace_ef,
-            &trace_eval,
-            &indexed_lookup_mle,
+            trace_eval,
+            indexed_lookup_mle,
             point_rx,
             point_ry,
         );

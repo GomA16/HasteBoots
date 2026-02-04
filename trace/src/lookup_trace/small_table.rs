@@ -134,8 +134,8 @@ impl<F: Field> LookupTraceMLE<F> {
 
     pub fn num_helper_oracles(&self, blk_size: usize) -> usize {
         let total = self.num_oracles();
-        let num_blks = (total + blk_size - 1) / blk_size;
-        num_blks
+
+        total.div_ceil(blk_size)
     }
 
     pub fn log_num_oracles(&self) -> usize {
@@ -176,7 +176,7 @@ impl<F: Field> LookupTraceMLE<F> {
         {
             *t_i = ele;
             let count = multiplicity_hashmap.remove(&ele).unwrap_or(0u32);
-            *m_i = F::new((count as u32).as_into());
+            *m_i = F::new(count.as_into());
             ele += F::one();
         }
 
@@ -198,7 +198,7 @@ impl<F: Field> LookupTraceMLE<F> {
 
         // divide vec_input into blocks of size block_size
         let total = self.vec_input.len();
-        let num_blocks = (total + block_size - 1) / block_size;
+        let num_blocks = total.div_ceil(block_size);
 
         // f(x) + r
         let all_inputs_plus_r = self
@@ -216,8 +216,7 @@ impl<F: Field> LookupTraceMLE<F> {
 
         let num_threads = rayon::current_num_threads();
         debug!("Computing helper functions using {} threads", num_threads);
-        let chunk_size =
-            std::cmp::max(1, (all_inputs_plus_r.len() + num_threads - 1) / num_threads);
+        let chunk_size = std::cmp::max(1, all_inputs_plus_r.len().div_ceil(num_threads));
 
         // 1 / (f(x) + r)
         let inversed_values = all_inputs_plus_r
@@ -303,7 +302,7 @@ impl<F: Field> LookupTraceMLE<F> {
 
         // divide vec_input into blocks of size block_size
         let total = self.vec_input.len();
-        let num_blocks = (total + block_size - 1) / block_size;
+        let num_blocks = total.div_ceil(block_size);
 
         // f(x) + r
         let all_inputs_plus_r = self
@@ -321,8 +320,7 @@ impl<F: Field> LookupTraceMLE<F> {
 
         let num_threads = rayon::current_num_threads();
         debug!("Computing helper functions using {} threads", num_threads);
-        let chunk_size =
-            std::cmp::max(1, (all_inputs_plus_r.len() + num_threads - 1) / num_threads);
+        let chunk_size = std::cmp::max(1, all_inputs_plus_r.len().div_ceil(num_threads));
 
         // 1 / (f(x) + r)
         let inversed_values = all_inputs_plus_r

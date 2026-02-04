@@ -39,11 +39,10 @@ impl<F: Field> LagrangeKernel<F> {
 
     // generate a random Lagrange kernel but only return the point
     pub fn random_point(trans: &mut Transcript<F>, num_vars: usize) -> Vec<F> {
-        let point = trans.get_vec_challenge(
+        trans.get_vec_challenge(
             b"Sample random point for a batch of sumchecks over products",
             num_vars,
-        );
-        point
+        )
     }
 
     // generate the Lagrange kernel for a given point
@@ -172,8 +171,8 @@ pub trait SumcheckPIOP<F: Field + Serialize> {
         let mut sumcheck_subclaim = MLSumcheck::verify(
             trans,
             proof.get_poly_info(),
-            MLSumcheck::extract_sum(&proof.get_sumcheck_proof()),
-            &proof.get_sumcheck_proof(),
+            MLSumcheck::extract_sum(proof.get_sumcheck_proof()),
+            proof.get_sumcheck_proof(),
         )
         .expect("[SumcheckIOP - Verifier] Fail to verify the sumcheck");
 
@@ -292,8 +291,8 @@ pub trait BatchedSumcheckPIOP<F: Field + Serialize>: SumcheckPIOP<F> {
         let mut sumcheck_subclaim = MLSumcheck::verify(
             trans,
             proof.get_poly_info(),
-            MLSumcheck::extract_sum(&proof.get_sumcheck_proof()),
-            &proof.get_sumcheck_proof(),
+            MLSumcheck::extract_sum(proof.get_sumcheck_proof()),
+            proof.get_sumcheck_proof(),
         )
         .expect("[SumcheckIOP - Verifier] Fail to verify the sumcheck");
 

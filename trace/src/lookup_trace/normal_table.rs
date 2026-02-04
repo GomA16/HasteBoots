@@ -131,7 +131,7 @@ impl<F: Field> From<LookupTraceMLE<F>> for LookupWitness<F> {
         {
             *t_i = ele;
             let count = multiplicity_hashmap.remove(&ele).unwrap_or(0u32);
-            *m_i = F::new((count as u32).as_into());
+            *m_i = F::new(count.as_into());
             ele += F::one();
         }
 
@@ -189,7 +189,7 @@ impl<F: Field> LookupTraceMLE<F> {
 
     pub fn compute_helper_num_vars(num_vars: usize, num_vec: usize, blk_size: usize) -> usize {
         let total = 1 + num_vec;
-        let num_blks = (total + blk_size - 1) / blk_size;
+        let num_blks = total.div_ceil(blk_size);
         num_vars + num_blks.next_power_of_two().trailing_zeros() as usize
     }
 
@@ -222,7 +222,7 @@ impl<F: Field> LookupWitness<F> {
 
         // divide vec_input || table into blocks of size block_size
         let total = 1 + self.trace.vec_input.len();
-        let num_blocks = (total + block_size - 1) / block_size;
+        let num_blocks = total.div_ceil(block_size);
 
         // t(x) + r and f(x) + r
         let table_and_inputs = self
@@ -234,7 +234,7 @@ impl<F: Field> LookupWitness<F> {
 
         let num_threads = rayon::current_num_threads();
         debug!("Computing helper functions using {} threads", num_threads);
-        let chunk_size = std::cmp::max(1, (table_and_inputs.len() + num_threads - 1) / num_threads);
+        let chunk_size = std::cmp::max(1, table_and_inputs.len().div_ceil(num_threads));
 
         // 1 / (t(x) + r) and 1 / (f(x) + r)
         let mut inversed_values = table_and_inputs
@@ -368,7 +368,7 @@ impl<F: Field> PackableEval<F> for LookupWitnessHelperEval<F> {
     }
 
     fn pack_to_vec(&self) -> Vec<F> {
-        self.helper_at_r.iter().cloned().collect::<Vec<F>>()
+        self.helper_at_r.to_vec()
     }
 
     fn pack_ntt_to_vec(&self) -> Vec<F> {
