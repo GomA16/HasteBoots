@@ -1,0 +1,2 @@
+Run,Prover Total (ms),Prover PCS (ms),Prover PCS Ratio (%),Prover PIOP (ms),Verifier Total (ms),Verifier PCS (ms),Verifier PCS Ratio (%),Verifier PIOP (ms),Total Size (MB),PCS Size (MB),PCS Size Ratio (%),PIOP Size (MB)
+1,14.63,2.46,16.85,12.16,417.48,415.83,99.61,1.65,196.9050,196.7227,99.91,0.1823

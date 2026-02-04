@@ -1,14 +1,34 @@
 # Artifact for HasteBoots
 
-This artifact provides experimental data and the source code of the implementation of HasteBoots for reproducing the experimental results
-reported in the paper. 
-In particular, the artifacts supports reproducing the performance
+This artifact provides experimental data and the source code of the implementation of HasteBoots for reproducing the experimental results reported in the paper. 
 
 The project can run on both macOS, Windows and Linux environment.
 
-## TLDR;
+The crate dependency is organized as follows:
 
-### Parameters
+- TFHE: api of the TFHE binary operation (without snarks)
+- VFHE: api of the TFHE binary operaion with snarks
+  - trace: storing the FHE operation trace during executing TFHE bootstrapping
+  - piop: PIOP protocol for relations
+  - pcs: brakedown PCS implementation
+  - helper: transcript and utility function
+
+## Setup
+
+```sh
+# install rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
+
+# dep
+sudo apt install -y build-essential
+```
+
+
+
+
+
+## Parameters
 
 Parameters are set in `VFHE/src/bfhe/parameters.rs`. There are three parameter sets listed in paper:
 
@@ -17,9 +37,11 @@ Parameters are set in `VFHE/src/bfhe/parameters.rs`. There are three parameter s
 - BabyBear: `BABYBEAR_BINARY_128_BITS_PARAMETERS` 
 - Goldilocks: `GOLDILOCKS_BINARY_128_BITS_PARAMETERS` 
 
-### TFHE Performance in Table 1
+For each parameter setting, we run the experiment 10 times and report the average proof generation time, verification time, and proof size.
 
-This evaluation only evaluates TFHE with bootstrapping without generating SNARKS.
+## TFHE Performance in Table 1
+
+This evaluation only evaluates TFHE with bootstrapping **without** generating SNARKS.
 
 To reproduct the results in **table 1** from the paper, simply run
 
@@ -34,7 +56,9 @@ cargo r -r -p tfhe --example nand_goldilocks
 
 
 
-### VFHE Performance in Table 2
+
+
+## VFHE Performance in Table 2
 
 We only implemented and integrated  `Brakedown` PCS in our codebase.
 
@@ -57,86 +81,28 @@ RUST_LOG=info cargo r -r -p vfhe --example zk_nand_babybear
 RUST_LOG=info cargo r -r -p vfhe --example zk_nand_goldilocks
 ```
 
+Since the PIOP layer and the PCS layer are fully modular and separable, we are able to isolate the performance cost introduced by the PCS from the overall end-to-end performance.
+This allows us to instantiate the same PIOP with different PCS choices that commit to and evaluate polynomials of the same size.
 
+Concretely, we integrate our PIOP construction with Dory and BaseFold.
+For Dory, we use the implementation provided in [Jolt](https://github.com/a16z/jolt), which is based on elliptic-curve commitments over the BN254 curve and targets a 128-bit security level.
+For BaseFold, we use the implementation from [Jolt-b](https://github.com/cysic-labs/jolt-b), which operates over the Goldilocks prime field
+$Q = 2^{64} - 2^{32} + 1$ and a degree-2 extension field of size $Q^2$, also corresponding to approximately 128-bit security.
 
-For the other evaluations
+The full experimental statistics are provided in `statistics/HasteBoots_Performance.xlsx` (Table 2). 
 
-It outputs the proving time and verification time of each phase in pbs.
+## Batched VFHE Performance in Table 4
 
-We also summerize the statistics about the PCS and PIOP costs.
+We only implemented and integrated  `Brakedown` PCS in our codebase.
 
-```text
-Parameters: Parameters {
-    ...
-}
---- Starting verification of nand ---
+To reproduct the results with Brakedown in **table 4** from the paper, simply run
 
-Preparing parameters time: 311.161333ms
-
-[Prover] Starting to generate proofs for modulus switching.
-[Prover] Modulus switching proof generation time: 26.734833ms
-
-[Prover] Starting to generate proofs for blind rotation.
-[Prover] Blind rotation proof generation time: 3.230655792s
-
-[Prover] Starting to generate proofs for key switching.
-[Prover] Key switching proof generation time: 31.9755ms
-
-[Prover] Starting to generate proofs for sample extraction.
-[Prover] Sample extraction proof generation time: 4.076375ms
-
---- Proofs generation done! ---
-
-Proof generation time: 3.293485959s
-
-[Verifier] Starting to check modulus switching.
-[Verifier] Modulus switching verification time: 6.448792ms
-
-[Verifier] Starting to check blind rotation.
-[Verifier] Blind rotation verification time: 188.42475ms
-
-[Verifier] Starting to check key switching.
-[Verifier] Key switching verification time: 9.763834ms
-
-[Verifier] Starting to check sample extraction.
-[Verifier] Sample extraction verification time: 755.209µs
-
---- Proofs verification done! ---
-
-Proof verification total time: 205.425875ms
-
---- SNARK Statistics Summary ---
-
-Prover Total Time: 3.293485959s
-Prover PCS Time (including commit and open): 566.734456ms, accounts for 17.21%
-Prover PIOP Time: 2.726751503s
-
-Verifier Total Time: 205.425875ms
-Verifier PCS Time (including commit and open): 204.096709ms, accounts for 99.35%
-Verifier PIOP Time: 1.329166ms
-
-Proof Sizes: 135.45475006103516 MB total
-PCS Proof Sizes: 135.27827739715576 MB, accounts for 99.87%
-PIOP Proof Sizes: 0.17647266387939453 MB
+```shell
+# 'BABYBEAR_BINARY_128_BITS_PARAMETERS' 
+cargo r -r -p vfhe --example zk_nand_batch
 ```
 
+The full experimental statistics are provided in `statistics/HasteBoots_Performance.xlsx` (Table 4). 
 
 
 
-
-### Batched VFHE Performance in Table 4
-
-
-
-
-
-
-The crate dependency is organized as follows:
-- TFHE: api of the TFHE binary operation (without snarks)
-  - 
-- VFHE: api of the TFHE binary operaion with snarks
-  - trace: storing the FHE operation trace during executing TFHE bootstrapping
-  - piop: PIOP protocol for relations
-  - pcs: brakedown PCS implementation
-  - helper: transcript and utility function
-  - 
