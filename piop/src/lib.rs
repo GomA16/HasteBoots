@@ -116,7 +116,7 @@ pub trait SumcheckPureBatchedProof<F: Field + Serialize>: SumcheckPureProof<F> {
         &self,
         infos: &[Self::Info],
         subclaim: &mut SubClaim<F>,
-        randomness: &Vec<Vec<F>>,
+        randomness: &[Vec<F>],
         kernel_at_r: Option<F>,
     );
 }
@@ -351,7 +351,7 @@ pub trait BatchedSumcheckPIOP<F: Field + Serialize>: SumcheckPIOP<F> {
     fn prover_batch_add_sumcheck(
         instances: &[Self::Instance],
         claim: &mut SumcheckClaim<F>,
-        randomness: &Vec<Vec<F>>,
+        randomness: &[Vec<F>],
         lagrange_kernel: Option<&LagrangeKernel<F>>,
     ) -> Option<Self::BatchedProverState> {
         instances

@@ -227,11 +227,9 @@ where
         res &= evaluate_table_at_r(&proof.helper_table_commitment)
             == proof.table_piop_proof.helper_table_at_ry;
 
-        if proof.table_instance_info.table_point.is_some() {
-            res &= eval_identity_function(
-                proof.table_instance_info.table_point.as_ref().unwrap(),
-                &piop_subclaim2.point_r,
-            ) == proof.table_piop_proof.table_at_ry;
+        if let Some(item) = &proof.table_instance_info.table_point {
+            res &= eval_identity_function(item, &piop_subclaim2.point_r)
+                == proof.table_piop_proof.table_at_ry;
         }
         if let Some(stats) = statistics {
             stats.add_verifier_pcs_time(time.elapsed());

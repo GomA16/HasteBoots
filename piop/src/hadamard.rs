@@ -227,7 +227,7 @@ impl<F: Field> BatchedSumHadamardProof<F> {
         proof
     }
 
-    pub fn from_vec_blind_rotation_trace_eval(trace_eval: &Vec<BlindRotationTraceEval<F>>) -> Self {
+    pub fn from_vec_blind_rotation_trace_eval(trace_eval: &[BlindRotationTraceEval<F>]) -> Self {
         let mut proof = BatchedSumHadamardProof {
             poly_info: PolynomialInfo::default(),
             sumcheck_proof: Proof::default(),
@@ -392,7 +392,7 @@ impl<F: Field + Serialize> SumcheckPureBatchedProof<F> for BatchedSumHadamardPro
         &self,
         _infos: &[Self::Info],
         subclaim: &mut SubClaim<F>,
-        randomness: &Vec<Vec<F>>,
+        randomness: &[Vec<F>],
         kernel_at_r: Option<F>,
     ) {
         assert!(kernel_at_r.is_some());

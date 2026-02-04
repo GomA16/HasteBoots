@@ -96,8 +96,8 @@ impl<F: Field> IndexedLookupTrace<F> {
     pub fn from_table(
         num_input_vars: usize,
         num_table_vars: usize,
-        table: &Vec<F>,
-        index: &Vec<usize>,
+        table: &[F],
+        index: &[usize],
     ) -> Self {
         assert_eq!(table.len(), 1 << num_table_vars);
         assert_eq!(index.len(), 1 << num_input_vars);
@@ -114,7 +114,7 @@ impl<F: Field> IndexedLookupTrace<F> {
             num_table_vars,
             index,
             input,
-            table: table.clone(),
+            table: table.to_owned(),
             table_point: None,
         }
     }

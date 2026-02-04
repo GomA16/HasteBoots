@@ -348,7 +348,7 @@ impl<F: Field + Serialize> SumcheckPureBatchedProof<F> for BatchedIndexLogUpTabl
         &self,
         _infos: &[Self::Info],
         subclaim: &mut SubClaim<F>,
-        randomness: &Vec<Vec<F>>,
+        randomness: &[Vec<F>],
         kernel_at_r: Option<F>,
     ) {
         assert!(kernel_at_r.is_some());
@@ -415,7 +415,7 @@ impl<F: Field + Serialize> SumcheckPureBatchedProof<F> for BatchedIndexLogUpInpu
         &self,
         _infos: &[Self::Info],
         subclaim: &mut SubClaim<F>,
-        randomness: &Vec<Vec<F>>,
+        randomness: &[Vec<F>],
         kernel_at_r: Option<F>,
     ) {
         assert!(kernel_at_r.is_some());

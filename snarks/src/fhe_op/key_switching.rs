@@ -91,8 +91,8 @@ where
         > + Serialize,
 {
     pub fn piop_proof_len(&self) -> usize {
-        let mut len = if self.permutation_proof.is_some() {
-            bincode::serde::encode_to_vec(self.permutation_proof.as_ref().unwrap(), standard())
+        let mut len = if let Some(item) = &self.permutation_proof {
+            bincode::serde::encode_to_vec(item, standard())
                 .unwrap()
                 .len()
         } else {
@@ -103,8 +103,8 @@ where
     }
 
     pub fn pcs_proof_len(&self) -> usize {
-        let mut len = if self.permutation_proof.is_some() {
-            bincode::serde::encode_to_vec(self.permutation_proof.as_ref().unwrap(), standard())
+        let mut len = if let Some(item) = &self.permutation_proof {
+            bincode::serde::encode_to_vec(item, standard())
                 .unwrap()
                 .len()
         } else {
@@ -173,10 +173,9 @@ where
         );
 
         let mut permutation_proof: Option<RowPermutationSignedProof<F, EF, S, PCS>> = None;
-        if trace_mle.permutation_trace.is_some() {
+        if let Some(item) = &trace_mle.permutation_trace {
             permutation_proof.replace(RowPermutationSignedSnarks::prove_as_subprotocol(
-                trans,
-                trace_mle.permutation_trace.as_ref().unwrap(),
+                trans, item,
             ));
         }
 
@@ -207,12 +206,8 @@ where
         res &= decomp_res;
         assert!(res, "Decomposition verification failed.");
 
-        if proof.permutation_proof.is_some() {
-            res &= RowPermutationSignedSnarks::verify_as_subprotocol(
-                trans,
-                proof.permutation_proof.as_ref().unwrap(),
-                statistics,
-            );
+        if let Some(item) = &proof.permutation_proof {
+            res &= RowPermutationSignedSnarks::verify_as_subprotocol(trans, item, statistics);
             assert!(res, "Row Permutation verification failed.");
         }
         res

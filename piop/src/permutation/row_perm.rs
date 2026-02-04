@@ -44,14 +44,10 @@ use trace::basic_ops::{RowPermTrace, RowPermTraceMLE};
 use trace::blind_rotation_trace::BlindRotationTraceEval;
 use trace::lookup_trace::indexed_table::IndexedLookupTraceMLE;
 
-use crate::BatchedSumcheckPIOP;
-use crate::SumcheckInfo;
-use crate::SumcheckInstance;
-use crate::SumcheckPIOP;
-use crate::SumcheckProverState;
-use crate::SumcheckPureBatchedProof;
-use crate::SumcheckPureProof;
-use crate::SumcheckSubclaim;
+use crate::{
+    BatchedSumcheckPIOP, SumcheckInfo, SumcheckInstance, SumcheckPIOP, SumcheckProverState,
+    SumcheckPureBatchedProof, SumcheckPureProof, SumcheckSubclaim,
+};
 
 pub struct RowPermPIOP<F: Field> {
     _marker: std::marker::PhantomData<F>,
@@ -312,7 +308,7 @@ impl<F: Field + Serialize> SumcheckPureBatchedProof<F> for BatchedRowPermProof<F
         &self,
         infos: &[Self::Info],
         subclaim: &mut SubClaim<F>,
-        randomness: &Vec<Vec<F>>,
+        randomness: &[Vec<F>],
         _kernel_at_r: Option<F>,
     ) {
         assert_eq!(randomness.len(), infos.len());

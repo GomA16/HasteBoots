@@ -527,7 +527,7 @@ impl<'a, F: Field> SubAssign<&'a DenseMultilinearExtension<F>> for DenseMultilin
     }
 }
 
-impl<'a, F: Field> Mul<F> for &DenseMultilinearExtension<F> {
+impl<F: Field> Mul<F> for &DenseMultilinearExtension<F> {
     type Output = DenseMultilinearExtension<F>;
 
     #[inline]

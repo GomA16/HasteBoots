@@ -43,7 +43,7 @@ impl<F: Field> GrandProdInstance<F> {
         random_lambda: F,
     ) {
         // let mut prod = Vec::with_capacity(self.products.len() + 1);
-        let mut prod: Vec<_> = self.products.iter().cloned().collect();
+        let mut prod: Vec<_> = self.products.to_vec();
         prod.push(Rc::clone(&kernal.eq_at_point));
         claim.poly.add_product(prod, random_lambda);
 

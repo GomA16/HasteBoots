@@ -382,7 +382,7 @@ impl<F: Field + Serialize> SumcheckPureBatchedProof<F> for BatchedNTTMatrixEvalP
         &self,
         _infos: &[Self::Info],
         _subclaim: &mut SubClaim<F>,
-        _randomness: &Vec<Vec<F>>,
+        _randomness: &[Vec<F>],
         _kernel_at_r: Option<F>,
     ) {
         unimplemented!("compute_subclaim is not implemented for BatchedNTTMatrixEvalProof");
@@ -474,7 +474,7 @@ impl<F: Field + Serialize> BatchedSumcheckPIOP<F> for NTTMatrixEvalIOP<F> {
     fn prover_batch_add_sumcheck(
         instances: &[Self::Instance],
         claim: &mut SumcheckClaim<F>,
-        randomness: &Vec<Vec<F>>,
+        randomness: &[Vec<F>],
         lagrange_kernel: Option<&LagrangeKernel<F>>,
     ) -> Option<Self::BatchedProverState> {
         assert!(!instances.is_empty());
