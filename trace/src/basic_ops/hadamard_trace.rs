@@ -1,18 +1,11 @@
-use std::iter::Sum;
-use std::rc::Rc;
-
-use algebra::AsInto;
-use algebra::{
-    AbstractExtensionField, DenseMultilinearExtension, Field, NTTField, transformation::AbstractNTT,
-};
+use algebra::{AbstractExtensionField, Field, NTTField, transformation::AbstractNTT};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::Serialize;
 
 use super::rlwe_trace::{
     PolynomialEval, PolynomialTrace, PolynomialTraceMLE, RLWEEval, RLWETrace, RLWETraceMLE,
 };
-use crate::basic_ops::decomp_trace::DecompTraceMLE;
-use crate::cmp_trace::lt_trace::{LTTables, LTTablesMLE};
+use crate::cmp_trace::lt_trace::LTTablesMLE;
 use crate::lookup_trace::indexed_table::IndexedLookupTraceMLE;
 use crate::lookup_trace::normal_table::LookupTraceMLE as LookupTraceMLENormalTable;
 use crate::lookup_trace::small_table::LookupTraceMLE as LookupTraceMLESmallTable;

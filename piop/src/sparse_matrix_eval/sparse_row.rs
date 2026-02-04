@@ -33,29 +33,18 @@
 //! - Index I[x] = col(x) for x in [M]
 //! We don't prove the indexed lookup argument here. Instead, we prove it in the
 //! snarks layer using the IndexedLogUpSnarks.
-use algebra::{
-    AbstractExtensionField, AsFrom, AsInto, DenseMultilinearExtension, Field, PolynomialInfo,
-};
+use algebra::{AbstractExtensionField, AsInto, DenseMultilinearExtension, Field, PolynomialInfo};
 use helper::utils::eval_identity_function;
-use num_traits::sign;
-use rand::rand_core::le;
-use rayon::vec;
 use serde::Serialize;
-use sha2::digest::crypto_common::Key;
 use std::rc::Rc;
-use sumcheck::{Proof, prover::ProverState, verifier::SubClaim};
+use sumcheck::{Proof, verifier::SubClaim};
+use trace::basic_ops::MonomialTraceMLE;
 use trace::basic_ops::row_perm_trace::PermutationInfo;
-use trace::basic_ops::{MonomialTraceMLE, RowPermTraceMLE};
-use trace::{
-    ConvertToEF,
-    basic_ops::row_perm_trace::PermutationSignedInfo,
-    lookup_trace::indexed_table::{IndexedLookupTrace, IndexedLookupTraceMLE},
-};
+use trace::lookup_trace::indexed_table::{IndexedLookupTrace, IndexedLookupTraceMLE};
 
 use crate::{
     LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance, SumcheckPIOP,
-    SumcheckProverState, SumcheckProverStateTrait, SumcheckPureProof, SumcheckSubclaim,
-    SumcheckSubclaimTrait,
+    SumcheckProverState, SumcheckPureProof, SumcheckSubclaim,
 };
 /// We don't prove the indexed lookup argument here. Instead, we prove it in the
 /// snarks layer using the IndexedLogUpSnarks.

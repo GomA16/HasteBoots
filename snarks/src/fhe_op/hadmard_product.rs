@@ -5,7 +5,6 @@
 //!     This is separately proven in `monomial_hadamard.rs`
 //! 2. Proving the correctness of ACC_Output = Mid * RGSW(s_i)
 //!     This is separately proven in `external_product.rs`
-use core::time;
 use std::rc::Rc;
 
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field, PolynomialInfo};
@@ -351,7 +350,7 @@ where
 
         // [PIOP Phase] verify the validity of NTT evaluations since we consider all NTT oracles as virtual oracles
         let piop_ntt_time = std::time::Instant::now();
-        let point_u = sumcheck_subclaim.point[..proof.log_coeff_count].to_vec();
+        let _point_u = sumcheck_subclaim.point[..proof.log_coeff_count].to_vec();
         let mut point_v = sumcheck_subclaim.point[proof.log_coeff_count..].to_vec();
         let point_bit_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",

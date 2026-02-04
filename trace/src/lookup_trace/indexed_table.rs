@@ -25,7 +25,7 @@ use rayon::slice::ParallelSlice;
 use serde::Serialize;
 use std::{collections::HashMap, rc::Rc};
 
-use log::{debug, info};
+use log::debug;
 
 use crate::{ConvertToEF, EvaluableTraceEF, PackableEval, PackableTrace};
 

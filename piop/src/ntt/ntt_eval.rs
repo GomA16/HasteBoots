@@ -1,7 +1,6 @@
 use algebra::{DenseMultilinearExtension, Field, PolynomialInfo};
 use helper::{FiatShamirTranscript, Transcript};
 use serde::Serialize;
-use serde::Serializer;
 use std::rc::Rc;
 use sumcheck::{MLSumcheck, Proof, verifier::SubClaim};
 use trace::basic_ops::NTTTraceMLE;
@@ -285,6 +284,7 @@ impl<F: Field + Serialize> SumcheckPIOP<F> for NTTEvalIOP<F> {
 //
 // # Returns
 // * The MLE for F(u, x)
+#[allow(dead_code)]
 pub fn naive_init_fourier_table<F: Field>(
     u: &[F],
     ntt_table: &[F],

@@ -20,9 +20,7 @@ use piop::{
 };
 use serde::Serialize;
 
-use crate::lookup::indexed_table::{
-    IndexedLogUpSnarks, IndexedLogUpSnarksProof, indexed_batch::BatchedIndexedLogUpSnarks,
-};
+use crate::lookup::indexed_table::{IndexedLogUpSnarks, IndexedLogUpSnarksProof};
 
 #[derive(Default)]
 pub struct SparseRowEvalSnarks<F, EF, S, PCS>

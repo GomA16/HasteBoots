@@ -83,7 +83,7 @@ fn main() {
 
     let start = std::time::Instant::now();
     // let (ct_nand, trace) = eval.nand(&x, &y);
-    let (ct_nand, mut trace) = eval.nand(&x, &y);
+    let (ct_nand, trace) = eval.nand(&x, &y);
     println!("NAND Evaluation Time is : {:?}\n", start.elapsed());
 
     // nand
@@ -108,7 +108,7 @@ fn main() {
     println!("Starting verification of {} nand.\n", 1 << LOG_BATCH_SIZE);
 
     // Perepare parameters and traces
-    let time = std::time::Instant::now();
+    // let time = std::time::Instant::now();
     let blind_rotation_ntt_table =
         FF::get_ntt_table(blind_rotation_traces[0].log_coeff_count as u32)
             .unwrap()
@@ -197,7 +197,7 @@ fn main() {
         time.elapsed()
     );
 
-    let mut prover_total_time = prover_total_time.elapsed();
+    let prover_total_time = prover_total_time.elapsed();
     println!("--- Proofs generation done! ---\n");
     println!("Proof generation time: {:?}\n", prover_total_time);
 

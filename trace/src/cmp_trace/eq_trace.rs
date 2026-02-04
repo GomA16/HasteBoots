@@ -3,15 +3,8 @@ use std::rc::Rc;
 use algebra::{
     AbstractExtensionField, AsInto, Basis, DecomposableField, DenseMultilinearExtension, Field,
 };
-use itertools::izip;
-use rayon::iter::{
-    IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
-};
 
-use crate::{
-    ConvertToEF, basic_ops::decomp_trace::DecompTraceMLE,
-    lookup_trace::indexed_table::IndexedLookupTraceMLE,
-};
+use crate::{ConvertToEF, lookup_trace::indexed_table::IndexedLookupTraceMLE};
 
 #[derive(Clone)]
 pub struct EQTable<F: Field> {
@@ -305,7 +298,7 @@ impl<F: Field, EF: AbstractExtensionField<F>> ConvertToEF<F, EF> for EQTraceMLE<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use algebra::{BabyBear, derive::Field};
+    use algebra::BabyBear;
     use num_traits::One;
 
     // field type

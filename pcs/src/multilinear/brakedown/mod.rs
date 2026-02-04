@@ -18,7 +18,6 @@ use rand::SeedableRng;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
-use std::mem::transmute;
 
 use crate::{
     PolynomialCommitmentScheme,

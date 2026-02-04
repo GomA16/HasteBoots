@@ -12,7 +12,7 @@ use vfhe::{Decryptor, Encryptor, KeyGen};
 type FF = BabyBear;
 type EF = BabyBearExetension;
 type Hash = sha2::Sha256;
-const BASE_FIELD_BITS: usize = 31;
+// const BASE_FIELD_BITS: usize = 31;
 const LOG_BATCH_SIZE: usize = 2; // batch size = 2^LOG_BATCH_SIZE
 fn main() {
     env_logger::init();
@@ -55,7 +55,7 @@ fn main() {
 
     let start = std::time::Instant::now();
     // let (ct_nand, trace) = eval.nand(&x, &y);
-    let (ct_nand, mut trace) = eval.nand(&x, &y);
+    let (ct_nand, trace) = eval.nand(&x, &y);
     println!("NAND Evaluation Time is : {:?}\n", start.elapsed());
 
     // nand

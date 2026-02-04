@@ -1,11 +1,6 @@
-use core::time;
-
 use algebra::{AbstractExtensionField, DecomposableField, DenseMultilinearExtension, Field};
 use helper::{FiatShamirTranscript, Transcript};
-use log::info;
 use pcs::PolynomialCommitmentScheme;
-use piop::lookup::{self, indexed_table::BatchedIndexLogUpInputProof};
-use rayon::iter::once;
 use serde::Serialize;
 use trace::{ConvertToEF, modulus_switching_trace::ModulusSwitchingTraceMLE};
 
@@ -205,7 +200,7 @@ where
             statistics,
         );
 
-        let point = trans.get_vec_challenge(
+        let _point = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
             trace.log_num,
         );
@@ -262,7 +257,7 @@ where
             statistics,
         );
 
-        let point = trans.get_vec_challenge(
+        let _point = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
             trace.log_num,
         );

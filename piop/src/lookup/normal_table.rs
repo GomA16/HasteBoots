@@ -1,11 +1,8 @@
-use algebra::{
-    AbstractExtensionField, DenseMultilinearExtension, Field, ListOfProductsOfPolynomials,
-    PolynomialInfo,
-};
-use helper::{FiatShamirTranscript, Transcript, transcript};
+use algebra::{DenseMultilinearExtension, Field, PolynomialInfo};
+use helper::{FiatShamirTranscript, Transcript};
 use serde::Serialize;
-use std::{iter::Sum, rc::Rc};
-use sumcheck::{MLSumcheck, Proof, prover};
+use std::rc::Rc;
+use sumcheck::{MLSumcheck, Proof};
 use sumcheck::{prover::ProverState, verifier::SubClaim};
 use trace::lookup_trace::normal_table::{
     LookupTraceMLE, LookupWitness, LookupWitnessEval, LookupWitnessHelper, LookupWitnessHelperEval,
@@ -15,7 +12,6 @@ use crate::{
     LagrangeKernel, SumcheckClaim, SumcheckInfo, SumcheckInstance, SumcheckPIOP,
     SumcheckProverStateTrait, SumcheckPureProof, SumcheckSubclaimTrait,
 };
-use rayon::prelude::*;
 
 pub struct LogUpIOP<F: Field> {
     _marker: std::marker::PhantomData<F>,
@@ -232,7 +228,7 @@ impl<F: Field> SumcheckPureProof<F> for LogUpProof<F> {
 }
 
 impl<F: Field> SumcheckProverStateTrait<F> for LogUpProverState<F> {
-    fn from_sumcheck(sumcheck_prover_state: ProverState<F>, claim: SumcheckClaim<F>) -> Self {
+    fn from_sumcheck(sumcheck_prover_state: ProverState<F>, _claim: SumcheckClaim<F>) -> Self {
         LogUpProverState {
             point_r: sumcheck_prover_state.randomness,
         }

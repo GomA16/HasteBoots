@@ -333,7 +333,7 @@ impl<F: DecomposableField> LTTraceMLE<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use algebra::{BabyBear, derive::Field};
+    use algebra::BabyBear;
     use num_traits::One;
 
     // field type

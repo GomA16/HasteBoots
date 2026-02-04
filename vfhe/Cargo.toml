@@ -70,14 +70,6 @@ name = "zk_nand_goldilocks"
 path = "examples/zk_binary_pbs/zk_nand_goldilocks.rs"
 
 [[example]]
-name = "zk_nand_babybear_custom"
-path = "examples/zk_binary_pbs_custom/zk_nand_babybear_custom.rs"
-
-[[example]]
-name = "zk_nand_goldilocks_custom"
-path = "examples/zk_binary_pbs_custom/zk_nand_goldilocks_custom.rs"
-
-[[example]]
 name = "zk_blind_rotation"
 path = "examples/zk_nand_op/zk_blind_rotation.rs"
 

@@ -1,8 +1,8 @@
 pub mod bfhe;
-mod key_gen;
-mod encrypt;
 mod decrypt;
+mod encrypt;
+mod key_gen;
 
-pub use key_gen::KeyGen;
 pub use decrypt::Decryptor;
 pub use encrypt::Encryptor;
+pub use key_gen::KeyGen;

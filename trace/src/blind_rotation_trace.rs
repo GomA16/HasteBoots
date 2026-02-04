@@ -1,14 +1,11 @@
 use crate::basic_ops::decomp_trace::DecompTraceMLE;
-use crate::basic_ops::{
-    RLWEEval, RLWETrace, RLWETraceMLE, SumHadamardTrace, SumHadamardTraceEval, SumHadamardTraceMLE,
-};
+use crate::basic_ops::{RLWEEval, SumHadamardTrace, SumHadamardTraceEval, SumHadamardTraceMLE};
 use crate::cmp_trace::lt_trace::{LTTables, LTTablesMLE};
 use crate::{
     AccTrace, AccTraceEval, AccTraceMLE, ConvertToEF, EvaluableTrace, EvaluableTraceEF,
     PackableEval, PackableTrace, SeparatelyPackableEval, SeparatelyPackableTrace,
 };
-use algebra::{AbstractExtensionField, AsInto, Basis, DenseMultilinearExtension, Field, NTTField};
-use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator};
+use algebra::{AbstractExtensionField, Field, NTTField};
 use serde::Serialize;
 
 pub struct BlindRotationParams {

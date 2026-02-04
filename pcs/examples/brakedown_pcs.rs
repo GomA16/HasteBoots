@@ -43,11 +43,11 @@ fn main() {
         .sample_iter(FieldUniformSampler::new())
         .take(num_vars)
         .collect();
-    let point2: Vec<EF> = rand::rng()
-        .sample_iter(FieldUniformSampler::new())
-        .take(num_vars)
-        .collect();
-    let points = vec![point.clone(), point2.clone()];
+    // let point2: Vec<EF> = rand::rng()
+    //     .sample_iter(FieldUniformSampler::new())
+    //     .take(num_vars)
+    //     .collect();
+    // let points = vec![point.clone(), point2.clone()];
 
     let start = Instant::now();
     // let proof = BrakedownPCS::<FF, Hash, ExpanderCode<FF>, ExpanderCodeSpec, EF>::open(

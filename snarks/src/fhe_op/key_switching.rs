@@ -1,6 +1,5 @@
 //! External Product SNARKs proving FHE operation Mid * RGSW(s_i)
 //!     where Mid = (X^{a_i} - 1) * ACC_Input
-use core::time;
 
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field};
 use bincode::config::standard;

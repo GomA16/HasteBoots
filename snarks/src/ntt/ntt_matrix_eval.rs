@@ -4,7 +4,7 @@ use pcs::PolynomialCommitmentScheme;
 use piop::ntt::{NTTMatrixEvalIOP, NTTMatrixEvalInfo, NTTMatrixEvalInstance, NTTMatrixEvalProof};
 use piop::{SumcheckInstance, SumcheckPIOP};
 use serde::Serialize;
-use trace::basic_ops::{NTTTrace, NTTTraceMLE};
+use trace::basic_ops::NTTTraceMLE;
 use trace::{ConvertToEF, PackableTrace};
 
 pub struct NTTMatrixEvalSnarksParams<F, EF, S, PCS>

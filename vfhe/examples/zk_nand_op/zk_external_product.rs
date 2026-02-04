@@ -55,7 +55,7 @@ fn main() {
 
     let start = std::time::Instant::now();
     // let (ct_nand, trace) = eval.nand(&x, &y);
-    let (ct_nand, mut trace) = eval.nand(&x, &y);
+    let (ct_nand, trace) = eval.nand(&x, &y);
     println!("NAND Evaluation Time is : {:?}\n", start.elapsed());
 
     // nand

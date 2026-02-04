@@ -1,18 +1,11 @@
-use algebra::AbstractExtensionField;
 use algebra::DenseMultilinearExtension;
 use algebra::Field;
 use algebra::PolynomialInfo;
-use helper::FiatShamirTranscript;
 use helper::Transcript;
-use helper::utils::eval_identity_function;
 use itertools::izip;
 use serde::Serialize;
-use std::collections::HashMap;
-use std::collections::btree_map::Range;
 use std::rc::Rc;
-use sumcheck::MLSumcheck;
 use sumcheck::Proof;
-use sumcheck::prover;
 use sumcheck::verifier::SubClaim;
 use trace::basic_ops::{SumHadamardTraceEval, SumHadamardTraceMLE};
 use trace::blind_rotation_trace::BlindRotationTraceEval;
@@ -24,11 +17,9 @@ use crate::SumcheckInfo;
 use crate::SumcheckInstance;
 use crate::SumcheckPIOP;
 use crate::SumcheckProverState;
-use crate::SumcheckProverStateTrait;
 use crate::SumcheckPureBatchedProof;
 use crate::SumcheckPureProof;
 use crate::SumcheckSubclaim;
-use crate::SumcheckSubclaimTrait;
 
 pub struct HadamardPIOP<F: Field> {
     _marker: std::marker::PhantomData<F>,
@@ -188,6 +179,7 @@ impl<F: Field> SumHadamardInstance<F> {
         vec_sum
     }
 
+    #[allow(dead_code)]
     fn random_num<R: rand::Rng + rand::CryptoRng>(
         num_instance: usize,
         num_vars: usize,

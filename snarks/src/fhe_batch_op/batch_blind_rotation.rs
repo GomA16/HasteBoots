@@ -5,7 +5,6 @@
 //!     This is separately proven in `monomial_hadamard.rs`
 //! 2. Proving the correctness of ACC_Output = Mid * RGSW(s_i)
 //!     This is separately proven in `external_product.rs`
-use core::time;
 use std::rc::Rc;
 
 use algebra::{AbstractExtensionField, DenseMultilinearExtension, Field, PolynomialInfo};
@@ -27,10 +26,10 @@ use trace::blind_rotation_trace::BlindRotationTraceEval;
 use trace::{
     BlindRotationTrace, BlindRotationTraceMLE, ConvertToEF, EvaluableTraceEF, PackableTrace,
 };
-use trace::{PackableEval, SeparatelyPackableEval, SeparatelyPackableTrace, blind_rotation_trace};
+use trace::{SeparatelyPackableEval, SeparatelyPackableTrace};
 
 use crate::fhe_op::acc_iteration::{AccIterationSnarks, AccIterationSnarksProof};
-use crate::fhe_op::blind_rotation::{self, KeyCommitment};
+use crate::fhe_op::blind_rotation::KeyCommitment;
 use crate::fhe_op::decomposition::{
     DecompositionParams, DecompositionSnarks, DecompositionSnarksProof,
 };
@@ -543,8 +542,8 @@ where
 
         // [PIOP Phase] verify the validity of NTT evaluations since we consider all NTT oracles as virtual oracles
         let piop_ntt_time = std::time::Instant::now();
-        let point_u = sumcheck_subclaim.point[..proof.log_coeff_count].to_vec();
-        let mut point_v = sumcheck_subclaim.point[proof.log_coeff_count..].to_vec();
+        let _point_u = sumcheck_subclaim.point[..proof.log_coeff_count].to_vec();
+        let point_v = sumcheck_subclaim.point[proof.log_coeff_count..].to_vec();
         let point_bit_oracle = trans.get_vec_challenge(
             b"[Challenge] random point used to verify evaluations",
             proof.log_num_bit_oracle,

@@ -41,12 +41,11 @@ fn main() {
     let b: bool = rng.random();
     // let mut c = rng.random();
 
-    let mut a = a.as_into();
-    let mut b = b.as_into();
+    let a = a.as_into();
+    let b = b.as_into();
 
     let x = enc.encrypt(a);
     let y = enc.encrypt(b);
-    // let mut z = enc.encrypt(c);
 
     let _start = std::time::Instant::now();
     // let (ct_nand, trace) = eval.nand(&x, &y);
@@ -62,7 +61,7 @@ fn main() {
     let blk_size = 1;
     let randomness = BabyBear::random(&mut rng);
 
-    let mut trace = trace.blind_rotation_trace;
+    let trace = trace.blind_rotation_trace;
     let trace = trace.hadamard_trace;
     let trace_mle: SumHadamardTraceMLE<_> = trace.into();
     let range = 1 << params.blind_rotation_basis().bits() as usize;

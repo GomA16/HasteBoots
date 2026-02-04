@@ -169,7 +169,7 @@ pub trait EvaluableTrace<F: Field> {
 pub trait EvaluableTraceEF<F: Field, EF: AbstractExtensionField<F>> {
     type TraceMLEEF;
     type TraceEvalEF;
-    fn evaluate_ef(&self, point: &[EF]) -> Self::TraceEvalEF {
+    fn evaluate_ef(&self, _point: &[EF]) -> Self::TraceEvalEF {
         unimplemented!()
     }
 
@@ -178,21 +178,21 @@ pub trait EvaluableTraceEF<F: Field, EF: AbstractExtensionField<F>> {
     // [Optimized with base field * extension field evaluations]
     fn evaluate_ef_with_lookup(
         &self,
-        point: &[EF],
-        trace_ef: &Self::TraceMLEEF,
-        hash_table: &ListOfProductsOfPolynomials<EF>,
-        eval_table: &[EF],
+        _point: &[EF],
+        _trace_ef: &Self::TraceMLEEF,
+        _hash_table: &ListOfProductsOfPolynomials<EF>,
+        _eval_table: &[EF],
     ) -> Self::TraceEvalEF {
         unimplemented!()
     }
 
     fn evaluate_ef_ntt_only(
         &self,
-        eval: &mut Self::TraceEvalEF,
-        point: &[EF],
-        trace_ef: &Self::TraceMLEEF,
-        hash_table: &ListOfProductsOfPolynomials<EF>,
-        eval_table: &[EF],
+        _eval: &mut Self::TraceEvalEF,
+        _point: &[EF],
+        _trace_ef: &Self::TraceMLEEF,
+        _hash_table: &ListOfProductsOfPolynomials<EF>,
+        _eval_table: &[EF],
     ) {
         unimplemented!()
     }

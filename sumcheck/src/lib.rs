@@ -6,7 +6,7 @@
 
 use algebra::{Field, ListOfProductsOfPolynomials, PolynomialInfo};
 use helper::{FiatShamirTranscript, Transcript};
-use log::{debug, info};
+use log::debug;
 use prover::{ProverMsg, ProverState};
 use serde::Serialize;
 use std::marker::PhantomData;

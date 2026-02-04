@@ -35,7 +35,6 @@ use algebra::MultilinearExtension;
 use algebra::PolynomialInfo;
 use helper::utils::eval_identity_function;
 use serde::Serialize;
-use std::collections::HashMap;
 
 use std::rc::Rc;
 use sumcheck::Proof;
@@ -50,11 +49,9 @@ use crate::SumcheckInfo;
 use crate::SumcheckInstance;
 use crate::SumcheckPIOP;
 use crate::SumcheckProverState;
-use crate::SumcheckProverStateTrait;
 use crate::SumcheckPureBatchedProof;
 use crate::SumcheckPureProof;
 use crate::SumcheckSubclaim;
-use crate::SumcheckSubclaimTrait;
 
 pub struct RowPermPIOP<F: Field> {
     _marker: std::marker::PhantomData<F>,

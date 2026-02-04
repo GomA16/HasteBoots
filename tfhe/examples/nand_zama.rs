@@ -1,9 +1,9 @@
-use algebra::{AsInto, NTTField};
-use fhe_core::{LWECiphertext, utils::*};
+use algebra::AsInto;
+use fhe_core::utils::*;
 use rand::Rng;
 use tfhe::{
     Decryptor, Encryptor, KeyGen,
-    bfhe::{ZAMA_BINARY_128_BITS_PARAMETERS, Evaluator},
+    bfhe::{Evaluator, ZAMA_BINARY_128_BITS_PARAMETERS},
 };
 
 fn main() {
@@ -34,15 +34,12 @@ fn main() {
 
     let a: bool = rng.random();
     let b: bool = rng.random();
-    let c: bool = rng.random();
 
-    let mut a = a.as_into();
-    let mut b = b.as_into();
-    let mut c = c.as_into();
+    let a = a.as_into();
+    let b = b.as_into();
 
-    let mut x = enc.encrypt(a);
-    let mut y = enc.encrypt(b);
-    let mut z = enc.encrypt(c);
+    let x = enc.encrypt(a);
+    let y = enc.encrypt(b);
 
     // nand
     let time = std::time::Instant::now();
@@ -51,5 +48,4 @@ fn main() {
     let (m, noise) = dec.decrypt_with_noise(&ct_nand);
     assert_eq!(m, nand(a, b), "Noise: {noise}");
     check_noise(noise, "nand");
-    
 }

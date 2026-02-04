@@ -1,24 +1,11 @@
-use core::time;
-
 use algebra::{
     AbstractExtensionField, AsInto, DecomposableField, DenseMultilinearExtension, Field,
 };
-use bincode::{config::standard, de};
-use helper::{FiatShamirTranscript, Transcript, utils::compute_oracle_evals};
-use pcs::{PolynomialCommitmentScheme, utils::code};
-use piop::{
-    SumcheckInstance, SumcheckPIOP,
-    grand_prod::{GrandProdInfo, GrandProdInstance, GrandProdPIOP, GrandProdProof},
-};
-use serde::{Serialize, ser};
-use trace::{
-    ConvertToEF, PackableTrace,
-    basic_ops::decomp_trace::DecompTraceMLE,
-    cmp_trace::{
-        eq_trace::{self, EQTablesMLE, EQTraceMLE},
-        lt_trace::{LTTablesMLE, LTTraceMLE},
-    },
-};
+use bincode::config::standard;
+use helper::{FiatShamirTranscript, Transcript};
+use pcs::PolynomialCommitmentScheme;
+use serde::Serialize;
+use trace::cmp_trace::lt_trace::{LTTablesMLE, LTTraceMLE};
 
 use crate::{
     SnarkStatistics,
@@ -213,10 +200,7 @@ mod test {
         multilinear::BrakedownPCS,
         utils::code::{ExpanderCode, ExpanderCodeSpec},
     };
-    use trace::cmp_trace::{
-        eq_trace::{EQTable, EQTables, EQTrace},
-        lt_trace::{self, LTTables, LTTrace},
-    };
+    use trace::cmp_trace::lt_trace::LTTables;
 
     type FF = BabyBear;
     type EF = BabyBearExetension;

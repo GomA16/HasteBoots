@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use algebra::{BabyBear, BabyBearExetension};
 use bincode::config::standard;
 use helper::Transcript;

@@ -319,6 +319,7 @@ impl<F: Field> IntermediateMLEs<F> {
     }
 
     /// Get f_mles
+    #[allow(dead_code)]
     pub fn get_f_mles(&self, idx: usize) -> Rc<DenseMultilinearExtension<F>> {
         self.f_mles[idx].clone()
     }
@@ -385,6 +386,7 @@ pub fn init_fourier_table_with_mle<F: Field>(u: &[F], ntt_table: &[F]) -> Interm
 ///
 /// * ntt_table: NTT table for w (M-th root of unity) containing {1, w, w^1, ..., w^{M-1}}
 /// * sub: the exponent of the function defined above (i+1) = x_dim
+#[allow(dead_code)]
 pub fn naive_w_power_times_x_table<F: Field>(
     ntt_table: &[F],
     subscript: usize,
