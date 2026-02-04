@@ -13,24 +13,37 @@ The crate dependency is organized as follows:
   - pcs: brakedown PCS implementation
   - helper: transcript and utility function
 
-## Setup
+## Install Rust
 
-```sh
-# install rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source $HOME/.cargo/env
+This project relies on Rust. Installation can be done by following these steps:
 
-# dep
-sudo apt install -y build-essential
-```
+1. Install build tools.
+   On Windows, please install [Visual Studio C++ Build tools](https://rust-lang.github.io/rustup/installation/windows-msvc.html).
+   On Ubuntu and Debian, please install build-essential according to the instructions below:
+   ```bash
+   sudo apt-get update
+   sudo apt-get install build-essential
+   ```
 
+2. Install Rust using rustup (the recommended Rust installer):
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   ```
+   On Windows, one can download and run the installer `rustup-init.exe` from [https://rust-lang.org/tools/install/](https://rust-lang.org/tools/install/).
 
+3. After installation, verify Rust is installed correctly:
+   ```bash
+   rustc --version
+   cargo --version
+   ```
+
+For more information, see the [Rust installation guide](https://www.rust-lang.org/tools/install).
 
 
 
 ## Parameters
 
-Parameters are set in `VFHE/src/bfhe/parameters.rs`. There are three parameter sets listed in paper:
+Parameters are set in `vfhe/src/bfhe/parameters.rs`. There are three parameter sets listed in paper:
 
 - Zama: `ZAMA_GOLDILOCKS_PARAMETERS` 
   Note: This parameter is from [this paper](Towards Verifiable FHE in Practice: Proving Correct Execution of TFHE's Bootstrapping using plonky2) where they use an approximate decomposition. Since we only implement the exact full decomposition, so we choose the same decomposition basis $B=2^5$ with a larger $\ell=13$.
