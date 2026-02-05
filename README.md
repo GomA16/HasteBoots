@@ -104,11 +104,11 @@ $Q = 2^{64} - 2^{32} + 1$ and a degree-2 extension field of size $Q^2$, also cor
 
 The full experimental statistics are provided in `statistics/HasteBoots_Performance.xlsx` (Table 2). 
 
-## Batched VFHE Performance in Table 4
+## Batched VFHE Performance in Table 3
 
 We only implemented and integrated  `Brakedown` PCS in our codebase.
 
-To reproduct the results with Brakedown in **table 4** from the paper, simply run
+To reproduct the results with Brakedown in **table 3** from the paper, simply run
 
 ```shell
 # 'BABYBEAR_BINARY_128_BITS_PARAMETERS' 
