@@ -18,37 +18,29 @@ The crate dependency is organized as follows:
 This project relies on Rust. Installation can be done by following these steps:
 
 1. Install build tools.
-   On Windows, please install [Visual Studio C++ Build tools](https://rust-lang.github.io/rustup/installation/windows-msvc.html).
+  On Windows, please install [Visual Studio C++ Build tools](https://rust-lang.github.io/rustup/installation/windows-msvc.html).
    On Ubuntu and Debian, please install build-essential according to the instructions below:
-   ```bash
-   sudo apt-get update
-   sudo apt-get install build-essential
-   ```
-
 2. Install Rust using rustup (the recommended Rust installer):
-   ```bash
+  ```bash
    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-   ```
+  ```
    On Windows, one can download and run the installer `rustup-init.exe` from [https://rust-lang.org/tools/install/](https://rust-lang.org/tools/install/).
-
 3. After installation, verify Rust is installed correctly:
-   ```bash
+  ```bash
    rustc --version
    cargo --version
-   ```
+  ```
 
 For more information, see the [Rust installation guide](https://www.rust-lang.org/tools/install).
-
-
 
 ## Parameters
 
 Parameters are set in `vfhe/src/bfhe/parameters.rs`. There are three parameter sets listed in paper:
 
 - Zama: `ZAMA_GOLDILOCKS_PARAMETERS` 
-  Note: This parameter is from [this paper](Towards Verifiable FHE in Practice: Proving Correct Execution of TFHE's Bootstrapping using plonky2) where they use an approximate decomposition. Since we only implement the exact full decomposition, so we choose the same decomposition basis $B=2^5$ with a larger $\ell=13$.
+Note: This parameter is from [this paper](Towards Verifiable FHE in Practice: Proving Correct Execution of TFHE's Bootstrapping using plonky2) where they use an approximate decomposition. Since we only implement the exact full decomposition, so we choose the same decomposition basis $B=2^5$ with a larger $\ell=13$.
 - BabyBear: `BABYBEAR_BINARY_128_BITS_PARAMETERS` 
-- Goldilocks: `GOLDILOCKS_BINARY_128_BITS_PARAMETERS` 
+- Goldilocks: `GOLDILOCKS_BINARY_128_BITS_PARAMETERS`
 
 For each parameter setting, we run the experiment 10 times and report the average proof generation time, verification time, and proof size.
 
@@ -66,10 +58,6 @@ cargo r -r -p tfhe --example nand_babybear
 # 'GOLDILOCKS_BINARY_128_BITS_PARAMETERS'
 cargo r -r -p tfhe --example nand_goldilocks
 ```
-
-
-
-
 
 ## VFHE Performance in Table 2
 
@@ -104,11 +92,11 @@ $Q = 2^{64} - 2^{32} + 1$ and a degree-2 extension field of size $Q^2$, also cor
 
 The full experimental statistics are provided in `statistics/HasteBoots_Performance.xlsx` (Table 2). 
 
-## Batched VFHE Performance in Table 3
+## Batched VFHE Performance in Table 4
 
 We only implemented and integrated  `Brakedown` PCS in our codebase.
 
-To reproduct the results with Brakedown in **table 3** from the paper, simply run
+To reproduct the results with Brakedown in **table 4** from the paper, simply run
 
 ```shell
 # 'BABYBEAR_BINARY_128_BITS_PARAMETERS' 
@@ -116,6 +104,3 @@ cargo r -r -p vfhe --example zk_nand_batch
 ```
 
 The full experimental statistics are provided in `statistics/HasteBoots_Performance.xlsx` (Table 4). 
-
-
-
