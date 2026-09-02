@@ -126,27 +126,115 @@ where
         trans: &mut Transcript<EF>,
         trace_mle: &IndexedLookupTraceMLE<EF>,
     ) -> IndexedLogUpSnarksProof<F, EF, S, PCS> {
-        let witness = trace_mle.compute_witness();
-        // Commit phase: send the polynomials directly to the verifier
-        trans.append_message(b"[Commit Phase]", trace_mle.input.as_ref());
-        trans.append_message(b"[Commit Phase]", trace_mle.index.as_ref());
-        trans.append_message(b"[Commit Phase]", witness.multiplicity.as_ref());
+        let witness = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::lookup_scope(
+                crate::profiling::BrPhase::SparseLookupWitnessCommit,
+                crate::profiling::BrPhase::AccumulatorLookupWitnessCommit,
+            );
+            let witness = trace_mle.compute_witness();
+            // Commit phase: send the polynomials directly to the verifier.
+            trans.append_message(b"[Commit Phase]", trace_mle.input.as_ref());
+            trans.append_message(b"[Commit Phase]", trace_mle.index.as_ref());
+            trans.append_message(b"[Commit Phase]", witness.multiplicity.as_ref());
+            witness
+        };
+        #[cfg(feature = "br-profiling")]
+        {
+            crate::profiling::add_lookup_work(
+                crate::profiling::BrPhase::SparseLookupWitnessCommit,
+                crate::profiling::BrPhase::AccumulatorLookupWitnessCommit,
+                "input_elements",
+                trace_mle.input.evaluations.len() as u64,
+            );
+            crate::profiling::add_lookup_work(
+                crate::profiling::BrPhase::SparseLookupWitnessCommit,
+                crate::profiling::BrPhase::AccumulatorLookupWitnessCommit,
+                "table_elements",
+                trace_mle.table.evaluations.len() as u64,
+            );
+            crate::profiling::add_lookup_work(
+                crate::profiling::BrPhase::SparseLookupWitnessCommit,
+                crate::profiling::BrPhase::AccumulatorLookupWitnessCommit,
+                "input_variables",
+                trace_mle.num_input_vars as u64,
+            );
+            crate::profiling::add_lookup_work(
+                crate::profiling::BrPhase::SparseLookupWitnessCommit,
+                crate::profiling::BrPhase::AccumulatorLookupWitnessCommit,
+                "table_variables",
+                trace_mle.num_table_vars as u64,
+            );
+        }
 
-        let random_value =
-            trans.get_challenge(b"[Challenge] random value used in the rational identity");
-        let random_s_hash = trans.get_challenge(b"[Challenge] random value used for hashing.");
-        let helper = trace_mle.compute_helper_functions(&witness, random_value, random_s_hash);
-        trans.append_message(b"[Commit Phase]", helper.helper_input.as_ref());
-        trans.append_message(b"[Commit Phase]", helper.helper_table.as_ref());
+        let helper = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::lookup_scope(
+                crate::profiling::BrPhase::SparseLookupHelperCommit,
+                crate::profiling::BrPhase::AccumulatorLookupHelperCommit,
+            );
+            let random_value =
+                trans.get_challenge(b"[Challenge] random value used in the rational identity");
+            let random_s_hash =
+                trans.get_challenge(b"[Challenge] random value used for hashing.");
+            let helper = trace_mle.compute_helper_functions(&witness, random_value, random_s_hash);
+            trans.append_message(b"[Commit Phase]", helper.helper_input.as_ref());
+            trans.append_message(b"[Commit Phase]", helper.helper_table.as_ref());
+            helper
+        };
+        #[cfg(feature = "br-profiling")]
+        {
+            crate::profiling::add_lookup_work(
+                crate::profiling::BrPhase::SparseLookupHelperCommit,
+                crate::profiling::BrPhase::AccumulatorLookupHelperCommit,
+                "helper_input_elements",
+                helper.helper_input.evaluations.len() as u64,
+            );
+            crate::profiling::add_lookup_work(
+                crate::profiling::BrPhase::SparseLookupHelperCommit,
+                crate::profiling::BrPhase::AccumulatorLookupHelperCommit,
+                "helper_table_elements",
+                helper.helper_table.evaluations.len() as u64,
+            );
+        }
 
-        let input_instance =
-            indexed_table::IndexedLogUpInputInstance::<EF>::from(trace_mle, &helper);
-        let (input_piop_proof, _input_piop_state) =
-            indexed_table::IndexedLogUpInputIOP::prover(trans, &input_instance);
-        let table_instance =
-            indexed_table::IndexedLogUpTableInstance::<EF>::from(&witness, &helper);
-        let (table_piop_proof, _table_piop_state) =
-            indexed_table::IndexedLogUpTableIOP::prover(trans, &table_instance);
+        let (input_instance, input_piop_proof, table_instance, table_piop_proof) = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::lookup_scope(
+                crate::profiling::BrPhase::SparseLookupSumcheck,
+                crate::profiling::BrPhase::AccumulatorLookupSumcheck,
+            );
+            let input_instance =
+                indexed_table::IndexedLogUpInputInstance::<EF>::from(trace_mle, &helper);
+            let (input_piop_proof, _input_piop_state) =
+                indexed_table::IndexedLogUpInputIOP::prover(trans, &input_instance);
+            let table_instance =
+                indexed_table::IndexedLogUpTableInstance::<EF>::from(&witness, &helper);
+            let (table_piop_proof, _table_piop_state) =
+                indexed_table::IndexedLogUpTableIOP::prover(trans, &table_instance);
+            (input_instance, input_piop_proof, table_instance, table_piop_proof)
+        };
+        #[cfg(feature = "br-profiling")]
+        {
+            crate::profiling::add_lookup_work(
+                crate::profiling::BrPhase::SparseLookupSumcheck,
+                crate::profiling::BrPhase::AccumulatorLookupSumcheck,
+                "sumchecks",
+                2,
+            );
+            crate::profiling::add_lookup_work(
+                crate::profiling::BrPhase::SparseLookupSumcheck,
+                crate::profiling::BrPhase::AccumulatorLookupSumcheck,
+                "input_variables_rounds",
+                trace_mle.num_input_vars as u64,
+            );
+            crate::profiling::add_lookup_work(
+                crate::profiling::BrPhase::SparseLookupSumcheck,
+                crate::profiling::BrPhase::AccumulatorLookupSumcheck,
+                "table_variables_rounds",
+                trace_mle.num_table_vars as u64,
+            );
+        }
 
         IndexedLogUpSnarksProof {
             input_commitment: trace_mle.input.as_ref().clone(),

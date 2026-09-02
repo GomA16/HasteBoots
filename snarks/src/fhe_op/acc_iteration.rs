@@ -164,18 +164,42 @@ where
         // => A'(rx, ry) = sum_{k} P(rx, k) * A(k, ry)
 
         // Prove P(rx, k) = eq(rx, perm_inver(k))
+        #[cfg(feature = "br-profiling")]
+        let lookup_scope = crate::profiling::scope(crate::profiling::BrPhase::AccumulatorLookup);
         let lookup_proof =
             IndexedLogUpSnarks::<F, EF, S, PCS>::prove_as_subprotocol(trans, indexed_lookup_mle);
+        #[cfg(feature = "br-profiling")]
+        drop(lookup_scope);
 
         // Prove the permutation;
-        let permutation_instances = RowPermInstance::from_subclaim(
-            trace_ef,
-            trace_eval,
-            indexed_lookup_mle,
-            point_rx,
-            point_ry,
-        );
-        let (piop_proof, _piop_state) = RowPermPIOP::prover_batch(trans, &permutation_instances);
+        let (permutation_instances, piop_proof) = {
+            #[cfg(feature = "br-profiling")]
+            let _scope =
+                crate::profiling::scope(crate::profiling::BrPhase::AccumulatorPermutation);
+            let permutation_instances = RowPermInstance::from_subclaim(
+                trace_ef,
+                trace_eval,
+                indexed_lookup_mle,
+                point_rx,
+                point_ry,
+            );
+            let (piop_proof, _piop_state) =
+                RowPermPIOP::prover_batch(trans, &permutation_instances);
+            #[cfg(feature = "br-profiling")]
+            {
+                crate::profiling::add_work(
+                    crate::profiling::BrPhase::AccumulatorPermutation,
+                    "instances",
+                    permutation_instances.len() as u64,
+                );
+                crate::profiling::add_work(
+                    crate::profiling::BrPhase::AccumulatorPermutation,
+                    "variables_rounds",
+                    trace_ef.log_num_round as u64,
+                );
+            }
+            (permutation_instances, piop_proof)
+        };
 
         AccIterationSnarksProof {
             log_num_rows: trace_ef.log_num_round,

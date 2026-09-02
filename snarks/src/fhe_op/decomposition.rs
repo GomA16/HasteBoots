@@ -139,10 +139,46 @@ where
         statistics: &mut Option<&mut SnarkStatistics>,
     ) -> DecompositionSnarksProof<F, EF, S, PCS> {
         // [PCS Phase] Commit to the input oracles
-        let poly = traces.generate_oracle();
+        let poly = {
+            #[cfg(feature = "br-profiling")]
+            let _scope =
+                crate::profiling::scope(crate::profiling::BrPhase::DecompositionInputMaterialize);
+            traces.generate_oracle()
+        };
+        #[cfg(feature = "br-profiling")]
+        {
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::DecompositionInputMaterialize,
+                "field_elements",
+                poly.evaluations.len() as u64,
+            );
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::DecompositionInputMaterialize,
+                "num_vars",
+                poly.num_vars() as u64,
+            );
+        }
         let commit_time = std::time::Instant::now();
         let input_params = PCS::setup(poly.num_vars(), &params.code_spec);
-        let (input_commitment, input_comm_state) = PCS::commit(&input_params, &poly);
+        let (input_commitment, input_comm_state) = {
+            #[cfg(feature = "br-profiling")]
+            let _scope =
+                crate::profiling::scope(crate::profiling::BrPhase::DecompositionInputCommit);
+            PCS::commit(&input_params, &poly)
+        };
+        #[cfg(feature = "br-profiling")]
+        {
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::DecompositionInputCommit,
+                "field_elements",
+                poly.evaluations.len() as u64,
+            );
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::DecompositionInputCommit,
+                "num_vars",
+                poly.num_vars() as u64,
+            );
+        }
         trans.append_message(b"[Commit Phase]", &input_commitment);
         info!(
             "[P]-[PCS] (duplicated) Committing to a polynomial of {} variables in {:?}",
@@ -161,17 +197,51 @@ where
 
         // parepare the lookup traces to ensure the decomposition is valid and in range of [0, p)
         let time_prep_lookup = std::time::Instant::now();
-        let lookup_trace = traces
-            .iter()
-            .flat_map(|trace| trace.extract_lt_general_lookup_trace(params.lt_tables))
-            .collect::<Vec<_>>();
+        let lookup_trace = {
+            #[cfg(feature = "br-profiling")]
+            let _scope =
+                crate::profiling::scope(crate::profiling::BrPhase::DecompositionLookupTrace);
+            traces
+                .iter()
+                .flat_map(|trace| trace.extract_lt_general_lookup_trace(params.lt_tables))
+                .collect::<Vec<_>>()
+        };
+        #[cfg(feature = "br-profiling")]
+        {
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::DecompositionLookupTrace,
+                "lookups",
+                lookup_trace.len() as u64,
+            );
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::DecompositionLookupTrace,
+                "input_elements",
+                lookup_trace
+                    .iter()
+                    .map(|trace| trace.input.evaluations.len() as u64)
+                    .sum(),
+            );
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::DecompositionLookupTrace,
+                "table_elements",
+                lookup_trace
+                    .iter()
+                    .map(|trace| trace.table.evaluations.len() as u64)
+                    .sum(),
+            );
+        }
         info!(
             "[P]-[PIOP] Preparing lookup traces for decomposition validity in {:?}",
             time_prep_lookup.elapsed()
         );
 
         // prove it via batched indexed log-up proofs
-        let lookup_params = BatchedIndexedLogUpParams::new(params.code_spec.clone(), &lookup_trace);
+        let lookup_params = {
+            #[cfg(feature = "br-profiling")]
+            let _scope =
+                crate::profiling::scope(crate::profiling::BrPhase::DecompositionLookupParams);
+            BatchedIndexedLogUpParams::new(params.code_spec.clone(), &lookup_trace)
+        };
         let lookup_proof = BatchedIndexedLogUpSnarks::prove_as_subprotocol(
             trans,
             &lookup_trace,
@@ -179,28 +249,52 @@ where
             statistics,
         );
 
-        let point_oracle = trans.get_vec_challenge(
-            b"[Challenge] random point used to verify evaluations",
-            traces.log_num_oracles(),
-        );
-        let inputs_evals = traces
-            .iter()
-            .map(|trace| trace.input.evaluate_ext(&lookup_proof.input_point_r))
-            .collect::<Vec<_>>();
-
-        trans.append_message(b"[PIOP Phase]", &inputs_evals);
-        let mut point = Vec::with_capacity(lookup_proof.input_point_r.len() + point_oracle.len());
-        point.extend_from_slice(&lookup_proof.input_point_r);
-        point.extend_from_slice(&point_oracle);
+        let (inputs_evals, point) = {
+            #[cfg(feature = "br-profiling")]
+            let _scope =
+                crate::profiling::scope(crate::profiling::BrPhase::DecompositionInputEvals);
+            let point_oracle = trans.get_vec_challenge(
+                b"[Challenge] random point used to verify evaluations",
+                traces.log_num_oracles(),
+            );
+            let inputs_evals = traces
+                .iter()
+                .map(|trace| trace.input.evaluate_ext(&lookup_proof.input_point_r))
+                .collect::<Vec<_>>();
+            trans.append_message(b"[PIOP Phase]", &inputs_evals);
+            let mut point =
+                Vec::with_capacity(lookup_proof.input_point_r.len() + point_oracle.len());
+            point.extend_from_slice(&lookup_proof.input_point_r);
+            point.extend_from_slice(&point_oracle);
+            (inputs_evals, point)
+        };
 
         let pcs_open_time = std::time::Instant::now();
-        let eval_proof = PCS::open(
-            &input_params,
-            &input_commitment,
-            &input_comm_state,
-            &point,
-            trans,
-        );
+        let eval_proof = {
+            #[cfg(feature = "br-profiling")]
+            let _scope =
+                crate::profiling::scope(crate::profiling::BrPhase::DecompositionInputOpen);
+            PCS::open(
+                &input_params,
+                &input_commitment,
+                &input_comm_state,
+                &point,
+                trans,
+            )
+        };
+        #[cfg(feature = "br-profiling")]
+        {
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::DecompositionInputOpen,
+                "points",
+                1,
+            );
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::DecompositionInputOpen,
+                "point_arity",
+                point.len() as u64,
+            );
+        }
         info!(
             "[P]-[PCS] Generating evaluation proof for decomposition oracles at point of length {} in {:?}",
             point.len(),

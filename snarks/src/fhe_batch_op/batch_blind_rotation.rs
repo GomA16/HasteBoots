@@ -194,6 +194,8 @@ where
         params: &BatchBlindRotationParams<F, EF, S, PCS>,
         statistics: &mut Option<&mut crate::SnarkStatistics>,
     ) -> BatchBlindRotationProof<F, EF, S, PCS> {
+        #[cfg(feature = "br-profiling")]
+        let br_total_scope = crate::profiling::scope(crate::profiling::BrPhase::Total);
         let trace_len = blind_rotation_trace.len();
         assert!(
             trace_len.is_power_of_two(),
@@ -201,13 +203,60 @@ where
         );
         info!("[P] Start Blind Rotation Proof Generation...");
         // [Commit Phase] commit to the trace polynomial
-        let bit_poly = blind_rotation_trace.generate_bit_oracle();
-        let blind_rotation_trace_mle = blind_rotation_trace
-            .into_iter()
-            .map(BlindRotationTraceMLE::from)
-            .collect::<Vec<_>>();
+        #[cfg(feature = "br-profiling")]
+        let input_preparation_scope =
+            crate::profiling::scope(crate::profiling::BrPhase::InputPreparation);
+        let bit_poly = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::scope(crate::profiling::BrPhase::BitOracle);
+            blind_rotation_trace.generate_bit_oracle()
+        };
+        let blind_rotation_trace_mle = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::scope(crate::profiling::BrPhase::TraceMle);
+            blind_rotation_trace
+                .into_iter()
+                .map(BlindRotationTraceMLE::from)
+                .collect::<Vec<_>>()
+        };
+        #[cfg(feature = "br-profiling")]
+        {
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::BitOracle,
+                "field_elements",
+                bit_poly.evaluations.len() as u64,
+            );
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::BitOracle,
+                "num_vars",
+                bit_poly.num_vars() as u64,
+            );
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::TraceMle,
+                "traces",
+                trace_len as u64,
+            );
+            drop(input_preparation_scope);
+        }
         let pcs_commit_time = std::time::Instant::now();
-        let (commitment, commitment_state) = PCS::commit(&params.pcs_params, &bit_poly);
+        let (commitment, commitment_state) = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::scope(crate::profiling::BrPhase::MainCommit);
+            PCS::commit(&params.pcs_params, &bit_poly)
+        };
+        #[cfg(feature = "br-profiling")]
+        {
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::MainCommit,
+                "field_elements",
+                bit_poly.evaluations.len() as u64,
+            );
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::MainCommit,
+                "num_vars",
+                bit_poly.num_vars() as u64,
+            );
+        }
         trans.append_message(b"[Commit Phase]", &commitment);
         info!(
             // These elements are doubly committed in snarks proving decompositon (batched indexed log-up)
@@ -221,133 +270,221 @@ where
 
         // [PIOP Phase] extract all the Hadamard instances and prove them via one single sumcheck
         let piop_hadamard_time = std::time::Instant::now();
-        let blind_rotation_trace_ef = blind_rotation_trace_mle
-            .iter()
-            .map(|trace| trace.to_ef())
-            .collect::<Vec<_>>();
+        #[cfg(feature = "br-profiling")]
+        let hadamard_scope = crate::profiling::scope(crate::profiling::BrPhase::Hadamard);
+        let blind_rotation_trace_ef = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::scope(crate::profiling::BrPhase::HadamardToEf);
+            blind_rotation_trace_mle
+                .iter()
+                .map(|trace| trace.to_ef())
+                .collect::<Vec<_>>()
+        };
 
         // prepare Hadamard instances
-        let external_product_hadamard_instance = blind_rotation_trace_ef
-            .iter()
-            .flat_map(|trace| SumHadamardInstance::from(&trace.hadamard_trace))
-            .collect::<Vec<_>>();
-        let acc_hadamard_instance = blind_rotation_trace_ef
-            .iter()
-            .flat_map(|trace| SumHadamardInstance::from(&trace.acc_trace.extract_hadamard_trace()))
-            .collect::<Vec<_>>();
-        let hadamard_instances = [external_product_hadamard_instance, acc_hadamard_instance]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<_>>();
-        let hadamard_instance_infos = hadamard_instances
-            .iter()
-            .map(SumcheckInstance::info)
-            .collect::<Vec<_>>();
-        trans.append_message(b"[Hadamard Statement]", &hadamard_instance_infos);
+        let (hadamard_instances, hadamard_instance_infos) = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::scope(crate::profiling::BrPhase::HadamardInstances);
+            let external_product_hadamard_instance = blind_rotation_trace_ef
+                .iter()
+                .flat_map(|trace| SumHadamardInstance::from(&trace.hadamard_trace))
+                .collect::<Vec<_>>();
+            let acc_hadamard_instance = blind_rotation_trace_ef
+                .iter()
+                .flat_map(|trace| {
+                    SumHadamardInstance::from(&trace.acc_trace.extract_hadamard_trace())
+                })
+                .collect::<Vec<_>>();
+            let hadamard_instances = [external_product_hadamard_instance, acc_hadamard_instance]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>();
+            let hadamard_instance_infos = hadamard_instances
+                .iter()
+                .map(SumcheckInstance::info)
+                .collect::<Vec<_>>();
+            trans.append_message(b"[Hadamard Statement]", &hadamard_instance_infos);
+            (hadamard_instances, hadamard_instance_infos)
+        };
 
         // batch all Hadamard instances into one sumcheck claim
         let sumcheck_num_vars = hadamard_instance_infos[0].sumcheck_num_vars();
-        let mut sumcheck_claim = SumcheckClaim::new(sumcheck_num_vars);
-        let lagrange_kernel = Some(&LagrangeKernel::random(trans, sumcheck_num_vars));
-        let randomness_hadamard = hadamard_instance_infos[0]
-            .sample_randomness_for_sumcheck_batch(trans, hadamard_instances.len());
-        HadamardPIOP::prover_batch_add_sumcheck(
-            &hadamard_instances,
-            &mut sumcheck_claim,
-            &randomness_hadamard,
-            lagrange_kernel,
-        );
-
-        // run the sumcheck protocol and generate proof
-        let (sumcheck_proof, sumcheck_state) = MLSumcheck::prove(trans, &sumcheck_claim.poly)
-            .expect("[External Product PIOP] Fail to generate sumcheck proof.");
-
-        // generate evaluations for verifier to check the final subclaim of the sumcheck protocol
-        let eval_table = sumcheck_state.fast_evaluate();
-        let mut trace_evals = (0..blind_rotation_trace_mle.len())
-            .map(|_| BlindRotationTraceEval::<EF>::default())
-            .collect::<Vec<_>>();
-        for (trace, trace_ef, trace_eval) in izip!(
-            &blind_rotation_trace_mle,
-            &blind_rotation_trace_ef,
-            &mut trace_evals
-        ) {
-            trace.evaluate_ef_ntt_only(
-                trace_eval,
-                &sumcheck_state.randomness,
-                trace_ef,
-                &sumcheck_claim.poly,
-                &eval_table,
+        let sumcheck_claim = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::scope(crate::profiling::BrPhase::HadamardBatching);
+            let mut sumcheck_claim = SumcheckClaim::new(sumcheck_num_vars);
+            let lagrange_kernel = Some(&LagrangeKernel::random(trans, sumcheck_num_vars));
+            let randomness_hadamard = hadamard_instance_infos[0]
+                .sample_randomness_for_sumcheck_batch(trans, hadamard_instances.len());
+            HadamardPIOP::prover_batch_add_sumcheck(
+                &hadamard_instances,
+                &mut sumcheck_claim,
+                &randomness_hadamard,
+                lagrange_kernel,
+            );
+            sumcheck_claim
+        };
+        #[cfg(feature = "br-profiling")]
+        {
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::HadamardSumcheck,
+                "instances",
+                hadamard_instances.len() as u64,
+            );
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::HadamardSumcheck,
+                "variables_rounds",
+                sumcheck_num_vars as u64,
+            );
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::HadamardSumcheck,
+                "flattened_mle_count",
+                sumcheck_claim.poly.flattened_ml_extensions.len() as u64,
             );
         }
-        let hadamard_eval_proof =
-            BatchedSumHadamardProof::from_vec_blind_rotation_trace_eval(&trace_evals);
-        trans.append_message(b"[Hadamard Evals]", &hadamard_eval_proof);
+
+        // run the sumcheck protocol and generate proof
+        let (sumcheck_proof, sumcheck_state) = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::scope(crate::profiling::BrPhase::HadamardSumcheck);
+            MLSumcheck::prove(trans, &sumcheck_claim.poly)
+                .expect("[External Product PIOP] Fail to generate sumcheck proof.")
+        };
+
+        // generate evaluations for verifier to check the final subclaim of the sumcheck protocol
+        let eval_table = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::scope(crate::profiling::BrPhase::HadamardFastEvaluate);
+            sumcheck_state.fast_evaluate()
+        };
+        let (trace_evals, hadamard_eval_proof) = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::scope(crate::profiling::BrPhase::HadamardTerminal);
+            let mut trace_evals = (0..blind_rotation_trace_mle.len())
+                .map(|_| BlindRotationTraceEval::<EF>::default())
+                .collect::<Vec<_>>();
+            for (trace, trace_ef, trace_eval) in izip!(
+                &blind_rotation_trace_mle,
+                &blind_rotation_trace_ef,
+                &mut trace_evals
+            ) {
+                trace.evaluate_ef_ntt_only(
+                    trace_eval,
+                    &sumcheck_state.randomness,
+                    trace_ef,
+                    &sumcheck_claim.poly,
+                    &eval_table,
+                );
+            }
+            let hadamard_eval_proof =
+                BatchedSumHadamardProof::from_vec_blind_rotation_trace_eval(&trace_evals);
+            trans.append_message(b"[Hadamard Evals]", &hadamard_eval_proof);
+            (trace_evals, hadamard_eval_proof)
+        };
 
         info!(
             "[P]-[PIOP] Proving Hadamard via Sumcheck in {:?}",
             piop_hadamard_time.elapsed()
         );
+        #[cfg(feature = "br-profiling")]
+        drop(hadamard_scope);
 
         // [PIOP Phase] prove the validity of NTT evaluations since we consider all NTT oracles as virtual oracles
         let piop_ntt_time = std::time::Instant::now();
+        #[cfg(feature = "br-profiling")]
+        let ntt_scope = crate::profiling::scope(crate::profiling::BrPhase::Ntt);
         let point_u =
             sumcheck_state.randomness[..blind_rotation_trace_mle[0].log_coeff_count].to_vec();
         let point_v =
             sumcheck_state.randomness[blind_rotation_trace_mle[0].log_coeff_count..].to_vec();
 
         // prepare the NTT equality instance for monomials used in Hadamard, where the coefficient matrix is sparse
-        let monomial_poly = blind_rotation_trace_ef[0].acc_trace.monomial.poly.clone();
-        let ntt_sparse_instance = NTTMatrixEvalInstance::from_subclaim(
-            &monomial_poly,
-            &params.ntt_table,
-            &point_u,
-            &point_v,
-            trace_evals[0].acc_trace.monomial.ntt,
-        );
+        let ntt_sparse_instance = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::scope(crate::profiling::BrPhase::NttSparseInstance);
+            let monomial_poly = blind_rotation_trace_ef[0].acc_trace.monomial.poly.clone();
+            NTTMatrixEvalInstance::from_subclaim(
+                &monomial_poly,
+                &params.ntt_table,
+                &point_u,
+                &point_v,
+                trace_evals[0].acc_trace.monomial.ntt,
+            )
+        };
 
         // parepare the NTT equality instance for normal polynomials used in Hadamard, where the coefficient matrix is dense
-        let point_bit_oracle = trans.get_vec_challenge(
-            b"[Challenge] random point used to verify evaluations",
-            trace_evals.log_num_bit_evals(),
-        );
-        let bit_poly = Rc::new(bit_poly.to_ef());
-        let bit_ntt_evals = trace_evals
-            .iter()
-            .flat_map(|eval| eval.pack_bit_ntt_to_vec())
-            .collect::<Vec<_>>();
-        let eval = compute_oracle_evals(&bit_ntt_evals, &point_bit_oracle);
-
-        let mut point_v_prime = Vec::with_capacity(point_v.len() + point_bit_oracle.len());
-        point_v_prime.extend_from_slice(&point_v);
-        point_v_prime.extend_from_slice(&point_bit_oracle);
-        let ntt_dense_instance = NTTMatrixEvalInstance::from_subclaim(
-            &bit_poly,
-            &params.ntt_table,
-            &point_u,
-            &point_v_prime,
-            eval,
+        let (_point_bit_oracle, _bit_poly, _bit_ntt_evals, point_v_prime, ntt_dense_instance) = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::scope(crate::profiling::BrPhase::NttBitPackEval);
+            let point_bit_oracle = trans.get_vec_challenge(
+                b"[Challenge] random point used to verify evaluations",
+                trace_evals.log_num_bit_evals(),
+            );
+            let bit_poly = Rc::new(bit_poly.to_ef());
+            let bit_ntt_evals = trace_evals
+                .iter()
+                .flat_map(|eval| eval.pack_bit_ntt_to_vec())
+                .collect::<Vec<_>>();
+            let eval = compute_oracle_evals(&bit_ntt_evals, &point_bit_oracle);
+            let mut point_v_prime = Vec::with_capacity(point_v.len() + point_bit_oracle.len());
+            point_v_prime.extend_from_slice(&point_v);
+            point_v_prime.extend_from_slice(&point_bit_oracle);
+            let ntt_dense_instance = NTTMatrixEvalInstance::from_subclaim(
+                &bit_poly,
+                &params.ntt_table,
+                &point_u,
+                &point_v_prime,
+                eval,
+            );
+            (
+                point_bit_oracle,
+                bit_poly,
+                bit_ntt_evals,
+                point_v_prime,
+                ntt_dense_instance,
+            )
+        };
+        #[cfg(feature = "br-profiling")]
+        crate::profiling::add_work(
+            crate::profiling::BrPhase::NttBitPackEval,
+            "packed_evaluations",
+            _bit_ntt_evals.len() as u64,
         );
         // parepare the NTT equality instance for normal [key] polynomials used in Hadamard
-        let point_key_len = trace_evals[0].log_num_key_evals();
-        let point_key_oracle = trans.get_vec_challenge(
-            b"[Challenge] random point used to verify evaluations",
-            trace_evals[0].log_num_key_evals(),
-        );
-        let key_poly = params.key_commit.poly.clone();
-        let key_ntt_evals = trace_evals[0].pack_key_ntt_to_vec();
-        let eval = compute_oracle_evals(&key_ntt_evals, &point_key_oracle);
-
-        let mut point_v_prime_key = Vec::with_capacity(point_v.len() + point_key_oracle.len());
-        point_v_prime_key.extend_from_slice(&point_v);
-        point_v_prime_key.extend_from_slice(&point_key_oracle);
-        let ntt_dense_instance_key = NTTMatrixEvalInstance::from_subclaim(
-            &key_poly,
-            &params.ntt_table,
-            &point_u,
-            &point_v_prime_key,
-            eval,
-        );
+        let (point_key_len, _point_key_oracle, point_v_prime_key, ntt_dense_instance_key) = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::scope(crate::profiling::BrPhase::NttKeyPackEval);
+            let point_key_len = trace_evals[0].log_num_key_evals();
+            let point_key_oracle = trans.get_vec_challenge(
+                b"[Challenge] random point used to verify evaluations",
+                point_key_len,
+            );
+            let key_poly = params.key_commit.poly.clone();
+            let key_ntt_evals = trace_evals[0].pack_key_ntt_to_vec();
+            #[cfg(feature = "br-profiling")]
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::NttKeyPackEval,
+                "packed_evaluations",
+                key_ntt_evals.len() as u64,
+            );
+            let eval = compute_oracle_evals(&key_ntt_evals, &point_key_oracle);
+            let mut point_v_prime_key = Vec::with_capacity(point_v.len() + point_key_oracle.len());
+            point_v_prime_key.extend_from_slice(&point_v);
+            point_v_prime_key.extend_from_slice(&point_key_oracle);
+            let ntt_dense_instance_key = NTTMatrixEvalInstance::from_subclaim(
+                &key_poly,
+                &params.ntt_table,
+                &point_u,
+                &point_v_prime_key,
+                eval,
+            );
+            (
+                point_key_len,
+                point_key_oracle,
+                point_v_prime_key,
+                ntt_dense_instance_key,
+            )
+        };
 
         // prove both NTT instances in one sumcheck protocol
         let ntt_infos = vec![
@@ -360,11 +497,30 @@ where
             ntt_dense_instance_key,
             ntt_sparse_instance,
         ];
-        let (ntt_proof, ntt_state) = NTTMatrixEvalIOP::prover_batch(trans, &ntt_instances);
+        #[cfg(feature = "br-profiling")]
+        {
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::NttSumcheck,
+                "instances",
+                ntt_instances.len() as u64,
+            );
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::NttSumcheck,
+                "input_variables",
+                point_u.len() as u64,
+            );
+        }
+        let (ntt_proof, ntt_state) = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::scope(crate::profiling::BrPhase::NttSumcheck);
+            NTTMatrixEvalIOP::prover_batch(trans, &ntt_instances)
+        };
         info!(
             "[P]-[PIOP] Proving NTT Equality in {:?}",
             piop_ntt_time.elapsed()
         );
+        #[cfg(feature = "br-profiling")]
+        drop(ntt_scope);
 
         // [PCS Phase] Open the dense coeffcient matrix evaluation `ntt_proof.coeff_eval_at_r_v[1]` at point_r_v_prime
         // this is the final subclaim of the NTT equality for dense polynomial
@@ -372,13 +528,30 @@ where
         let mut open_point = Vec::with_capacity(ntt_state.randomness.len() + point_v_prime.len());
         open_point.extend_from_slice(&ntt_state.randomness);
         open_point.extend_from_slice(&point_v_prime);
-        let eval_proof = PCS::open(
-            &params.pcs_params,
-            &commitment,
-            &commitment_state,
-            &open_point,
-            trans,
-        );
+        let eval_proof = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::scope(crate::profiling::BrPhase::TraceOpening);
+            PCS::open(
+                &params.pcs_params,
+                &commitment,
+                &commitment_state,
+                &open_point,
+                trans,
+            )
+        };
+        #[cfg(feature = "br-profiling")]
+        {
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::TraceOpening,
+                "points",
+                1,
+            );
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::TraceOpening,
+                "point_arity",
+                open_point.len() as u64,
+            );
+        }
         info!(
             "[P]-[PCS] Generating evaluation proof for one point of {} variables in {:?}",
             open_point.len(),
@@ -393,13 +566,26 @@ where
             Vec::with_capacity(ntt_state.randomness.len() + point_v_prime_key.len());
         open_point_key.extend_from_slice(&ntt_state.randomness);
         open_point_key.extend_from_slice(&point_v_prime_key);
-        let eval_proof_key = PCS::open(
-            &params.key_commit.params,
-            &params.key_commit.commitment,
-            &params.key_commit.commitment_state,
-            &open_point_key,
-            trans,
-        );
+        let eval_proof_key = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::scope(crate::profiling::BrPhase::KeyOpening);
+            PCS::open(
+                &params.key_commit.params,
+                &params.key_commit.commitment,
+                &params.key_commit.commitment_state,
+                &open_point_key,
+                trans,
+            )
+        };
+        #[cfg(feature = "br-profiling")]
+        {
+            crate::profiling::add_work(crate::profiling::BrPhase::KeyOpening, "points", 1);
+            crate::profiling::add_work(
+                crate::profiling::BrPhase::KeyOpening,
+                "point_arity",
+                open_point_key.len() as u64,
+            );
+        }
         info!(
             "[P]-[PCS] Generating evaluation proof for one point of {} variables in {:?}",
             open_point_key.len(),
@@ -412,32 +598,47 @@ where
         // [PIOP Phase] Open the sparse coefficient matrix evaluation `ntt_proof.coeff_eval_at_r_v[2]` at point_r_v
         // the pcs part is skipped in this since the polynomial to be committed is too small
         let piop_sparse_open_time = std::time::Instant::now();
-        let kernel_rx = LagrangeKernel::from_point(&point_v);
-        let kernel_ry = LagrangeKernel::from_point(&ntt_state.randomness);
-        let sparse_matrix_eval_instance = SparseRowEvalInstance::from_subclaim::<F>(
-            &blind_rotation_trace_mle[0]
-                .acc_trace
-                .monomial_representation,
-            &kernel_rx,
-            &kernel_ry,
-            ntt_proof.coeff_eval_at_r_v[2],
-        );
-        let sparse_eval_proof = SparseRowEvalSnarks::<F, EF, S, PCS>::prove_as_subprotocol(
-            trans,
-            &sparse_matrix_eval_instance,
-        );
+        #[cfg(feature = "br-profiling")]
+        let sparse_scope = crate::profiling::scope(crate::profiling::BrPhase::Sparse);
+        let sparse_matrix_eval_instance = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::scope(crate::profiling::BrPhase::SparseInstance);
+            let kernel_rx = LagrangeKernel::from_point(&point_v);
+            let kernel_ry = LagrangeKernel::from_point(&ntt_state.randomness);
+            SparseRowEvalInstance::from_subclaim::<F>(
+                &blind_rotation_trace_mle[0]
+                    .acc_trace
+                    .monomial_representation,
+                &kernel_rx,
+                &kernel_ry,
+                ntt_proof.coeff_eval_at_r_v[2],
+            )
+        };
+        let sparse_eval_proof =
+            SparseRowEvalSnarks::<F, EF, S, PCS>::prove_as_subprotocol(
+                trans,
+                &sparse_matrix_eval_instance,
+            );
         info!(
             "[P]-PIOP Generating evaluation proof for a sparse polynomial in {:?}",
             piop_sparse_open_time.elapsed()
         );
+        #[cfg(feature = "br-profiling")]
+        drop(sparse_scope);
 
         // [PIOP Phase] Prove the correctness of Accumulator Iteration Structure
         // the pcs part is skipped in this since the polynomial to be committed is too small
         let piop_acc_iteration_time = std::time::Instant::now();
-        let indexed_lookup_permutation = blind_rotation_trace_ef[0]
-            .acc_trace
-            .permutation_info
-            .extract_indexed_lookup_trace(&point_v);
+        #[cfg(feature = "br-profiling")]
+        let accumulator_scope = crate::profiling::scope(crate::profiling::BrPhase::Accumulator);
+        let indexed_lookup_permutation = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::scope(crate::profiling::BrPhase::AccumulatorTrace);
+            blind_rotation_trace_ef[0]
+                .acc_trace
+                .permutation_info
+                .extract_indexed_lookup_trace(&point_v)
+        };
         let acc_iteration_proof = AccIterationSnarks::<F, EF, S, PCS>::prove_as_subprotocol(
             trans,
             &blind_rotation_trace_ef[0],
@@ -450,26 +651,48 @@ where
             "[P]-[PIOP] Proving Accumulator Iteration Structure in {:?}",
             piop_acc_iteration_time.elapsed()
         );
+        #[cfg(feature = "br-profiling")]
+        drop(accumulator_scope);
 
         // [Prover] Prove decomposition relation via lookup PIOP
         // For better modularity, we commit to the decomposition trace again in the decomposition SNARKs,
         // which is actually committed here already.
-        let decomposition_trace = blind_rotation_trace_mle
-            .iter()
-            .flat_map(|trace| trace.extract_decomposition_traces())
-            .collect::<Vec<_>>();
-        let decomp_params = DecompositionParams::new(
-            params.code_spec.clone(),
-            &blind_rotation_trace_mle[0].lt_tables,
+        #[cfg(feature = "br-profiling")]
+        let decomposition_scope = crate::profiling::scope(crate::profiling::BrPhase::Decomposition);
+        let decomposition_trace = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::scope(crate::profiling::BrPhase::DecompositionTrace);
+            blind_rotation_trace_mle
+                .iter()
+                .flat_map(|trace| trace.extract_decomposition_traces())
+                .collect::<Vec<_>>()
+        };
+        #[cfg(feature = "br-profiling")]
+        crate::profiling::add_work(
+            crate::profiling::BrPhase::DecompositionTrace,
+            "traces",
+            decomposition_trace.len() as u64,
         );
+        let decomp_params = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::scope(crate::profiling::BrPhase::DecompositionParams);
+            DecompositionParams::new(
+                params.code_spec.clone(),
+                &blind_rotation_trace_mle[0].lt_tables,
+            )
+        };
         let decomp_proof = DecompositionSnarks::<F, EF, S, PCS>::prove_as_subprotocol(
             trans,
             &decomposition_trace,
             &decomp_params,
             statistics,
         );
+        #[cfg(feature = "br-profiling")]
+        drop(decomposition_scope);
 
-        BatchBlindRotationProof {
+        #[cfg(feature = "br-profiling")]
+        let finalize_scope = crate::profiling::scope(crate::profiling::BrPhase::Finalize);
+        let proof = BatchBlindRotationProof {
             log_coeff_count: blind_rotation_trace_mle[0].log_coeff_count,
             log_num_bit_oracle: trace_evals.log_num_bit_evals(),
             log_num_key_oracle: point_key_len,
@@ -490,7 +713,13 @@ where
             trace_evals,
             key_pcs_params: params.key_commit.params.clone(),
             key_commitment: params.key_commit.commitment.clone(),
+        };
+        #[cfg(feature = "br-profiling")]
+        {
+            drop(finalize_scope);
+            drop(br_total_scope);
         }
+        proof
     }
 
     pub fn verify(

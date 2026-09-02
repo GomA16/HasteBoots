@@ -7,6 +7,8 @@ pub mod fhe_batch_op;
 pub mod fhe_op;
 pub mod lookup;
 pub mod ntt;
+#[cfg(feature = "br-profiling")]
+pub mod profiling;
 pub mod sparse_matrix_eval;
 
 #[derive(Default, Debug)]

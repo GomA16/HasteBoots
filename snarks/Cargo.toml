@@ -38,3 +38,4 @@ criterion = { workspace = true }
 [features]
 default = ["extension_field"]
 extension_field = []
+br-profiling = []

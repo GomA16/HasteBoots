@@ -118,6 +118,8 @@ where
         trans.append_message(b"[Commit Phase]", instance.val.as_ref());
 
         // Prove the eval_mle_ry = eq(to-bits(col), ry) using IndexedLogUpSnarks
+        #[cfg(feature = "br-profiling")]
+        let lookup_scope = crate::profiling::scope(crate::profiling::BrPhase::SparseLookup);
         let indexed_lookup_trace = instance.extract_indexed_lookup_trace();
         let indexed_lookup_proof =
             IndexedLogUpSnarks::<F, EF, S, PCS>::prove_as_subprotocol(trans, &indexed_lookup_trace);
@@ -125,10 +127,17 @@ where
             b"[PIOP Phase] Proving E_ry is well formed",
             &indexed_lookup_proof,
         );
+        #[cfg(feature = "br-profiling")]
+        drop(lookup_scope);
 
         // Prove the sparse row evaluation using SparseRowEvalPIOP
-        let (piop_proof, _) = SparseRowEvalPIOP::prover(trans, instance);
-        trans.append_message(b"[PIOP Phase]", &piop_proof);
+        let (piop_proof, _) = {
+            #[cfg(feature = "br-profiling")]
+            let _scope = crate::profiling::scope(crate::profiling::BrPhase::SparseProof);
+            let result = SparseRowEvalPIOP::prover(trans, instance);
+            trans.append_message(b"[PIOP Phase]", &result.0);
+            result
+        };
 
         SparseRowEvalSnarksProof {
             val_commitment: instance.val.as_ref().clone(),
